@@ -6,14 +6,16 @@ import { Pencil } from "lucide-react";
 import { Stepper } from "./Stepper";
 import { SummaryCard } from "./summary/SummaryCard";
 import { PersonalInfoSection } from "./forms/PersonalInfoSection";
-import { AddressSection } from "./forms/AddressSection";
-import { LicenceSection } from "./forms/LicenceSection";
-import { DrivingHistorySection } from "./forms/DrivingHistorySection";
-import { PoliceVerificationSection } from "./forms/PoliceVerificationSection";
-import { VisaSection } from "./forms/VisaSection";
-import { MedicalSection } from "./forms/MedicalSection";
-import { DrugTestSection } from "./forms/DrugTestSection";
-import { AdditionalDocsSection } from "./forms/AdditionalDocsSection";
+// Sections below Personal Information are temporarily disabled (commented out,
+// not removed). Uncomment these imports together with their JSX below to restore.
+// import { AddressSection } from "./forms/AddressSection";
+// import { LicenceSection } from "./forms/LicenceSection";
+// import { DrivingHistorySection } from "./forms/DrivingHistorySection";
+// import { PoliceVerificationSection } from "./forms/PoliceVerificationSection";
+// import { VisaSection } from "./forms/VisaSection";
+// import { MedicalSection } from "./forms/MedicalSection";
+// import { DrugTestSection } from "./forms/DrugTestSection";
+// import { AdditionalDocsSection } from "./forms/AdditionalDocsSection";
 import { SuccessDialog } from "./SuccessDialog";
 import { useDriverProgress } from "@/hooks/useDriverProgress";
 import { Button } from "@/components/ui/button";
@@ -102,14 +104,16 @@ function OnboardingBody({ submitting }: { submitting: boolean }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           <PersonalInfoSection />
-          <AddressSection />
-          <LicenceSection />
-          <DrivingHistorySection />
-          <PoliceVerificationSection />
-          <VisaSection />
-          <MedicalSection />
-          <DrugTestSection />
-          <AdditionalDocsSection />
+          {/* Sections below are temporarily commented out (not deleted).
+              Uncomment to re-enable, along with their imports above. */}
+          {/* <AddressSection /> */}
+          {/* <LicenceSection /> */}
+          {/* <DrivingHistorySection /> */}
+          {/* <PoliceVerificationSection /> */}
+          {/* <VisaSection /> */}
+          {/* <MedicalSection /> */}
+          {/* <DrugTestSection /> */}
+          {/* <AdditionalDocsSection /> */}
         </div>
 
         <SummaryCard percent={percent} submitting={submitting} />

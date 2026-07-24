@@ -49,6 +49,26 @@
     /* Smooth, high-refresh (120 fps) scrolling */
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /* Base = 16px. Desktop and smaller stay untouched. */
+    font-size: 16px;
+  }
+  /* On screens larger than a standard desktop, scale the root font up a little
+     so text (and rem-based spacing) does not look small on 1.5K / 2K / 4K.
+     Everything up to and including 1920px (mobile -> desktop/FHD) is unchanged. */
+  @media (min-width: 2000px) {
+    html {
+      font-size: 17px;
+    }
+  }
+  @media (min-width: 2560px) {
+    html {
+      font-size: 18.5px;
+    }
+  }
+  @media (min-width: 3840px) {
+    html {
+      font-size: 21px;
+    }
   }
   /* Keep scroll GPU-friendly and honour reduced-motion preferences */
   @media (prefers-reduced-motion: reduce) {
