@@ -1,0 +1,96 @@
+import { CreditCard } from "lucide-react";
+import { useFormContext, useWatch } from "react-hook-form";
+import { SectionCard } from "./SectionCard";
+import { TextField, DateField, SelectField } from "./Fields";
+import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
+import { AU_STATES, LICENCE_TYPES } from "@/constants/options";
+import { rules } from "@/utils/validation";
+import type { DriverFormValues } from "@/types/driver";
+
+const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
+
+export function LicenceSection() {
+  const { control } = useFormContext<DriverFormValues>();
+  const expiry = useWatch({ control, name: "licenceExpiry" });
+
+  return (
+    <SectionCard
+      index={3}
+      id="step-licence"
+      icon={CreditCard}
+      title="Driving Licence Information"
+      description="Licence details and card images. Expiry status updates live."
+    >
+      <div className={GRID}>
+        <TextField
+          name="licenceNumber"
+          label="Licence Number"
+          placeholder="038639930"
+          required
+          rules={rules.licenceNumber}
+        />
+        <TextField
+          name="licenceCardNumber"
+          label="Licence Card Number"
+          placeholder="AB123456"
+        />
+        <SelectField
+          name="licenceType"
+          label="Licence Type"
+          options={LICENCE_TYPES}
+          required
+          rules={rules.required("Licence type")}
+        />
+        <SelectField
+          name="licenceState"
+          label="State"
+          options={AU_STATES}
+          required
+          rules={rules.required("State")}
+        />
+        <DateField
+          name="licenceExpiry"
+          label="Expiry Date"
+          required
+          rules={rules.required("Expiry date")}
+        />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Days Remaining
+          </span>
+          <div className="flex h-11 items-center">
+            <ExpiryBadge expiry={expiry} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div>
+          <p className="mb-2 text-sm font-semibold text-foreground">
+            Licence - Front
+          </p>
+          <FormUpload
+            name="licenceFront"
+            label="Upload front"
+            accept="image/*"
+            allowCamera
+            cameraTitle="Capture licence front"
+          />
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-semibold text-foreground">
+            Licence - Back
+          </p>
+          <FormUpload
+            name="licenceBack"
+            label="Upload back"
+            accept="image/*"
+            allowCamera
+            cameraTitle="Capture licence back"
+          />
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
