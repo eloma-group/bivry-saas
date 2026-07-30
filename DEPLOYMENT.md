@@ -91,8 +91,26 @@ Portal -> `bivry` (the server) -> **Settings > Networking**:
    connection string below therefore ends in `sslmode=require`.
 5. **Save**, and wait for the deployment to finish.
 
-> Your home IP changes. When migrations suddenly fail with
-> `P1001: Can't reach database server`, re-add your current IP here first.
+> Your IP changes, and on a mobile or tethered connection it changes constantly.
+> When migrations suddenly fail with `P1001: Can't reach database server`, re-add
+> your current IP here before looking at anything else.
+
+**Telling a firewall block apart from a wrong password.** A blocked IP times out;
+bad credentials answer immediately. Check the TCP layer directly:
+
+```bash
+# Does the name resolve, and does the port actually answer?
+node -e "const s=require('net').createConnection({host:'bivry.postgres.database.azure.com',port:5432});setTimeout(()=>{console.log('TIMEOUT - firewall is dropping packets');process.exit()},10000);s.on('connect',()=>{console.log('port open');process.exit()});s.on('error',e=>{console.log('ERROR',e.code);process.exit()})"
+
+# Your current public IP, to paste into the firewall rule
+node -e "fetch('https://api.ipify.org').then(r=>r.text()).then(console.log)"
+```
+
+- **TIMEOUT** - the firewall rule is missing or your IP changed. Nothing about
+  the connection string matters yet.
+- **port open**, then `P1000 Authentication failed` - firewall is fine, the
+  username or password is wrong.
+- **ERROR ENOTFOUND** - the server name is wrong.
 
 ### 2.2 Create the database
 
@@ -376,12 +394,12 @@ which is why there is no `.env` file in production.
 | `AZURE_STORAGE_CONTAINER` | `driver-documents` | |
 | `AZURE_STORAGE_SAS_TTL_MINUTES` | `15` | |
 | `MAX_UPLOAD_SIZE_MB` | `15` | |
-| `SMTP_HOST` | e.g. `smtp.azurecomm.net` | |
+| `SMTP_HOST` | `smtp-relay.brevo.com` | see the Brevo notes below |
 | `SMTP_PORT` | `587` | **port 25 is blocked on Azure.** Use 587 or 465. |
 | `SMTP_SECURE` | `false` | `true` only for port 465 |
-| `SMTP_USER` | your SMTP username | |
-| `SMTP_PASSWORD` | your SMTP password | |
-| `MAIL_FROM` | `BIVRY <no-reply@yourdomain.com>` | must be an address your SMTP provider has verified |
+| `SMTP_USER` | the Brevo SMTP login | **not** your account email, see below |
+| `SMTP_PASSWORD` | the Brevo SMTP key | starts with `xsmtpsib-` |
+| `MAIL_FROM` | `BIVRY <no-reply@yourdomain.com>` | must be a sender verified in Brevo |
 | `PASSWORD_RESET_TOKEN_TTL_MINUTES` | `30` | |
 | `MAX_FAILED_LOGIN_ATTEMPTS` | `5` | |
 | `ACCOUNT_LOCK_MINUTES` | `15` | |
@@ -391,7 +409,42 @@ which is why there is no `.env` file in production.
 | `ALLOW_VENDOR_SIGNUP` | `true` | |
 | `ALLOW_DRIVER_SIGNUP` | `true` | |
 
-Generate each JWT secret separately:
+### Email: Brevo
+
+Brevo is the SMTP provider for this project. Two values, both from
+**Brevo dashboard -> SMTP & API -> SMTP tab**:
+
+| Brevo calls it | Goes in | Looks like |
+| --- | --- | --- |
+| **Login** | `SMTP_USER` | `9a1b2c001@smtp-brevo.com` |
+| **SMTP key value** | `SMTP_PASSWORD` | `xsmtpsib-<64 hex chars>-<16 chars>` |
+
+The single most common mistake: putting your Brevo **account email** in
+`SMTP_USER`. It is not the login. The login is the generated
+`...@smtp-brevo.com` address on that same page, and using anything else gets the
+handshake rejected with `535 Authentication failed`.
+
+`MAIL_FROM` has to be a sender Brevo has verified, under
+**Senders, Domains & IPs -> Senders**. An unverified From address is worse than a
+rejected one: Brevo accepts the message, returns success, and never delivers it.
+Verify the domain with the DKIM and SPF records Brevo gives you, otherwise
+Gmail and Outlook will file the mail as spam even once it does send.
+
+Verify the whole thing before deploying:
+
+```bash
+npm run check:mail --prefix backend                      # credentials only
+npm run check:mail --prefix backend you@example.com      # send a real email
+```
+
+The second form sends the actual password reset template, so the From address,
+the HTML and the link all get exercised.
+
+Free tier is 300 emails a day, which is far more than password resets need.
+
+### JWT secrets
+
+Generate each one separately:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
