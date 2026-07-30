@@ -1,0 +1,22 @@
+# Normalise line endings so the same file never looks modified just because it
+# was checked out on Windows and regenerated on the Linux CI runner. The CI job
+# regenerates `database/` and fails on any diff, so CRLF drift would break it.
+* text=auto eol=lf
+
+# Generated. Collapse them in pull request diffs and keep them out of language
+# statistics, but still review them when they change.
+database/schema.md              linguist-generated=true
+database/sql/schema.sql         linguist-generated=true
+database/prisma/schema.snapshot.prisma linguist-generated=true
+backend/prisma/migrations/**    linguist-generated=true
+package-lock.json               linguist-generated=true
+
+# Binary assets, never diff or merge them.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.woff  binary
+*.woff2 binary

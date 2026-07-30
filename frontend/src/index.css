@@ -1,0 +1,109 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 30% 12%;
+
+    /* Single primary accent - refined blue */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 96%;
+    --secondary-foreground: 222 30% 20%;
+
+    --muted: 220 16% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 221 83% 97%;
+    --accent-foreground: 221 83% 45%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 16% 91%;
+    --input: 220 16% 90%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.85rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Smooth, high-refresh (120 fps) scrolling */
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    /* Fluid root font.
+       - Mobile up to and including FHD/desktop (<= 1920px): stays 16px, so the
+         100% desktop design is completely untouched (calc value is <= 16px
+         there, and the 16px floor of clamp() wins).
+       - Above FHD (1.5K / 2K / 4K, and whenever the browser is zoomed out to
+         preview a large screen): the root grows with the viewport width a bit
+         FASTER than proportional. Because the whole UI is rem-based, fonts,
+         spacing and the layout all scale together - so the design fills large
+         screens and looks comfortably bigger, and never shrinks on zoom-out.
+       Line is anchored at (1920px -> 16px) and capped at 40px on 4K. */
+    font-size: clamp(16px, calc(1.25vw - 8px), 40px);
+  }
+  /* Keep scroll GPU-friendly and honour reduced-motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  body {
+    @apply bg-[#f7f8fa] text-foreground font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  /* Subtle premium scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300/70;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400/70;
+    background-clip: padding-box;
+    border: 3px solid transparent;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

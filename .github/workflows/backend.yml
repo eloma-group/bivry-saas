@@ -1,0 +1,164 @@
+name: Backend - build, migrate, deploy
+
+# Only runs when something the API actually depends on changed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'database/**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  # Change this if you named the App Service something else.
+  AZURE_WEBAPP_NAME: bivry-api
+
+concurrency:
+  # A newer push supersedes an in flight deploy instead of racing it.
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and verify. Runs on pull requests too, so nothing broken reaches main.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # `npm ci` respects the lockfile exactly. `npm install` does not, which is
+      # how a build passes locally and fails here.
+      - name: Install dependencies
+        run: npm ci
+
+      # Must happen before tsc: the generated client is what provides the types.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # The database/ folder is generated from the schema. If a schema change
+      # landed without regenerating it, the docs are already lying. Fail here.
+      - name: Check database/ docs are in sync with the schema
+        run: |
+          node scripts/export-schema.mjs
+          # `git status --porcelain` rather than `git diff`, so a generated file
+          # that was never committed is caught too.
+          changes=$(git status --porcelain -- ../database)
+          if [ -n "$changes" ]; then
+            echo "::error::database/ is out of date. Run 'npm run db:sql' and commit the result."
+            echo "$changes"
+            git diff -- ../database
+            exit 1
+          fi
+
+      - name: Compile TypeScript
+        run: npx tsc -p tsconfig.json
+
+      # Strip dev dependencies, then regenerate the Prisma client so the engine
+      # binary and node_modules/.prisma survive into the artifact. `prisma` is a
+      # runtime dependency precisely so it is still here after the prune.
+      - name: Prepare production node_modules
+        run: |
+          npm prune --omit=dev
+          npx prisma generate
+
+      # Only what the server needs at runtime. `prisma/` is included so
+      # `prisma migrate deploy` can also be run from the App Service SSH console
+      # if a migration ever has to be applied by hand.
+      #
+      # Zipped rather than uploaded as a folder: node_modules is tens of
+      # thousands of small files, and upload-artifact handles one big file far
+      # faster than that.
+      - name: Package deployment artifact
+        run: zip -qry ../backend.zip dist node_modules prisma package.json package-lock.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: backend.zip
+          retention-days: 5
+
+  # ---------------------------------------------------------------------------
+  # Migrate, then deploy. Migrations first: new code must never meet an old
+  # schema. Keep every migration backwards compatible for one release so a
+  # rollback of the app does not break against the already migrated database.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Migrate and deploy
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      # Applies pending migrations only. It never generates a migration and
+      # never resets data, so it is safe to run on every deploy.
+      - name: Apply database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-dist
+          path: .
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend.zip
+
+      # A deploy that starts the process but crashes on boot still reports
+      # success without this. /api/health also proves the database is reachable.
+      - name: Smoke test /api/health
+        run: |
+          url="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health"
+          for attempt in $(seq 1 20); do
+            body=$(curl -fsS --max-time 15 "$url" || true)
+            echo "attempt $attempt: ${body:-no response}"
+            if echo "$body" | grep -q '"database":"connected"'; then
+              echo "API is healthy"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::API did not become healthy within 5 minutes"
+          exit 1

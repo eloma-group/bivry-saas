@@ -1,11 +1,27 @@
 node_modules
 dist
 dist-ssr
+build
 *.local
 .vite
 .DS_Store
 *.log
 npm-debug.log*
+
+# Environment files - never commit real secrets
 .env
 .env.*
 !.env.example
+
+# Backend build output
+backend/dist
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Local upload folder (dev fallback only - production uses Azure Blob Storage)
+backend/uploads
+
+# Azure / deployment artifacts
+*.zip
+.azure

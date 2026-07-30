@@ -1,27 +1,131 @@
 # BIVRY - Fleet Management SaaS
 
-A production-ready, authenticated **SaaS dashboard** for fleet management, built to feel
+A production-ready, authenticated **SaaS platform** for fleet management, built to feel
 like Stripe / Linear / Vercel / Ramp - minimal, premium, enterprise-grade.
 
-Only the **Driver Onboarding** module is functional. Every other sidebar menu is rendered
-realistically but is disabled (cursor-not-allowed, reduced opacity, "Coming soon" tooltip).
+The repo is split so each deployable folder is completely self contained: it
+declares its own dependencies and builds with nothing but `npm ci && npm run
+build` inside it. That is what Azure and CI run, and anything that only resolves
+through the repo root passes locally and fails there.
 
-## Tech stack
+```
+bivry-saas/
+├── frontend/     React 18 + TypeScript + Vite + Tailwind   -> Azure Static Web App
+├── backend/      Express + TypeScript + Prisma             -> Azure App Service
+│   └── prisma/   schema.prisma (source of truth) + migrations + seed
+├── database/     GENERATED reference: schema.md, DDL, SQL   -> read, never edit
+├── .github/      one deploy workflow per deployable folder
+└── package.json  concurrently only, no runtime dependencies
+```
 
-- **React 18** + **TypeScript** (strict)
-- **Vite**
-- **TailwindCSS** (single blue accent, soft shadows, 20px rounded cards)
-- **shadcn/ui**-style primitives on **Radix UI**
-- **React Hook Form** (validation, field arrays, live progress)
-- **Framer Motion** (page fade, card stagger, hover lift, success check, micro-interactions)
-- **Lucide React** icons · **Sonner** toasts · **date-fns**
+Deploying to Azure: **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+Looking up a table or column: **[database/schema.md](database/schema.md)** - no
+need to open the database.
 
 ## Getting started
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # type-check + production build
+npm run install:all      # installs root, backend and frontend dependencies
+cp backend/.env.example backend/.env
+# set DATABASE_URL and the two JWT secrets in backend/.env
+npm run db:deploy        # create the tables
+npm run db:seed          # one account per portal, password Bivry@123
+npm run dev              # API on :5000, app on :5173
+```
+
+Locally, uploads go to `backend/uploads` and password reset links are printed to
+the API console, so nothing external is needed to work on the app.
+
+Other useful scripts from the repo root:
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Runs backend and frontend together |
+| `npm run dev:backend` / `npm run dev:frontend` | Runs just one side |
+| `npm run build` | Type checks and builds both |
+| `npm run typecheck` | Type checks both without emitting |
+| `npm run db:generate` | Regenerates the Prisma client |
+| `npm run db:migrate` | Creates and applies a migration (development) |
+| `npm run db:deploy` | Applies pending migrations (production and CI) |
+| `npm run db:sql` | Regenerates everything in `database/` from the schema |
+| `npm run db:seed` | Inserts one dev account per role |
+| `npm run db:studio` | Opens Prisma Studio |
+
+## The five portals
+
+Every role has its **own login page, its own API namespace and its own database
+table**. A credential check only ever runs against the table belonging to the portal
+the request came from, so a role mismatch cannot happen.
+
+| Role | Login page | API namespace | Table |
+| --- | --- | --- | --- |
+| Admin | `/admin/login` | `/api/auth/admin` | `admins` |
+| Customer | `/customer/login` | `/api/auth/customer` | `customers` |
+| Vendor | `/vendor/login` | `/api/auth/vendor` | `vendors` |
+| Employee | `/employee/login` | `/api/auth/employee` | `employees` |
+| Driver | `/driver/login` | `/api/auth/driver` | `drivers` |
+
+Each portal also has `/register` (where self signup is enabled), `/forgot-password`
+and `/reset-password`.
+
+### Auth endpoints (identical for all five portals)
+
+```
+POST   /api/auth/:role/register
+POST   /api/auth/:role/login
+POST   /api/auth/:role/refresh
+POST   /api/auth/:role/logout
+POST   /api/auth/:role/logout-all        (auth)
+GET    /api/auth/:role/me                (auth)
+POST   /api/auth/:role/forgot-password
+GET    /api/auth/:role/verify-reset-token
+POST   /api/auth/:role/reset-password
+POST   /api/auth/:role/change-password   (auth)
+```
+
+Security built in: bcrypt hashing, short lived JWT access tokens, rotating refresh
+tokens with reuse detection, account lockout after repeated failures, per endpoint
+rate limits, a login audit trail, and hashed single use password reset tokens.
+
+## Frontend structure
+
+```
+frontend/src/
+  components/
+    auth/       AuthShell · FormField · FormAlert
+    layout/     sidebar/ · navbar/ · DashboardLayout · Logo
+    driver/     DriverOnboarding · Stepper · ExpiryBadge · AvatarUpload · SuccessDialog
+      forms/    reusable Fields + one component per section
+      upload/   FileUpload · FormUpload
+      camera/   CameraCapture (webcam dialog)
+      summary/  SummaryCard (sticky)
+    ui/         shadcn-style primitives
+    common/     FullPageLoader
+  config/       roles (the five portals)
+  context/      AuthContext
+  routes/       AppRoutes · ProtectedRoute · PublicOnlyRoute
+  services/     api (axios + token refresh) · authService · driverService · session
+  pages/        auth/ (login, register, forgot, reset) · PortalPicker · driver onboarding
+  hooks/        useCamera · useDriverProgress · useAuthForm
+  types/        auth · driver · nav
+  utils/        date · validation
+```
+
+## Backend structure
+
+```
+backend/
+  prisma/       schema.prisma (source of truth) · migrations/ · seed.ts
+  scripts/      export-schema.mjs (regenerates database/)
+  src/
+    config/       env · prisma · roles (the role registry)
+    controllers/  auth/ (one per portal) · driver
+    services/     auth/ (auth, token, password) · driver · storage · mail
+    middleware/   auth · error · rateLimiter · validate · upload
+    routes/       auth/ (one per portal) · driver · admin · customer · vendor · employee
+    validators/   auth · driver
+    types/        auth.types · express.d.ts
+    utils/        apiError · apiResponse · asyncHandler · duration · logger
 ```
 
 ## Driver Onboarding - features
@@ -29,43 +133,28 @@ npm run build    # type-check + production build
 - Horizontal **animated stepper** with live overall completion %
 - **9 sections**: Personal, Address, Licence, Driving History, Police, Visa, Medical,
   Drug Test, Additional Documents
-- **Live webcam capture** (`getUserMedia`) for profile photo + licence front/back -
-  preview → capture → retake → save
-- **Automatic date logic**
-  - Licence "days remaining" with green / orange / red badge
-  - Driving history expiry = issue date + 6 months (read-only)
-  - Drug test → "Valid" once uploaded (no expiry)
-- **Conditional rendering**
-  - "Same as current address" toggles the permanent-address block
-  - Visa section auto-hides for Australian nationals
-- **Sticky summary card**: completion %, documents uploaded, expiry alerts, driver name,
-  licence / medical / police / visa status
-- **Real-time validation**: required fields, email, phone, licence - inline errors + toast
-- Fully **responsive**: sidebar → drawer, stepper → horizontal scroll, single-column forms,
-  summary moves below the form on mobile
+- **Live webcam capture** (`getUserMedia`) for profile photo + licence front/back
+- **Automatic date logic** with green / orange / red expiry badges
+- **Conditional rendering** for permanent address and visa
+- **Sticky summary card** and real-time validation
+- Fully **responsive** from mobile to 4K
 
-## Structure
+## Infrastructure
 
-```
-src/
-  components/
-    layout/     sidebar/ · navbar/ · DashboardLayout · Logo
-    driver/     DriverOnboarding · Stepper · ExpiryBadge · AvatarUpload · SuccessDialog
-      forms/    reusable Fields + one component per section
-      upload/   FileUpload · FormUpload (reusable)
-      camera/   CameraCapture (reusable webcam dialog)
-      summary/  SummaryCard (sticky)
-    ui/         shadcn-style primitives (button, input, select, dialog, …)
-  hooks/        useCamera · useDriverProgress
-  pages/        DriverOnboardingPage
-  types/        driver · nav
-  utils/        date · validation
-  constants/    navigation · options
-  lib/          utils (cn)
-```
+| Piece | Runs on | Notes |
+| --- | --- | --- |
+| Frontend | Azure Static Web App | SPA fallback in `frontend/public/staticwebapp.config.json`, so a refresh on any deep link works |
+| API | Azure App Service (Linux, Node 20) | prebuilt artifact, started with `node dist/server.js` |
+| Database | Azure Database for PostgreSQL Flexible Server | schema owned by Prisma migrations |
+| Uploaded files | Azure Blob Storage, private container | served to the browser as 15 minute SAS links |
 
-## Notes
+Uploads go through `backend/src/services/storage.service.ts`, which picks its
+driver from the environment: Blob Storage whenever
+`AZURE_STORAGE_CONNECTION_STRING` is set, local disk otherwise. Nothing else in
+the codebase knows which one is active, and production refuses to start on the
+local driver - App Service disks are wiped on every restart.
 
-- Uploads and camera captures are held in-memory as data URLs (no backend) and submit is
-  simulated - wire `onSubmit` in `DriverOnboarding.tsx` to your API.
-- Brand assets live in `public/brand/`.
+Brand assets live in `frontend/public/brand/`.
+
+Full setup, environment variables and a troubleshooting table:
+**[DEPLOYMENT.md](DEPLOYMENT.md)**.

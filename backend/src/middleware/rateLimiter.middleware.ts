@@ -1,0 +1,52 @@
+import rateLimit, { type Options } from 'express-rate-limit';
+import { env } from '../config/env';
+
+function limiter(windowMs: number, max: number, message: string): ReturnType<typeof rateLimit> {
+  const options: Partial<Options> = {
+    windowMs,
+    // Limits are relaxed in development so testing the UI is not painful.
+    limit: env.isProduction ? max : max * 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { success: false, code: 'TOO_MANY_REQUESTS', message },
+  };
+  return rateLimit(options);
+}
+
+/** Applied to every request. */
+export const globalLimiter = limiter(
+  15 * 60 * 1000,
+  1000,
+  'Too many requests. Please slow down and try again shortly.',
+);
+
+/** Login is the most attacked endpoint, so it gets the tightest budget. */
+export const loginLimiter = limiter(
+  15 * 60 * 1000,
+  10,
+  'Too many login attempts. Please wait a few minutes and try again.',
+);
+
+export const registerLimiter = limiter(
+  60 * 60 * 1000,
+  10,
+  'Too many accounts created from this device. Please try again later.',
+);
+
+export const forgotPasswordLimiter = limiter(
+  60 * 60 * 1000,
+  5,
+  'Too many password reset requests. Please try again later.',
+);
+
+export const resetPasswordLimiter = limiter(
+  60 * 60 * 1000,
+  10,
+  'Too many reset attempts. Please request a new link.',
+);
+
+export const refreshLimiter = limiter(
+  15 * 60 * 1000,
+  60,
+  'Too many session refreshes. Please log in again.',
+);
