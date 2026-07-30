@@ -57,12 +57,18 @@ export function mailStatus(): {
   senderConfigured: boolean;
   transportVerified: boolean | null;
   transportError: string | null;
+  loginDomain: string | null;
 } {
   return {
     configured: env.mail.isConfigured,
     senderConfigured: env.mail.from !== DEFAULT_MAIL_FROM,
     transportVerified,
     transportError,
+    // Domain half of SMTP_USER only. Not a secret, and it settles the question
+    // an EAUTH raises fastest: whether the server was given the provider's
+    // generated relay login or somebody's account email by mistake. The local
+    // part stays hidden.
+    loginDomain: env.mail.user.includes('@') ? env.mail.user.split('@').pop() ?? null : null,
   };
 }
 
