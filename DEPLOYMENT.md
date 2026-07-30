@@ -1,6 +1,6 @@
 # BIVRY SaaS - Azure deployment
 
-End to end setup for the four Azure resources you already created, wired to
+End to end setup for the Azure resources you already created, wired to
 GitHub Actions. Follow the steps in order; each one assumes the previous one is
 done.
 
@@ -14,7 +14,7 @@ If you only want the day to day commands, jump to
 ```
                                        ┌──────────────────────────────────┐
    browser ──── HTTPS ────────────────►│ Azure Static Web App             │
-                                       │ bivry-web                        │
+                                       │ bivry-dashboard                  │
                                        │ React + Vite build (dist/)       │
                                        │ SPA fallback -> index.html       │
                                        └──────────────────────────────────┘
@@ -33,7 +33,7 @@ If you only want the day to day commands, jump to
  ┌───────────────────┐  ┌──────────────────────────┐
  │ PostgreSQL        │  │ Blob Storage             │
  │ Flexible Server   │  │ container: driver-        │
- │ database: bivry   │  │ documents (private)      │
+ │ database: bivry-db│  │ documents (private)      │
  └───────────────────┘  └──────────────────────────┘
 ```
 
@@ -53,23 +53,25 @@ browser blocks third party cookies entirely.
 
 ---
 
-## 1. Names used in this guide
+## 1. Resource names
 
-Replace these with your actual resource names everywhere they appear.
+These are the real resource names for this project. Everything below uses them
+literally, so you can copy commands and settings without editing them.
 
-| Thing | Value used below | Where you set it |
+| Thing | Name | Notes |
 | --- | --- | --- |
-| Resource group | `bivry-rg` | - |
-| Region | `Australia East` | keep all four resources in the SAME region |
-| Postgres server | `bivry-db` | -> `bivry-db.postgres.database.azure.com` |
+| Resource group | `BivrySoftware` | - |
+| Region | whatever the App Service uses | keep every resource in the SAME region |
+| Postgres server | `bivry` | -> `bivry.postgres.database.azure.com` |
 | Postgres admin user | `bivryadmin` | - |
-| Database name | `bivry` | created in step 2 |
+| Database name | `bivry-db` | created in step 2. **Different from the server name.** The hyphen means it must be quoted in raw SQL. |
 | App Service | `bivry-api` | -> `https://bivry-api.azurewebsites.net` |
-| Static Web App | `bivry-web` | -> `https://<generated>.azurestaticapps.net` |
+| Static Web App | `bivry-dashboard` | -> `https://<generated>.azurestaticapps.net` |
 | Storage account | `bivrystorage` | - |
 | Blob container | `driver-documents` | created in step 3 |
+| Key Vault | `bivry-keyvault` | optional, see step 5 |
 
-Same region for all four is not cosmetic: cross region traffic adds latency to
+Same region for all of them is not cosmetic: cross region traffic adds latency to
 every query and every file read, and you pay egress for it.
 
 ---
@@ -78,7 +80,7 @@ every query and every file read, and you pay egress for it.
 
 ### 2.1 Allow yourself in
 
-Portal -> `bivry-db` -> **Settings > Networking**:
+Portal -> `bivry` (the server) -> **Settings > Networking**:
 
 1. **Public access** should be selected (private VNet access needs an App
    Service in the same VNet, which the Basic plan cannot do).
@@ -97,28 +99,28 @@ Portal -> `bivry-db` -> **Settings > Networking**:
 The server ships with a `postgres` database; the app gets its own. Easiest way
 without installing anything:
 
-Portal -> `bivry-db` -> **Databases** -> **+ Add**, name `bivry`, charset
+Portal -> `bivry` -> **Databases** -> **+ Add**, name `bivry-db`, charset
 `UTF8`, collation `en_US.utf8`.
 
 If you prefer SQL, `database/sql/00-bootstrap.sql` does the same thing plus the
 `pgcrypto` extension:
 
 ```bash
-psql "host=bivry-db.postgres.database.azure.com port=5432 dbname=postgres user=bivryadmin sslmode=require" \
+psql "host=bivry.postgres.database.azure.com port=5432 dbname=postgres user=bivryadmin sslmode=require" \
   -f database/sql/00-bootstrap.sql
 ```
 
 ### 2.3 Build the connection string
 
 ```
-postgresql://bivryadmin:PASSWORD@bivry-db.postgres.database.azure.com:5432/bivry?sslmode=require
+postgresql://bivryadmin:PASSWORD@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require
 ```
 
 Three things that break this and are hard to spot:
 
 - **URL encode the password.** `@` -> `%40`, `#` -> `%23`, `/` -> `%2F`,
   `:` -> `%3A`. An unencoded `@` makes Prisma parse the wrong hostname.
-- **The username is plain `bivryadmin`**, not `bivryadmin@bivry-db`. The
+- **The username is plain `bivryadmin`**, not `bivryadmin@bivry`. The
   `user@server` form only applied to the retired Single Server.
 - **Keep `?sslmode=require`.** Without it the server rejects the connection.
 
@@ -140,7 +142,7 @@ Portal -> search **Storage accounts** -> **+ Create**.
 | Field | Value | Why |
 | --- | --- | --- |
 | Subscription | your subscription | |
-| Resource group | `bivry-rg` | same group as everything else |
+| Resource group | `BivrySoftware` | same group as everything else |
 | Storage account name | `bivrystorage` | 3-24 characters, **lowercase letters and digits only**, and globally unique across all of Azure. If it is taken, add a suffix: `bivrystorageau`. |
 | Region | **the same region as the App Service** | every upload and download crosses this link. A different region adds latency to each one and you pay egress for it. |
 | Primary service | Azure Blob Storage or Azure Data Lake Storage Gen2 | |
@@ -191,7 +193,7 @@ encrypted).
 ```bash
 az storage account create \
   --name bivrystorage \
-  --resource-group bivry-rg \
+  --resource-group BivrySoftware \
   --location australiaeast \
   --sku Standard_LRS \
   --kind StorageV2 \
@@ -408,17 +410,29 @@ a success message on screen.
 Once it works, replace the four secret values with Key Vault references so
 nobody reads them off the portal blade:
 
-1. App Service -> **Identity** -> System assigned -> **On**.
-2. Key Vault -> **Access control (IAM)** -> grant that identity
-   **Key Vault Secrets User**.
-3. Change each app setting to
-   `@Microsoft.KeyVault(SecretUri=https://<vault>.vault.azure.net/secrets/<name>/)`.
+1. App Service `bivry-api` -> **Identity** -> System assigned -> **On**. Copy
+   the object ID it shows.
+2. Key Vault `bivry-keyvault` -> **Access control (IAM)** -> **+ Add role
+   assignment** -> **Key Vault Secrets User** -> assign to that managed
+   identity. (If the vault still uses access policies rather than RBAC, use
+   **Access policies** -> **Create** -> **Get** + **List** on secrets instead.)
+3. Key Vault -> **Objects > Secrets** -> **+ Generate/Import** for each one,
+   e.g. a secret named `database-url`.
+4. Change the app setting value to a reference:
+
+   ```
+   @Microsoft.KeyVault(SecretUri=https://bivry-keyvault.vault.azure.net/secrets/database-url/)
+   ```
+
+   The App Service resolves it at startup. If it shows up literally in
+   **Environment variables** with a red "Key vault reference" status, the role
+   assignment has not propagated yet - wait a minute and restart the app.
 
 ---
 
 ## 6. Static Web App (the frontend)
 
-Portal -> `bivry-web`:
+Portal -> `bivry-dashboard`:
 
 1. **Overview** -> copy the URL (`https://something-1234.azurestaticapps.net`).
    Put it in the App Service's `FRONTEND_URL` from step 5 if you have not

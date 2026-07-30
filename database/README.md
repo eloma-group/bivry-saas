@@ -44,7 +44,7 @@ folder can never drift from reality.
 in production. Azure requires TLS:
 
 ```
-DATABASE_URL="postgresql://USER:PASSWORD@SERVER.postgres.database.azure.com:5432/bivry?sslmode=require"
+DATABASE_URL="postgresql://bivryadmin:PASSWORD@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require"
 ```
 
 Notes for Flexible Server:

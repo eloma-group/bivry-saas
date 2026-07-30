@@ -4,8 +4,8 @@
 -- Run this ONCE against the `postgres` database on the Azure Flexible Server,
 -- as the server admin, before the first `prisma migrate deploy`.
 --
---   psql "host=<server>.postgres.database.azure.com port=5432 dbname=postgres \
---         user=<admin> sslmode=require" -f 00-bootstrap.sql
+--   psql "host=bivry.postgres.database.azure.com port=5432 dbname=postgres \
+--         user=bivryadmin sslmode=require" -f 00-bootstrap.sql
 --
 -- After this, everything else is done by Prisma migrations. Do not create
 -- tables by hand.
@@ -13,18 +13,21 @@
 
 -- The application database. Azure Flexible Server ships with `postgres` and
 -- `azure_maintenance`; the app gets its own.
-CREATE DATABASE bivry
+--
+-- The name is quoted because it contains a hyphen. Unquoted, Postgres would
+-- read `bivry-db` as `bivry` minus `db` and fail.
+CREATE DATABASE "bivry-db"
   WITH ENCODING 'UTF8'
        LC_COLLATE 'en_US.utf8'
        LC_CTYPE   'en_US.utf8';
 
-COMMENT ON DATABASE bivry IS 'BIVRY fleet SaaS - application database';
+COMMENT ON DATABASE "bivry-db" IS 'BIVRY fleet SaaS - application database';
 
 -- ---------------------------------------------------------------------------
--- Everything below runs INSIDE the bivry database.
--- Reconnect first:  \c bivry
+-- Everything below runs INSIDE the bivry-db database.
+-- Reconnect first:  \c "bivry-db"
 -- ---------------------------------------------------------------------------
-\c bivry
+\c "bivry-db"
 
 -- gen_random_uuid() for any hand written SQL. Prisma itself generates uuids in
 -- the application layer, so this is a convenience rather than a requirement.
@@ -42,7 +45,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ---------------------------------------------------------------------------
 
 -- CREATE ROLE bivry_app WITH LOGIN PASSWORD 'REPLACE_WITH_A_STRONG_PASSWORD';
--- GRANT CONNECT ON DATABASE bivry TO bivry_app;
+-- GRANT CONNECT ON DATABASE "bivry-db" TO bivry_app;
 -- GRANT USAGE ON SCHEMA public TO bivry_app;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bivry_app;
 -- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO bivry_app;
