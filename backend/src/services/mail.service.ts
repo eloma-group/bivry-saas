@@ -25,6 +25,20 @@ let transporter: Transporter | null = null;
 let transportVerified: boolean | null = null;
 
 /**
+ * Why the handshake failed, as a short code. Nodemailer error codes and SMTP
+ * reply codes only, never the message, so nothing about the credentials or the
+ * host leaks into a public endpoint.
+ *
+ *   EAUTH, or reply 535   the provider refused the login. The credentials work
+ *                         elsewhere, so this usually means the provider does
+ *                         not trust the sending IP yet.
+ *   ETIMEDOUT, ESOCKET,
+ *   ECONNECTION           the connection never completed: outbound SMTP is
+ *                         blocked from this host, or the port is wrong.
+ */
+let transportError: string | null = null;
+
+/**
  * Coarse mail status for /api/health.
  *
  * Deliberately three booleans and no values: the host, the login and the
@@ -42,11 +56,13 @@ export function mailStatus(): {
   configured: boolean;
   senderConfigured: boolean;
   transportVerified: boolean | null;
+  transportError: string | null;
 } {
   return {
     configured: env.mail.isConfigured,
     senderConfigured: env.mail.from !== DEFAULT_MAIL_FROM,
     transportVerified,
+    transportError,
   };
 }
 
@@ -97,12 +113,14 @@ export async function verifyMailTransport(): Promise<boolean> {
   if (!env.mail.isConfigured) {
     logger.warn('SMTP is not configured. Emails will be printed to the console.');
     transportVerified = null;
+    transportError = null;
     return true;
   }
 
   try {
     await getTransporter().verify();
     transportVerified = true;
+    transportError = null;
     // The From address is logged because it is the half of the configuration
     // that fails silently. Bad credentials are rejected at login, but an
     // unverified or wrong sender is accepted by the provider and then dropped,
@@ -120,6 +138,9 @@ export async function verifyMailTransport(): Promise<boolean> {
     return true;
   } catch (error) {
     transportVerified = false;
+    // Code only. The message can carry the host and the login.
+    const failure = error as { code?: string; responseCode?: number };
+    transportError = failure.code ?? (failure.responseCode ? String(failure.responseCode) : 'UNKNOWN');
     logger.error('SMTP verification failed', error);
     return false;
   }
