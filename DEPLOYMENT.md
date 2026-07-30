@@ -628,6 +628,88 @@ Both workflows run. Watch them under the repo's **Actions** tab. The backend
 workflow finishes with a health check, so a green run means the API really did
 boot and really can reach the database.
 
+### 8.5 Deploying by hand, without GitHub Actions
+
+Sometimes the person who deploys the backend is not the person who pushes to the
+repo. The steps below produce the same artifact the workflow does, so the two
+never diverge.
+
+**Read this first: the artifact must be built the same way.** Skipping
+`prisma generate` or shipping a `node_modules` that still has dev dependencies in
+it are the two ways a hand built deploy behaves differently from CI. The commands
+below are exactly what `.github/workflows/backend.yml` runs, in the same order.
+
+Requirements on the deploying machine: Node 20, and either the Azure CLI or the
+**Azure App Service** extension for VS Code.
+
+```bash
+# 1. Get the code that is actually on main. Do not deploy uncommitted work:
+#    nobody else can reproduce what you shipped.
+git fetch origin && git checkout origin/main
+
+cd backend
+
+# 2. Exact dependencies from the lockfile
+npm ci
+
+# 3. Generate the Prisma client, then compile. In that order: the generated
+#    client is what gives tsc its types.
+npx prisma generate
+npm run build
+
+# 4. Migrations BEFORE the new code goes live, so new code never meets an old
+#    schema. Needs DATABASE_URL, and the machine's IP allowed on the Postgres
+#    firewall (step 2.1).
+DATABASE_URL="postgresql://RJ:...@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require" \
+  npx prisma migrate deploy
+
+# 5. Strip dev dependencies, then regenerate the client so the query engine
+#    survives into the artifact. `prisma` is a runtime dependency for this reason.
+npm prune --omit=dev
+npx prisma generate
+
+# 6. Package exactly what the server needs
+zip -qry ../backend.zip dist node_modules prisma package.json package-lock.json
+
+# 7. Ship it
+cd ..
+az webapp deploy \
+  --resource-group BivrySoftware \
+  --name bivry-api \
+  --src-path backend.zip \
+  --type zip
+
+# 8. Confirm it actually booted and can reach the database. A deploy that starts
+#    the process and then crashes still reports success without this.
+curl https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api/health
+```
+
+Expected from step 8:
+
+```json
+{"success":true,"data":{"status":"ok","database":"connected"}}
+```
+
+Anything else, go to App Service -> **Monitoring > Log stream**.
+
+After step 5 the `backend/node_modules` on that machine has no dev dependencies
+left, so `npm ci` again before going back to development.
+
+**Two things to agree on as a team, because neither tool can enforce them:**
+
+- **Only ever deploy a commit that is on `main`.** A hand built zip from
+  uncommitted work cannot be reproduced, rolled back, or reviewed. If the
+  deploying developer cannot push, they should still deploy from
+  `origin/main`, and whoever can push should get the code there first.
+- **One person runs migrations.** `prisma migrate deploy` is safe to run twice,
+  but two people running different migration sets against one database is not.
+
+The better end state is giving the deploying developer push access, or at least
+permission to run the workflow: **Settings > Collaborators** for push, or
+**Settings > Actions > General** plus the `workflow_dispatch` trigger that is
+already on the backend workflow, which lets them deploy from the Actions tab
+without pushing any code.
+
 ---
 
 ## 9. Verify the whole thing
