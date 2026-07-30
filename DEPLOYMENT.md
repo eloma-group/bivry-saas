@@ -66,7 +66,7 @@ literally, so you can copy commands and settings without editing them.
 | Postgres admin user | `RJ` | - |
 | Database name | `bivry-db` | created in step 2. **Different from the server name.** The hyphen means it must be quoted in raw SQL. |
 | App Service | `bivry-api` | -> `https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net` |
-| Static Web App | `bivry-dashboard` | -> `https://polite-plant-00c30f600.azurestaticapps.net` |
+| Static Web App | `bivry-dashboard` | -> `https://polite-plant-00c30f600.7.azurestaticapps.net` |
 | Storage account | `bivrystorage` | - |
 | Blob container | `driver-documents` | created in step 3 |
 | Key Vault | `bivry-keyvault` | optional, see step 5 |
@@ -393,7 +393,7 @@ which is why there is no `.env` file in production.
 | `NODE_ENV` | `production` | turns on the strict startup checks, `Secure` cookies and the CORS allow list |
 | `WEBSITE_RUN_FROM_PACKAGE` | `1` | run from the deployed zip: faster cold start, atomic swap |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` | CI already built it. Leaving this on makes Azure re-run npm install and it will fail without a schema present. |
-| `FRONTEND_URL` | `https://polite-plant-00c30f600.azurestaticapps.net` | **no trailing slash.** CORS allow list + the host in password reset links. |
+| `FRONTEND_URL` | `https://polite-plant-00c30f600.7.azurestaticapps.net` | **no trailing slash.** CORS allow list + the host in password reset links. |
 | `DATABASE_URL` | the string from step 2.3 | |
 | `JWT_ACCESS_SECRET` | 96 hex chars | see below |
 | `JWT_REFRESH_SECRET` | a *different* 96 hex chars | |
@@ -496,11 +496,29 @@ nobody reads them off the portal blade:
 
 Portal -> `bivry-dashboard`:
 
-1. **Overview** -> the URL is `https://polite-plant-00c30f600.azurestaticapps.net`.
+1. **Overview** -> the URL is `https://polite-plant-00c30f600.7.azurestaticapps.net`.
    That is the value for the App Service's `FRONTEND_URL` in step 5, with no
    trailing slash.
-2. **Overview > Manage deployment token** -> **Copy**, if you ever need to set
-   the secret by hand. Connecting the repo through the portal creates it for you.
+   Note the `.7.` in the middle. Static Web Apps inserts a numeric segment, so
+   the hostname is not simply `<slug>.azurestaticapps.net`. Copy it from the
+   portal rather than assembling it, because this exact string is the CORS
+   origin the API checks.
+
+2. **Overview > Manage deployment token**. Connecting the repo through the
+   portal already created the secret, so normally there is nothing to do here.
+
+   **If you press Reset here, the previous token stops working immediately.**
+   That invalidates the `AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600`
+   secret Azure created, and the next deploy fails with:
+
+   ```
+   The content server has rejected the request with: BadRequest
+   Reason: No matching Static Web App was found or the api key was invalid.
+   ```
+
+   That message reads like the app is missing, but the usual cause is simply a
+   reset token. Paste the new value into the `AZURE_STATIC_WEB_APPS_API_TOKEN`
+   secret, which the workflow prefers.
 
 ### The workflow file name is not arbitrary
 
@@ -563,7 +581,8 @@ Repo -> **Settings > Secrets and variables > Actions**.
 | Name | Where to get it |
 | --- | --- |
 | `AZURE_WEBAPP_PUBLISH_PROFILE` | App Service -> **Overview** -> **Download publish profile**. Paste the whole XML file contents. |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600` | created automatically when the portal connected the repo. Only set it by hand if it is missing. |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN` | Static Web App -> **Manage deployment token**. The workflow prefers this one, so after any token reset this is the secret to update. |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600` | created automatically when the portal connected the repo. Used only as a fallback, and stale as soon as the token is reset. |
 | `DATABASE_URL` | same connection string as step 2.3. The workflow uses it for `prisma migrate deploy`. |
 
 If **Download publish profile** is greyed out: App Service ->

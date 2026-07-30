@@ -84,7 +84,12 @@ jobs:
           # Passed through to the build that runs inside the action.
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
+          # Prefer the manually maintained secret, because resetting the
+          # deployment token in the portal invalidates whatever Azure wrote into
+          # the generated ..._POLITE_PLANT_00C30F600 secret when it connected the
+          # repo. That is what "the api key was invalid" means here. The
+          # generated one stays as a fallback for a fresh clone of this setup.
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: frontend
@@ -100,5 +105,10 @@ jobs:
     steps:
       - uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
+          # Prefer the manually maintained secret, because resetting the
+          # deployment token in the portal invalidates whatever Azure wrote into
+          # the generated ..._POLITE_PLANT_00C30F600 secret when it connected the
+          # repo. That is what "the api key was invalid" means here. The
+          # generated one stays as a fallback for a fresh clone of this setup.
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
           action: close
