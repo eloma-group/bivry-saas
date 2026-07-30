@@ -21,6 +21,35 @@ export interface MailMessage {
 
 let transporter: Transporter | null = null;
 
+/** Result of the boot time handshake. null until it has run. */
+let transportVerified: boolean | null = null;
+
+/**
+ * Coarse mail status for /api/health.
+ *
+ * Deliberately three booleans and no values: the host, the login and the
+ * sender address stay out of a public endpoint. It is enough to tell the two
+ * silent failures apart without opening a shell on the server:
+ *
+ *   configured false        SMTP_HOST / SMTP_USER / SMTP_PASSWORD missing
+ *   senderConfigured false  MAIL_FROM never set, so mail goes out from a
+ *                           placeholder address that the provider will accept
+ *                           and then discard
+ *   transportVerified false the provider refused the connection or the login,
+ *                           or outbound SMTP is blocked from this host
+ */
+export function mailStatus(): {
+  configured: boolean;
+  senderConfigured: boolean;
+  transportVerified: boolean | null;
+} {
+  return {
+    configured: env.mail.isConfigured,
+    senderConfigured: env.mail.from !== DEFAULT_MAIL_FROM,
+    transportVerified,
+  };
+}
+
 function getTransporter(): Transporter {
   transporter ??= nodemailer.createTransport({
     host: env.mail.host,
@@ -67,11 +96,13 @@ export async function sendMail(message: MailMessage): Promise<void> {
 export async function verifyMailTransport(): Promise<boolean> {
   if (!env.mail.isConfigured) {
     logger.warn('SMTP is not configured. Emails will be printed to the console.');
+    transportVerified = null;
     return true;
   }
 
   try {
     await getTransporter().verify();
+    transportVerified = true;
     // The From address is logged because it is the half of the configuration
     // that fails silently. Bad credentials are rejected at login, but an
     // unverified or wrong sender is accepted by the provider and then dropped,
@@ -88,6 +119,7 @@ export async function verifyMailTransport(): Promise<boolean> {
 
     return true;
   } catch (error) {
+    transportVerified = false;
     logger.error('SMTP verification failed', error);
     return false;
   }

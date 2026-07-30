@@ -7,6 +7,7 @@ import employeeRoutes from './employee.routes';
 import driverRoutes from './driver.routes';
 import { prisma } from '../config/prisma';
 import { buildInfo } from '../config/buildInfo';
+import { mailStatus } from '../services/mail.service';
 import { sendSuccess } from '../utils/apiResponse';
 
 const router = Router();
@@ -30,6 +31,11 @@ router.get('/health', async (_req, res) => {
       // going green against the previous build.
       commit: buildInfo.commit,
       builtAt: buildInfo.builtAt,
+      // Password reset delivery fails silently by design: the endpoint must not
+      // reveal whether an address has an account, so it reports success even
+      // when the send was refused. Without this, telling "SMTP is misconfigured"
+      // apart from "the sender is not verified" needs a shell on the server.
+      mail: mailStatus(),
       timestamp: new Date().toISOString(),
     },
     'API is running',
