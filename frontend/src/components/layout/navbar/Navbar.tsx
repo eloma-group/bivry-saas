@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell,
   MessageSquare,
@@ -7,6 +8,7 @@ import {
   ChevronDown,
   User,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
 import { NavMenu } from "./NavMenu";
@@ -15,13 +17,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useAuth } from "@/context/AuthContext";
+import { getPortal } from "@/config/roles";
+import { avatarTintOf, initialsOf, roleLabelOf } from "@/utils/user";
+import { cn } from "@/lib/utils";
 
 interface NavbarProps {
   onMenuClick: () => void;
   activeHref: string;
   onNavigate: (href: string) => void;
-  userName?: string;
-  role?: string;
 }
 
 const MENU_ITEMS = [
@@ -31,14 +35,56 @@ const MENU_ITEMS = [
   { icon: HelpCircle, label: "Help" },
 ];
 
-export function Navbar({
-  onMenuClick,
-  activeHref,
-  onNavigate,
-  userName = "Ranjeeth Nair",
-  role = "Super Admin",
-}: NavbarProps) {
+/** Initials on a tinted circle. No stock photo, and nothing that can fail to load. */
+function Avatar({
+  initials,
+  tint,
+  className,
+}: {
+  initials: string;
+  tint: string;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid shrink-0 place-items-center rounded-full font-semibold text-white ring-1 ring-black/5",
+        tint,
+        className,
+      )}
+    >
+      {initials}
+    </span>
+  );
+}
+
+export function Navbar({ onMenuClick, activeHref, onNavigate }: NavbarProps) {
   const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const { user, role, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // `user` is null only while the development auth bypass is on, where nobody
+  // is signed in but the shell still renders.
+  const displayName = user?.displayName ?? "Not signed in";
+  const roleLabel = roleLabelOf(user, role);
+  const initials = user ? initialsOf(user) : "?";
+  const tint = user ? avatarTintOf(user) : "bg-slate-400";
+
+  async function handleLogout() {
+    if (signingOut) return;
+    setSigningOut(true);
+
+    // Never throws: the local session is cleared even when revoking the refresh
+    // token on the server fails.
+    await logout();
+
+    setOpen(false);
+    // ProtectedRoute would bounce here on its own once the session is gone.
+    // Doing it explicitly avoids rendering a frame of the signed in shell first.
+    navigate(role ? getPortal(role).loginPath : "/", { replace: true });
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-[4.5rem] items-center gap-4 border-b border-border/70 bg-white/95 px-4 sm:px-6 lg:px-8">
@@ -68,21 +114,15 @@ export function Navbar({
             <button
               type="button"
               className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-secondary sm:pr-3"
+              aria-label={`Account menu for ${displayName}`}
             >
-              <span className="relative">
-                <img
-                  src="https://i.pravatar.cc/80?img=68"
-                  alt={userName}
-                  className="h-9 w-9 rounded-full object-cover ring-1 ring-border"
-                />
-                <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
-              </span>
+              <Avatar initials={initials} tint={tint} className="h-9 w-9 text-sm" />
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold leading-tight text-foreground">
-                  {userName}
+                <p className="max-w-[11rem] truncate text-sm font-semibold leading-tight text-foreground">
+                  {displayName}
                 </p>
                 <p className="text-xs leading-tight text-muted-foreground">
-                  {role}
+                  {roleLabel}
                 </p>
               </div>
               <ChevronDown
@@ -92,23 +132,21 @@ export function Navbar({
               />
             </button>
           </PopoverTrigger>
-          <PopoverContent align="end" sideOffset={10} className="w-60 p-1.5">
-            <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 sm:hidden">
-              <img
-                src="https://i.pravatar.cc/80?img=68"
-                alt={userName}
-                className="h-9 w-9 rounded-full object-cover ring-1 ring-border"
-              />
+          <PopoverContent align="end" sideOffset={10} className="w-64 p-1.5">
+            {/* The trigger hides the name below sm, so it is repeated here. The
+                email shows at every size: two accounts can share a name. */}
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
+              <Avatar initials={initials} tint={tint} className="h-9 w-9 text-sm" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold leading-tight text-foreground">
-                  {userName}
+                  {displayName}
                 </p>
                 <p className="truncate text-xs leading-tight text-muted-foreground">
-                  {role}
+                  {user?.email ?? roleLabel}
                 </p>
               </div>
             </div>
-            <div className="my-1 h-px bg-border/70 sm:hidden" />
+            <div className="my-1 h-px bg-border/70" />
 
             <ul className="space-y-0.5">
               {MENU_ITEMS.map(({ icon: Icon, label, dot }) => (
@@ -120,9 +158,7 @@ export function Navbar({
                   >
                     <Icon className="h-[1.125rem] w-[1.125rem] shrink-0 text-slate-400" />
                     <span className="flex-1 text-left">{label}</span>
-                    {dot && (
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                    )}
+                    {dot && <span className="h-2 w-2 rounded-full bg-red-500" />}
                   </button>
                 </li>
               ))}
@@ -132,11 +168,18 @@ export function Navbar({
 
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              onClick={handleLogout}
+              disabled={signingOut || !user}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <LogOut className="h-[1.125rem] w-[1.125rem] shrink-0" />
-              <span className="flex-1 text-left">Logout</span>
+              {signingOut ? (
+                <Loader2 className="h-[1.125rem] w-[1.125rem] shrink-0 animate-spin" />
+              ) : (
+                <LogOut className="h-[1.125rem] w-[1.125rem] shrink-0" />
+              )}
+              <span className="flex-1 text-left">
+                {signingOut ? "Signing out" : "Logout"}
+              </span>
             </button>
           </PopoverContent>
         </Popover>

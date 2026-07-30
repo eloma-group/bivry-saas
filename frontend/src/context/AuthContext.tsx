@@ -90,8 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     const current = sessionStore.read();
-    if (current) await authService.logout(current.role);
-    setSession(null);
+    try {
+      if (current) await authService.logout(current.role);
+    } catch {
+      // Revoking the refresh token on the server is best effort. If that call
+      // fails the local session still has to go, otherwise a network blip
+      // leaves someone looking signed in on a shared machine. The token expires
+      // on its own regardless.
+    } finally {
+      setSession(null);
+    }
   }, []);
 
   const refreshUser = useCallback(async () => {
