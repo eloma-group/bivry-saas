@@ -158,13 +158,13 @@ look up a column. Every table, column, type, default and relation is below.
 **Relations**
 
 - many `driver_addresses`
-- optional one `driver_licences`
+- many `driver_documents`
 - optional one `driver_driving_histories`
+- optional one `driver_drug_tests`
+- optional one `driver_licences`
+- optional one `driver_medicals`
 - optional one `driver_police_verifications`
 - optional one `driver_visas`
-- optional one `driver_medicals`
-- optional one `driver_drug_tests`
-- many `driver_documents`
 
 ### `driver_addresses`
 
