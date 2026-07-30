@@ -1,20 +1,20 @@
 name: Frontend - build and deploy to Static Web Apps
 
-# This file replaces the template Azure Static Web Apps generated when the repo
-# was connected. Two reasons to keep the generated FILENAME but not its contents:
+# The filename matches the one Azure Static Web Apps generated when the repo was
+# connected, because the deployment token secret it created is named after the
+# same app slug: AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600. Keeping
+# the name means that secret is already the one this workflow reads.
 #
-#   Filename: Static Web Apps derives the repository secret from the same app
-#   slug, so AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 is already
-#   there and already matches. Nothing to wire up by hand.
+# The deploy step is deliberately the same shape as Azure's generated template,
+# which is the configuration proven to work against this Static Web App. The one
+# thing added is VITE_API_URL in the step environment: Vite inlines VITE_*
+# variables at build time, and the deploy action passes its environment through
+# to the build, so without it the bundle ships pointing at the wrong API host
+# and every request fails CORS.
 #
-#   Contents: the generated template has no build step, so Oryx builds the app
-#   inside the deploy action, where VITE_API_URL does not exist. Vite inlines
-#   that variable at build time, so the result is a frontend that calls the
-#   wrong API host and fails every request with a CORS error. This workflow
-#   builds first, with the variable set, and uploads the finished dist/.
-#
-# If the portal regenerates this file, or the repo is reconnected, do not accept
-# its version over this one. The build step and skip_app_build must survive.
+# Two inputs that look plausible but this version of the action does not accept,
+# and which show up as "Unexpected input(s)" warnings: `github_id_token` and
+# `skip_api_build`. Do not add them back.
 
 on:
   push:
@@ -42,13 +42,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
 
-    # Required for the OIDC token below. Static Web Apps created with the
-    # default deployment authorization policy authenticate with a GitHub OIDC
-    # token, not with the API token alone, and the deploy step fails without it.
-    permissions:
-      id-token: write
-      contents: read
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,15 +55,19 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      # Typecheck before handing the build to Azure. A type error surfaces here
+      # in under a minute, instead of inside the deploy action's build container
+      # where the log is much harder to read.
+      - name: Install and typecheck
         working-directory: frontend
-        run: npm ci
+        run: |
+          npm ci
+          npx tsc --noEmit
 
-      # Vite inlines VITE_* variables at build time, so the API URL has to be
-      # present here. It is not a secret - it ships inside the bundle where
-      # anyone can read it - so a repository variable is the right home for it.
-      - name: Build
-        working-directory: frontend
+      # Fail early and loudly rather than shipping a frontend that calls the
+      # wrong host. VITE_API_URL is not a secret - it is readable in the shipped
+      # bundle - so it lives in repository variables, not secrets.
+      - name: Require VITE_API_URL
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: |
@@ -78,35 +75,21 @@ jobs:
             echo "::error::Repository variable VITE_API_URL is not set. Expected https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api"
             exit 1
           fi
-          npm run build
+          echo "VITE_API_URL = $VITE_API_URL"
 
-      # `actions/github-script` already bundles @actions/core, so there is no
-      # need for the `npm install @actions/core` step Azure's template uses,
-      # which would otherwise write into the repo root package.json.
-      - name: Get the OIDC token
-        uses: actions/github-script@v7
-        id: idtoken
-        with:
-          script: return await core.getIDToken()
-          result-encoding: string
-
-      # `skip_app_build: true` because the build above already ran. Without it
-      # Oryx rebuilds and the VITE_API_URL from that step is lost.
-      #
-      # `api_location: ""` says there is no managed API function, so the action
-      # does not go looking for one.
-      - name: Deploy to Azure Static Web Apps
+      - name: Build and deploy to Azure Static Web Apps
         id: swa
         uses: Azure/static-web-apps-deploy@v1
+        env:
+          # Passed through to the build that runs inside the action.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
-          github_id_token: ${{ steps.idtoken.outputs.result }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: frontend
           api_location: ''
           output_location: dist
-          skip_app_build: true
 
   # Tears down the preview environment when a pull request is closed, so stale
   # preview URLs do not pile up.
