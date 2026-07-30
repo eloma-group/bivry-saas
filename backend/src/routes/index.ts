@@ -6,6 +6,7 @@ import vendorRoutes from './vendor.routes';
 import employeeRoutes from './employee.routes';
 import driverRoutes from './driver.routes';
 import { prisma } from '../config/prisma';
+import { buildInfo } from '../config/buildInfo';
 import { sendSuccess } from '../utils/apiResponse';
 
 const router = Router();
@@ -19,7 +20,20 @@ router.get('/health', async (_req, res) => {
     database = 'disconnected';
   }
 
-  sendSuccess(res, { status: 'ok', database, timestamp: new Date().toISOString() }, 'API is running');
+  sendSuccess(
+    res,
+    {
+      status: 'ok',
+      database,
+      // The deploy workflow asserts this matches the commit it just built, so a
+      // deploy that never actually swapped the running app fails instead of
+      // going green against the previous build.
+      commit: buildInfo.commit,
+      builtAt: buildInfo.builtAt,
+      timestamp: new Date().toISOString(),
+    },
+    'API is running',
+  );
 });
 
 // Authentication, one isolated portal per role.

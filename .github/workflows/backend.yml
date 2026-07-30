@@ -80,6 +80,14 @@ jobs:
       - name: Compile TypeScript
         run: npx tsc -p tsconfig.json
 
+      # Stamps the build so /api/health can report which commit is running, and
+      # the smoke test below can insist it is this one.
+      - name: Stamp the build
+        run: |
+          printf '{"commit":"%s","builtAt":"%s"}\n' \
+            "${{ github.sha }}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/build-info.json
+          cat dist/build-info.json
+
       # Strip dev dependencies, then regenerate the Prisma client so the engine
       # binary and node_modules/.prisma survive into the artifact. `prisma` is a
       # runtime dependency precisely so it is still here after the prune.
@@ -151,19 +159,37 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: backend.zip
 
-      # A deploy that starts the process but crashes on boot still reports
-      # success without this. /api/health also proves the database is reachable.
+      # Three things have to be true before this deploy counts as done:
+      #   1. the API answers at all (it did not crash on boot)
+      #   2. it can reach the database
+      #   3. the commit answering is THIS commit
+      #
+      # Without (3) the check passes against whatever was already running. A
+      # deploy that uploads fine but never swaps the app then goes green while
+      # serving the previous build, which has already happened here once.
       - name: Smoke test /api/health
         run: |
           url="https://${{ env.AZURE_WEBAPP_HOSTNAME }}/api/health"
+          expected="${{ github.sha }}"
+          echo "waiting for commit $expected to be live at $url"
+
           for attempt in $(seq 1 20); do
             body=$(curl -fsS --max-time 15 "$url" || true)
             echo "attempt $attempt: ${body:-no response}"
-            if echo "$body" | grep -q '"database":"connected"'; then
-              echo "API is healthy"
+
+            commit=$(echo "$body" | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')
+            database=$(echo "$body" | sed -n 's/.*"database":"\([^"]*\)".*/\1/p')
+
+            if [ "$commit" = "$expected" ] && [ "$database" = "connected" ]; then
+              echo "API is healthy and running $commit"
               exit 0
             fi
+
+            [ -n "$commit" ] && [ "$commit" != "$expected" ] \
+              && echo "  still serving $commit, waiting for the swap"
+
             sleep 15
           done
-          echo "::error::API did not become healthy within 5 minutes"
+
+          echo "::error::API never reported commit $expected with a connected database within 5 minutes"
           exit 1
