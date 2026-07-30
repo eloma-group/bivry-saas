@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer';
-import { env } from '../config/env';
+import { DEFAULT_MAIL_FROM, env } from '../config/env';
 import { logger } from '../utils/logger';
 
 /**
@@ -72,7 +72,20 @@ export async function verifyMailTransport(): Promise<boolean> {
 
   try {
     await getTransporter().verify();
-    logger.success(`SMTP ready (${env.mail.host}:${env.mail.port})`);
+    // The From address is logged because it is the half of the configuration
+    // that fails silently. Bad credentials are rejected at login, but an
+    // unverified or wrong sender is accepted by the provider and then dropped,
+    // so the only visible symptom is mail that never arrives.
+    logger.success(`SMTP ready (${env.mail.host}:${env.mail.port}) sending as ${env.mail.from}`);
+
+    if (env.isProduction && env.mail.from === DEFAULT_MAIL_FROM) {
+      logger.warn(
+        `MAIL_FROM is not set, so mail is being sent as ${DEFAULT_MAIL_FROM}. ` +
+          'That is a placeholder address. Unless it is a verified sender with ' +
+          'your provider, every message will be accepted and then discarded.',
+      );
+    }
+
     return true;
   } catch (error) {
     logger.error('SMTP verification failed', error);

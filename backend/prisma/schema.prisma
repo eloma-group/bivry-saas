@@ -1,21 +1,5 @@
-// BIVRY SaaS - database schema
-// Provider: PostgreSQL (hosted on Azure Database for PostgreSQL)
-//
-// Design note: every login role has its OWN table with its OWN credentials.
-// A request coming from the admin login page can only ever be looked up in
-// `admins`, a request from the driver login page only in `drivers`, and so on.
-// That makes a role mismatch structurally impossible.
-
 generator client {
-  provider = "prisma-client-js"
-
-  // No custom `output`: the client is generated into node_modules/.prisma/client
-  // and imported as `@prisma/client`. That is what `npm ci && npm run build`
-  // expects on Azure and in CI, and it survives `tsc` (a custom output folder
-  // inside src/ is never copied into dist/, which breaks `node dist/server.js`).
-
-  // `native` covers local Windows dev, the Debian target covers Azure App
-  // Service Linux and the ubuntu runner that builds the deploy artifact.
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
@@ -24,9 +8,321 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
+model Admin {
+  id                  String        @id @default(uuid()) @db.Uuid
+  email               String        @unique
+  phone               String?       @unique
+  passwordHash        String        @map("password_hash")
+  firstName           String        @map("first_name")
+  lastName            String?       @map("last_name")
+  avatarUrl           String?       @map("avatar_url")
+  /// Super admins can manage other admins.
+  isSuperAdmin        Boolean       @default(false) @map("is_super_admin")
+  status              AccountStatus @default(ACTIVE)
+  emailVerifiedAt     DateTime?     @map("email_verified_at")
+  lastLoginAt         DateTime?     @map("last_login_at")
+  failedLoginAttempts Int           @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?     @map("locked_until")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  @@index([status])
+  @@map("admins")
+}
+
+model Customer {
+  id                  String        @id @default(uuid()) @db.Uuid
+  email               String        @unique
+  phone               String?       @unique
+  passwordHash        String        @map("password_hash")
+  firstName           String        @map("first_name")
+  lastName            String?       @map("last_name")
+  companyName         String?       @map("company_name")
+  avatarUrl           String?       @map("avatar_url")
+  status              AccountStatus @default(PENDING)
+  emailVerifiedAt     DateTime?     @map("email_verified_at")
+  lastLoginAt         DateTime?     @map("last_login_at")
+  failedLoginAttempts Int           @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?     @map("locked_until")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  @@index([status])
+  @@map("customers")
+}
+
+model Vendor {
+  id                  String        @id @default(uuid()) @db.Uuid
+  email               String        @unique
+  phone               String?       @unique
+  passwordHash        String        @map("password_hash")
+  companyName         String        @map("company_name")
+  contactPerson       String?       @map("contact_person")
+  abn                 String?       @map("abn")
+  logoUrl             String?       @map("logo_url")
+  status              AccountStatus @default(PENDING)
+  emailVerifiedAt     DateTime?     @map("email_verified_at")
+  lastLoginAt         DateTime?     @map("last_login_at")
+  failedLoginAttempts Int           @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?     @map("locked_until")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  @@index([status])
+  @@map("vendors")
+}
+
+model Employee {
+  id                  String        @id @default(uuid()) @db.Uuid
+  email               String        @unique
+  phone               String?       @unique
+  passwordHash        String        @map("password_hash")
+  employeeCode        String?       @unique @map("employee_code")
+  firstName           String        @map("first_name")
+  lastName            String?       @map("last_name")
+  department          String?
+  designation         String?
+  avatarUrl           String?       @map("avatar_url")
+  status              AccountStatus @default(PENDING)
+  emailVerifiedAt     DateTime?     @map("email_verified_at")
+  lastLoginAt         DateTime?     @map("last_login_at")
+  failedLoginAttempts Int           @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?     @map("locked_until")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  @@index([status])
+  @@map("employees")
+}
+
+model Driver {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  email               String                    @unique
+  phone               String?                   @unique
+  passwordHash        String                    @map("password_hash")
+  firstName           String                    @map("first_name")
+  middleName          String?                   @map("middle_name")
+  lastName            String?                   @map("last_name")
+  dateOfBirth         DateTime?                 @map("date_of_birth") @db.Date
+  nationality         String?
+  avatarUrl           String?                   @map("avatar_url")
+  status              AccountStatus             @default(PENDING)
+  onboardingStatus    OnboardingStatus          @default(NOT_STARTED) @map("onboarding_status")
+  /// Index of the last completed onboarding step, used to resume the wizard.
+  onboardingStep      Int                       @default(0) @map("onboarding_step")
+  submittedAt         DateTime?                 @map("submitted_at")
+  approvedAt          DateTime?                 @map("approved_at")
+  rejectionReason     String?                   @map("rejection_reason")
+  emailVerifiedAt     DateTime?                 @map("email_verified_at")
+  lastLoginAt         DateTime?                 @map("last_login_at")
+  failedLoginAttempts Int                       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?                 @map("locked_until")
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
+  deletedAt           DateTime?                 @map("deleted_at")
+  addresses           DriverAddress[]
+  documents           DriverDocument[]
+  drivingHistory      DriverDrivingHistory?
+  drugTest            DriverDrugTest?
+  licence             DriverLicence?
+  medical             DriverMedical?
+  policeVerification  DriverPoliceVerification?
+  visa                DriverVisa?
+
+  @@index([status])
+  @@index([onboardingStatus])
+  @@map("drivers")
+}
+
+model DriverAddress {
+  id          String      @id @default(uuid()) @db.Uuid
+  driverId    String      @map("driver_id") @db.Uuid
+  type        AddressType
+  houseNumber String?     @map("house_number")
+  street      String?
+  suburb      String?
+  state       String?
+  country     String?
+  postCode    String?     @map("post_code")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  driver      Driver      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, type])
+  @@map("driver_addresses")
+}
+
+model DriverLicence {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  licenceNumber      String?            @map("licence_number")
+  licenceCardNumber  String?            @map("licence_card_number")
+  licenceType        LicenceType?       @map("licence_type")
+  issuingState       String?            @map("issuing_state")
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  /// Admin id that verified this record (no FK - verifier may be admin or employee).
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_licences")
+}
+
+model DriverDrivingHistory {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  issueDate          DateTime?          @map("issue_date") @db.Date
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_driving_histories")
+}
+
+model DriverPoliceVerification {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  issueDate          DateTime?          @map("issue_date") @db.Date
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_police_verifications")
+}
+
+model DriverVisa {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  visaStatus         String?            @map("visa_status")
+  visaType           String?            @map("visa_type")
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_visas")
+}
+
+model DriverMedical {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  issueDate          DateTime?          @map("issue_date") @db.Date
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_medicals")
+}
+
+model DriverDrugTest {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  issueDate          DateTime?          @map("issue_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_drug_tests")
+}
+
+/// Every file a driver uploads. `category` is only used by ADDITIONAL docs.
+model DriverDocument {
+  id          String             @id @default(uuid()) @db.Uuid
+  driverId    String             @map("driver_id") @db.Uuid
+  docType     DriverDocumentType @map("doc_type")
+  category    String?
+  fileName    String             @map("file_name")
+  storageKey  String             @map("storage_key")
+  storageUrl  String?            @map("storage_url")
+  mimeType    String             @map("mime_type")
+  sizeInBytes Int                @map("size_in_bytes")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  deletedAt   DateTime?          @map("deleted_at")
+  driver      Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, docType])
+  @@map("driver_documents")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  actorType ActorType @map("actor_type")
+  actorId   String    @map("actor_id") @db.Uuid
+  /// SHA-256 of the refresh token. The raw token is never stored.
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  userAgent String?   @map("user_agent")
+  ipAddress String?   @map("ip_address")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([actorType, actorId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  actorType   ActorType @map("actor_type")
+  actorId     String    @map("actor_id") @db.Uuid
+  /// SHA-256 of the reset token that was emailed to the user.
+  tokenHash   String    @unique @map("token_hash")
+  expiresAt   DateTime  @map("expires_at")
+  usedAt      DateTime? @map("used_at")
+  requestedIp String?   @map("requested_ip")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([actorType, actorId])
+  @@map("password_reset_tokens")
+}
+
+/// Audit trail of every login attempt, used for lockout and security review.
+model LoginAttempt {
+  id         String    @id @default(uuid()) @db.Uuid
+  actorType  ActorType @map("actor_type")
+  email      String
+  successful Boolean   @default(false)
+  reason     String?
+  ipAddress  String?   @map("ip_address")
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([actorType, email])
+  @@index([createdAt])
+  @@map("login_attempts")
+}
 
 /// Which login table an auth artifact (refresh token, reset token) belongs to.
 enum ActorType {
@@ -97,411 +393,4 @@ enum DriverDocumentType {
   ADDITIONAL
 
   @@map("driver_document_type")
-}
-
-// ---------------------------------------------------------------------------
-// Login table 1 of 5 - Admin
-// ---------------------------------------------------------------------------
-
-model Admin {
-  id           String @id @default(uuid()) @db.Uuid
-  email        String @unique
-  phone        String? @unique
-  passwordHash String @map("password_hash")
-
-  firstName String  @map("first_name")
-  lastName  String? @map("last_name")
-  avatarUrl String? @map("avatar_url")
-
-  /// Super admins can manage other admins.
-  isSuperAdmin Boolean       @default(false) @map("is_super_admin")
-  status       AccountStatus @default(ACTIVE)
-
-  emailVerifiedAt     DateTime? @map("email_verified_at")
-  lastLoginAt         DateTime? @map("last_login_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@index([status])
-  @@map("admins")
-}
-
-// ---------------------------------------------------------------------------
-// Login table 2 of 5 - Customer
-// ---------------------------------------------------------------------------
-
-model Customer {
-  id           String  @id @default(uuid()) @db.Uuid
-  email        String  @unique
-  phone        String? @unique
-  passwordHash String  @map("password_hash")
-
-  firstName   String  @map("first_name")
-  lastName    String? @map("last_name")
-  companyName String? @map("company_name")
-  avatarUrl   String? @map("avatar_url")
-
-  status AccountStatus @default(PENDING)
-
-  emailVerifiedAt     DateTime? @map("email_verified_at")
-  lastLoginAt         DateTime? @map("last_login_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@index([status])
-  @@map("customers")
-}
-
-// ---------------------------------------------------------------------------
-// Login table 3 of 5 - Vendor
-// ---------------------------------------------------------------------------
-
-model Vendor {
-  id           String  @id @default(uuid()) @db.Uuid
-  email        String  @unique
-  phone        String? @unique
-  passwordHash String  @map("password_hash")
-
-  companyName   String  @map("company_name")
-  contactPerson String? @map("contact_person")
-  abn           String? @map("abn")
-  logoUrl       String? @map("logo_url")
-
-  status AccountStatus @default(PENDING)
-
-  emailVerifiedAt     DateTime? @map("email_verified_at")
-  lastLoginAt         DateTime? @map("last_login_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@index([status])
-  @@map("vendors")
-}
-
-// ---------------------------------------------------------------------------
-// Login table 4 of 5 - Employee
-// ---------------------------------------------------------------------------
-
-model Employee {
-  id           String  @id @default(uuid()) @db.Uuid
-  email        String  @unique
-  phone        String? @unique
-  passwordHash String  @map("password_hash")
-
-  employeeCode String? @unique @map("employee_code")
-  firstName    String  @map("first_name")
-  lastName     String? @map("last_name")
-  department   String?
-  designation  String?
-  avatarUrl    String? @map("avatar_url")
-
-  status AccountStatus @default(PENDING)
-
-  emailVerifiedAt     DateTime? @map("email_verified_at")
-  lastLoginAt         DateTime? @map("last_login_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  @@index([status])
-  @@map("employees")
-}
-
-// ---------------------------------------------------------------------------
-// Login table 5 of 5 - Driver (the module currently in active development)
-// ---------------------------------------------------------------------------
-
-model Driver {
-  id           String  @id @default(uuid()) @db.Uuid
-  email        String  @unique
-  phone        String? @unique
-  passwordHash String  @map("password_hash")
-
-  firstName   String    @map("first_name")
-  middleName  String?   @map("middle_name")
-  lastName    String?   @map("last_name")
-  dateOfBirth DateTime? @map("date_of_birth") @db.Date
-  nationality String?
-  avatarUrl   String?   @map("avatar_url")
-
-  status           AccountStatus    @default(PENDING)
-  onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
-  /// Index of the last completed onboarding step, used to resume the wizard.
-  onboardingStep   Int              @default(0) @map("onboarding_step")
-  submittedAt      DateTime?        @map("submitted_at")
-  approvedAt       DateTime?        @map("approved_at")
-  rejectionReason  String?          @map("rejection_reason")
-
-  emailVerifiedAt     DateTime? @map("email_verified_at")
-  lastLoginAt         DateTime? @map("last_login_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  addresses           DriverAddress[]
-  licence             DriverLicence?
-  drivingHistory      DriverDrivingHistory?
-  policeVerification  DriverPoliceVerification?
-  visa                DriverVisa?
-  medical             DriverMedical?
-  drugTest            DriverDrugTest?
-  documents           DriverDocument[]
-
-  @@index([status])
-  @@index([onboardingStatus])
-  @@map("drivers")
-}
-
-// ---------------------------------------------------------------------------
-// Driver onboarding detail tables
-// ---------------------------------------------------------------------------
-
-model DriverAddress {
-  id       String      @id @default(uuid()) @db.Uuid
-  driverId String      @map("driver_id") @db.Uuid
-  type     AddressType
-
-  houseNumber String? @map("house_number")
-  street      String?
-  suburb      String?
-  state       String?
-  country     String?
-  postCode    String? @map("post_code")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@unique([driverId, type])
-  @@map("driver_addresses")
-}
-
-model DriverLicence {
-  id       String @id @default(uuid()) @db.Uuid
-  driverId String @unique @map("driver_id") @db.Uuid
-
-  licenceNumber     String?      @map("licence_number")
-  licenceCardNumber String?      @map("licence_card_number")
-  licenceType       LicenceType? @map("licence_type")
-  issuingState      String?      @map("issuing_state")
-  expiryDate        DateTime?    @map("expiry_date") @db.Date
-
-  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
-  verifiedAt         DateTime?          @map("verified_at")
-  /// Admin id that verified this record (no FK - verifier may be admin or employee).
-  verifiedBy         String?            @map("verified_by") @db.Uuid
-  remarks            String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("driver_licences")
-}
-
-model DriverDrivingHistory {
-  id       String @id @default(uuid()) @db.Uuid
-  driverId String @unique @map("driver_id") @db.Uuid
-
-  issueDate  DateTime? @map("issue_date") @db.Date
-  expiryDate DateTime? @map("expiry_date") @db.Date
-
-  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
-  verifiedAt         DateTime?          @map("verified_at")
-  verifiedBy         String?            @map("verified_by") @db.Uuid
-  remarks            String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("driver_driving_histories")
-}
-
-model DriverPoliceVerification {
-  id       String @id @default(uuid()) @db.Uuid
-  driverId String @unique @map("driver_id") @db.Uuid
-
-  issueDate  DateTime? @map("issue_date") @db.Date
-  expiryDate DateTime? @map("expiry_date") @db.Date
-
-  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
-  verifiedAt         DateTime?          @map("verified_at")
-  verifiedBy         String?            @map("verified_by") @db.Uuid
-  remarks            String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("driver_police_verifications")
-}
-
-model DriverVisa {
-  id       String @id @default(uuid()) @db.Uuid
-  driverId String @unique @map("driver_id") @db.Uuid
-
-  visaStatus String?   @map("visa_status")
-  visaType   String?   @map("visa_type")
-  expiryDate DateTime? @map("expiry_date") @db.Date
-
-  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
-  verifiedAt         DateTime?          @map("verified_at")
-  verifiedBy         String?            @map("verified_by") @db.Uuid
-  remarks            String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("driver_visas")
-}
-
-model DriverMedical {
-  id       String @id @default(uuid()) @db.Uuid
-  driverId String @unique @map("driver_id") @db.Uuid
-
-  issueDate  DateTime? @map("issue_date") @db.Date
-  expiryDate DateTime? @map("expiry_date") @db.Date
-
-  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
-  verifiedAt         DateTime?          @map("verified_at")
-  verifiedBy         String?            @map("verified_by") @db.Uuid
-  remarks            String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("driver_medicals")
-}
-
-model DriverDrugTest {
-  id       String @id @default(uuid()) @db.Uuid
-  driverId String @unique @map("driver_id") @db.Uuid
-
-  issueDate DateTime? @map("issue_date") @db.Date
-
-  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
-  verifiedAt         DateTime?          @map("verified_at")
-  verifiedBy         String?            @map("verified_by") @db.Uuid
-  remarks            String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@map("driver_drug_tests")
-}
-
-/// Every file a driver uploads. `category` is only used by ADDITIONAL docs.
-model DriverDocument {
-  id       String             @id @default(uuid()) @db.Uuid
-  driverId String             @map("driver_id") @db.Uuid
-  docType  DriverDocumentType @map("doc_type")
-  category String?
-
-  fileName    String  @map("file_name")
-  storageKey  String  @map("storage_key")
-  storageUrl  String? @map("storage_url")
-  mimeType    String  @map("mime_type")
-  sizeInBytes Int     @map("size_in_bytes")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
-
-  @@index([driverId, docType])
-  @@map("driver_documents")
-}
-
-// ---------------------------------------------------------------------------
-// Shared auth artifacts
-//
-// These are polymorphic on purpose: `actorType` + `actorId` point at one of the
-// five login tables. Prisma cannot express a polymorphic FK, so integrity is
-// enforced in the service layer (and rows are cleaned up on account delete).
-// ---------------------------------------------------------------------------
-
-model RefreshToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  actorType ActorType @map("actor_type")
-  actorId   String    @map("actor_id") @db.Uuid
-
-  /// SHA-256 of the refresh token. The raw token is never stored.
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
-
-  userAgent String? @map("user_agent")
-  ipAddress String? @map("ip_address")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([actorType, actorId])
-  @@index([expiresAt])
-  @@map("refresh_tokens")
-}
-
-model PasswordResetToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  actorType ActorType @map("actor_type")
-  actorId   String    @map("actor_id") @db.Uuid
-
-  /// SHA-256 of the reset token that was emailed to the user.
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-
-  requestedIp String? @map("requested_ip")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([actorType, actorId])
-  @@map("password_reset_tokens")
-}
-
-/// Audit trail of every login attempt, used for lockout and security review.
-model LoginAttempt {
-  id        String    @id @default(uuid()) @db.Uuid
-  actorType ActorType @map("actor_type")
-  email     String
-  successful Boolean  @default(false)
-  reason    String?
-
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([actorType, email])
-  @@index([createdAt])
-  @@map("login_attempts")
 }

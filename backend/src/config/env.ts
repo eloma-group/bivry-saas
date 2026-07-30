@@ -41,6 +41,13 @@ function bool(key: string, fallback: boolean): boolean {
 const nodeEnv = optional('NODE_ENV', 'development');
 const isProduction = nodeEnv === 'production';
 
+/**
+ * Placeholder sender. Exported so the mail service can tell whether MAIL_FROM
+ * was actually configured: a provider accepts mail from an unverified sender
+ * and then discards it, so the failure is invisible without this check.
+ */
+export const DEFAULT_MAIL_FROM = 'BIVRY <no-reply@bivry.com>';
+
 export const env = {
   nodeEnv,
   isProduction,
@@ -124,7 +131,7 @@ export const env = {
     secure: bool('SMTP_SECURE', num('SMTP_PORT', 587) === 465),
     user: optional('SMTP_USER', ''),
     password: optional('SMTP_PASSWORD', ''),
-    from: optional('MAIL_FROM', 'BIVRY <no-reply@bivry.com>'),
+    from: optional('MAIL_FROM', DEFAULT_MAIL_FROM),
     get isConfigured(): boolean {
       return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD);
     },
