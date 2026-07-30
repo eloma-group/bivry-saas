@@ -12,9 +12,33 @@ name: Frontend - build and deploy to Static Web Apps
 # to the build, so without it the bundle ships pointing at the wrong API host
 # and every request fails CORS.
 #
-# Two inputs that look plausible but this version of the action does not accept,
-# and which show up as "Unexpected input(s)" warnings: `github_id_token` and
-# `skip_api_build`. Do not add them back.
+# DO NOT ADD `repo_token` TO THE DEPLOY STEP.
+#
+# It is the reason five consecutive runs failed with:
+#   The content server has rejected the request with: BadRequest
+#   Reason: No matching Static Web App was found or the api key was invalid.
+#
+# That message points at the deployment token, and it is misleading. Comparing
+# the deploy step inputs across every run isolates it to one variable:
+#
+#   github_id_token   repo_token   result
+#   yes               no           SUCCESS
+#   no                yes          FAILURE
+#   yes               yes          FAILURE   <- rules out github_id_token
+#   no                yes          FAILURE
+#
+# Supplying `repo_token` switches the action off the deployment-token path and
+# onto a GitHub-token path meant for creating deployments and pull request
+# comments. The content server then validates the request differently and
+# rejects it, whatever the deployment token is. The cost of leaving it out is
+# that pull request previews get no comment with their URL; the deploy itself,
+# including preview environments, is unaffected. Azure's own generated template
+# does not pass it either.
+#
+# GitHub logs "Unexpected input(s) 'github_id_token'" because the input is not
+# declared in the action's action.yml. It is advisory: the value still reaches
+# the container as INPUT_GITHUB_ID_TOKEN, and the one successful run is the one
+# that passed it. `skip_api_build` is genuinely unsupported - leave it out.
 
 on:
   push:
@@ -41,6 +65,11 @@ jobs:
     name: Build and deploy
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
+
+    # Needed to mint the OIDC token the deploy step passes as github_id_token.
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -77,23 +106,34 @@ jobs:
           fi
           echo "VITE_API_URL = $VITE_API_URL"
 
+      - name: Mint the OIDC token for the deploy
+        uses: actions/github-script@v7
+        id: idtoken
+        with:
+          # `core` is bundled with github-script, so unlike Azure's template
+          # there is no `npm install @actions/core` step writing into the repo
+          # root package.json on the runner.
+          script: return await core.getIDToken()
+          result-encoding: string
+
+      # These inputs are exactly the set from the one run that succeeded, plus
+      # VITE_API_URL in the environment. See the note at the top of this file
+      # before adding anything else here, in particular repo_token.
       - name: Build and deploy to Azure Static Web Apps
         id: swa
         uses: Azure/static-web-apps-deploy@v1
         env:
-          # Passed through to the build that runs inside the action.
+          # The action passes its environment into the build it runs, and Vite
+          # inlines VITE_* at build time. Without this the bundle ships with no
+          # API host and falls back to its own origin, where there is no API.
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         with:
-          # Prefer the manually maintained secret, because resetting the
-          # deployment token in the portal invalidates whatever Azure wrote into
-          # the generated ..._POLITE_PLANT_00C30F600 secret when it connected the
-          # repo. That is what "the api key was invalid" means here. The
-          # generated one stays as a fallback for a fresh clone of this setup.
+          # The generated secret stays as a fallback: resetting the deployment
+          # token in the portal invalidates whichever value is older.
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          github_id_token: ${{ steps.idtoken.outputs.result }}
           action: upload
           app_location: frontend
-          api_location: ''
           output_location: dist
 
   # Tears down the preview environment when a pull request is closed, so stale
