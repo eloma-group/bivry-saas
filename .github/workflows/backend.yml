@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+      url: https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net
 
     steps:
       - uses: actions/checkout@v4
@@ -150,7 +150,7 @@ jobs:
       # success without this. /api/health also proves the database is reachable.
       - name: Smoke test /api/health
         run: |
-          url="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health"
+          url="https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api/health"
           for attempt in $(seq 1 20); do
             body=$(curl -fsS --max-time 15 "$url" || true)
             echo "attempt $attempt: ${body:-no response}"
