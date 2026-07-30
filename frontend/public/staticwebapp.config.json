@@ -1,16 +1,29 @@
 {
   "$schema": "https://json.schemastore.org/staticwebapp.config.json",
 
+  "_comment": [
+    "SPA routing for Static Web Apps. Vite copies this file from public/ into",
+    "dist/, which is where Static Web Apps looks for it.",
+    "",
+    "navigationFallback serves index.html for any path that is not a real file,",
+    "so refreshing /driver/login loads the app and React Router routes it,",
+    "instead of Static Web Apps returning 404 for a file that does not exist.",
+    "",
+    "The exclude list is the important half. Without it a missing or renamed",
+    "asset also returns index.html with status 200, and the browser tries to",
+    "parse HTML as JavaScript: 'Uncaught SyntaxError: Unexpected token <'. That",
+    "is far harder to diagnose than an honest 404.",
+    "",
+    "Do NOT add a responseOverrides 404 rewrite alongside this. It catches the",
+    "404s that exclude deliberately produces and turns them back into index.html",
+    "with status 200, which silently defeats the whole exclude list. Verified in",
+    "production: with that override present, /assets/does-not-exist.js returned",
+    "200 text/html; with it removed it returns 404."
+  ],
+
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/assets/*", "/brand/*", "/favicon.svg", "*.{css,js,json,png,jpg,jpeg,svg,webp,ico,woff,woff2,txt,map}"]
-  },
-
-  "responseOverrides": {
-    "404": {
-      "rewrite": "/index.html",
-      "statusCode": 200
-    }
   },
 
   "routes": [
