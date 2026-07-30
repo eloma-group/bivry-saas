@@ -128,33 +128,193 @@ Do not create tables yet. Prisma does that in step 7.
 
 ## 3. Blob Storage
 
-Portal -> `bivrystorage`:
+This is where every driver licence, medical certificate and police check ends
+up. Treat the settings below as security settings, not defaults to click past.
 
-1. **Data storage > Containers** -> **+ Container**
-   - Name: `driver-documents`
-   - Public access level: **Private (no anonymous access)**
+### 3.1 Create the storage account
 
-   Private is deliberate. Driver licences, medicals and police checks must never
-   be reachable by URL guessing. The API hands out a signed URL that expires
-   after 15 minutes instead.
+Portal -> search **Storage accounts** -> **+ Create**.
 
-2. **Security + networking > Access keys** -> **key1** -> **Show** ->
-   copy the **Connection string**. Save it for step 5.
+**Basics tab**
 
-3. **Data management > Lifecycle management** -> **+ Add a rule** (optional but
-   recommended). Delete blobs older than 365 days under the prefix
-   `driver-documents/` to clean up orphans from failed uploads:
-   - Rule name: `purge-orphans`
-   - Apply to: blobs, base blobs
-   - `Delete` blob `365` days after last modification
+| Field | Value | Why |
+| --- | --- | --- |
+| Subscription | your subscription | |
+| Resource group | `bivry-rg` | same group as everything else |
+| Storage account name | `bivrystorage` | 3-24 characters, **lowercase letters and digits only**, and globally unique across all of Azure. If it is taken, add a suffix: `bivrystorageau`. |
+| Region | **the same region as the App Service** | every upload and download crosses this link. A different region adds latency to each one and you pay egress for it. |
+| Primary service | Azure Blob Storage or Azure Data Lake Storage Gen2 | |
+| Performance | **Standard** | Premium is for single digit millisecond latency. Documents do not need it and it costs several times more. |
+| Redundancy | **LRS** (Locally redundant storage) | three copies in one datacentre. Cheapest, and enough to start. Choose **GRS** instead if losing these documents to a regional outage would be a compliance problem - it replicates to a second region for roughly twice the price. |
 
-4. **Settings > Resource sharing (CORS)** -> **Blob service** (only needed if
-   the frontend ever `fetch()`es a blob URL instead of putting it in an `<img>`
-   or `<a>` tag; harmless to add now):
+**Advanced tab** - this is the one that matters:
 
-   | Allowed origins | Methods | Allowed headers | Exposed headers | Max age |
-   | --- | --- | --- | --- | --- |
-   | your Static Web App URL | GET, HEAD | `*` | `*` | 3600 |
+| Field | Value | Why |
+| --- | --- | --- |
+| Require secure transfer for REST API operations | **Enabled** | rejects plain HTTP |
+| Allow enabling anonymous access on individual containers | **Disabled** | with this off, nobody can ever make a container public by accident. The app never needs it: it signs time limited URLs instead. |
+| Enable storage account key access | **Enabled** | required. The app signs SAS URLs with the account key. |
+| Default to Microsoft Entra authorization in the Azure portal | Enabled (optional) | only affects the portal UI |
+| Minimum TLS version | **1.2** | |
+| Permitted scope for copy operations | From any storage account | default |
+| Enable hierarchical namespace | **Unchecked** | that is Data Lake Gen2. It changes the API surface and breaks nothing here, but you do not need it. |
+| Access tier | **Hot** | documents are read while a driver is being onboarded and reviewed. Cool tier charges for early deletion and for reads. |
+
+**Networking tab**
+
+| Field | Value |
+| --- | --- |
+| Network access | **Enable public access from all networks** |
+| Routing preference | Microsoft network routing |
+
+Public access here means *reachable at a URL*, not *readable by anyone*. Every
+request still needs a key or a signature. Restricting to selected networks
+requires the App Service to be VNet integrated, which the Basic plan cannot do -
+revisit it if you move to a Premium plan.
+
+**Data protection tab**
+
+| Field | Value | Why |
+| --- | --- | --- |
+| Enable soft delete for blobs | **On, 7 days** | the API hard deletes a blob when a driver removes a document. Soft delete gives you a week to undo a mistake. Worth it. |
+| Enable soft delete for containers | On, 7 days | protects against deleting the whole container |
+| Enable versioning | Off | each upload already gets a unique timestamped key, so nothing is ever overwritten |
+
+**Encryption tab** - leave the defaults (Microsoft managed keys, all services
+encrypted).
+
+**Review + create** -> **Create**. Takes about 30 seconds.
+
+<details>
+<summary>Azure CLI equivalent</summary>
+
+```bash
+az storage account create \
+  --name bivrystorage \
+  --resource-group bivry-rg \
+  --location australiaeast \
+  --sku Standard_LRS \
+  --kind StorageV2 \
+  --access-tier Hot \
+  --min-tls-version TLS1_2 \
+  --https-only true \
+  --allow-blob-public-access false
+
+az storage blob service-properties delete-policy update \
+  --account-name bivrystorage --enable true --days-retained 7
+```
+</details>
+
+### 3.2 Create the container
+
+Storage account -> **Data storage > Containers** -> **+ Container**
+
+| Field | Value |
+| --- | --- |
+| Name | `driver-documents` |
+| Anonymous access level | **Private (no anonymous access)** |
+
+Private is the whole point. Driver licences, medicals and police checks must
+never be reachable by guessing a URL. The API hands out a signature that expires
+after 15 minutes instead.
+
+The name must match `AZURE_STORAGE_CONTAINER`. If you skip this step the app
+creates the container itself on first use, privately, so it is safe either way -
+but creating it now means you find a wrong key immediately rather than on a
+driver's first upload.
+
+### 3.3 Copy the connection string
+
+Storage account -> **Security + networking > Access keys** -> **key1** ->
+**Show** -> copy **Connection string** (not the key on its own).
+
+It looks like:
+
+```
+DefaultEndpointsProtocol=https;AccountName=bivrystorage;AccountKey=abc...==;EndpointSuffix=core.windows.net
+```
+
+This single string carries full read/write access to the account. Treat it like
+a password: it belongs in `backend/.env` locally (git ignored) and in an App
+Service application setting in production. Never in the frontend, never in a
+commit.
+
+There are two keys so you can rotate without downtime: switch everything to
+key2, then regenerate key1.
+
+### 3.4 Test it before deploying
+
+Paste the connection string into `backend/.env`:
+
+```
+AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=..."
+AZURE_STORAGE_CONTAINER=driver-documents
+```
+
+Then:
+
+```bash
+npm run check:storage --prefix backend
+```
+
+It uploads a test file, reads it back, signs a URL, fetches that URL with no
+credentials to prove it opens in a browser, deletes the file and confirms it is
+gone. Everything should say `PASS` and the driver should read `blob`:
+
+```
+driver     : blob
+  PASS  connect to storage
+  PASS  upload a file  https://bivrystorage.blob.core.windows.net/driver-documents/...
+  PASS  read it back  44 bytes, text/plain
+  PASS  sign a preview URL  expires 2026-07-30T08:15:00.000Z
+  PASS  open the signed URL anonymously
+  PASS  delete it
+```
+
+If it says `driver : local`, the connection string was not picked up - check for
+a typo in the variable name, and that you edited `backend/.env` and not
+`backend/.env.example`.
+
+Common failures:
+
+| Message | Cause |
+| --- | --- |
+| `AuthenticationFailed` / `Signature did not match` | connection string truncated when copying, or key rotated since |
+| `getaddrinfo ENOTFOUND` | account name typo in the connection string |
+| `AuthorizationFailure` | "Enable storage account key access" is off (step 3.1, Advanced tab) |
+| `no SAS signature in the URL` | the connection string has no `AccountKey`. A SAS-only or Entra-only string cannot sign URLs. |
+
+### 3.5 Lifecycle rule (recommended)
+
+An upload writes the blob before the database row, so a request that dies in
+between leaves an orphan. This sweeps them up.
+
+**Data management > Lifecycle management** -> **+ Add a rule**
+
+- Rule name: `purge-old-blobs`
+- Rule scope: **Limit blobs with filters**
+- Blob type: Block blobs, Base blobs
+- Prefix match: `driver-documents/drivers/`
+- Condition: **Delete the blob** `365` days after last modification
+
+365 days is deliberately conservative: these are compliance documents, and a
+blob still referenced by a live database row would be deleted too. Only shorten
+it if you are certain about your retention rules.
+
+### 3.6 CORS (only if you need it)
+
+Not required for the current app. The browser puts signed URLs into `<img src>`
+and `<a href>` tags, which are not subject to CORS. It becomes necessary the
+moment anything calls `fetch()` on a blob URL - an in-page PDF viewer, or a
+canvas thumbnail.
+
+**Settings > Resource sharing (CORS)** -> **Blob service**:
+
+| Allowed origins | Allowed methods | Allowed headers | Exposed headers | Max age |
+| --- | --- | --- | --- | --- |
+| your Static Web App URL | GET, HEAD | `*` | `*` | 3600 |
+
+List the exact origin. `*` with credentials is rejected by browsers anyway.
 
 ---
 

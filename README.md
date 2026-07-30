@@ -26,6 +26,9 @@ need to open the database.
 
 ```bash
 npm run install:all      # installs root, backend and frontend dependencies
+                         # (to install just one, `cd` into that folder first -
+                         #  `npm install --prefix backend` from the root can add
+                         #  the root package as a dependency of the backend)
 cp backend/.env.example backend/.env
 # set DATABASE_URL and the two JWT secrets in backend/.env
 npm run db:deploy        # create the tables
