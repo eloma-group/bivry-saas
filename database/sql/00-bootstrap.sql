@@ -5,7 +5,7 @@
 -- as the server admin, before the first `prisma migrate deploy`.
 --
 --   psql "host=bivry.postgres.database.azure.com port=5432 dbname=postgres \
---         user=bivryadmin sslmode=require" -f 00-bootstrap.sql
+--         user=RJ sslmode=require" -f 00-bootstrap.sql
 --
 -- After this, everything else is done by Prisma migrations. Do not create
 -- tables by hand.

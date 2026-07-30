@@ -19,7 +19,7 @@ If you only want the day to day commands, jump to
                                        │ SPA fallback -> index.html       │
                                        └──────────────────────────────────┘
                 │
-                │  XHR to https://bivry-api.azurewebsites.net/api
+                │  XHR to https://bivry-api-...azurewebsites.net/api
                 │  Authorization: Bearer <access token>
                 ▼
    ┌────────────────────────────────────┐
@@ -61,18 +61,27 @@ literally, so you can copy commands and settings without editing them.
 | Thing | Name | Notes |
 | --- | --- | --- |
 | Resource group | `BivrySoftware` | - |
-| Region | whatever the App Service uses | keep every resource in the SAME region |
+| Region | `Australia Central` | keep every resource here |
 | Postgres server | `bivry` | -> `bivry.postgres.database.azure.com` |
-| Postgres admin user | `bivryadmin` | - |
+| Postgres admin user | `RJ` | - |
 | Database name | `bivry-db` | created in step 2. **Different from the server name.** The hyphen means it must be quoted in raw SQL. |
-| App Service | `bivry-api` | -> `https://bivry-api.azurewebsites.net` |
+| App Service | `bivry-api` | -> `https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net` |
 | Static Web App | `bivry-dashboard` | -> `https://<generated>.azurestaticapps.net` |
 | Storage account | `bivrystorage` | - |
 | Blob container | `driver-documents` | created in step 3 |
 | Key Vault | `bivry-keyvault` | optional, see step 5 |
 
+The App Service hostname is **not** `bivry-api.azurewebsites.net`. App Service
+now appends a random suffix and the region, so the real one is
+`bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net`. Copy it from the
+App Service **Overview** blade ("Default domain"). The workflow keeps it in one
+place, `AZURE_WEBAPP_HOSTNAME` in `.github/workflows/backend.yml`.
+
 Same region for all of them is not cosmetic: cross region traffic adds latency to
-every query and every file read, and you pay egress for it.
+every query and every file read, and you pay egress for it. The App Service is in
+**Australia Central**, so check that the Postgres server and the storage account
+are there too - if either was created in Australia East, every query and every
+document download crosses regions.
 
 ---
 
@@ -124,21 +133,21 @@ If you prefer SQL, `database/sql/00-bootstrap.sql` does the same thing plus the
 `pgcrypto` extension:
 
 ```bash
-psql "host=bivry.postgres.database.azure.com port=5432 dbname=postgres user=bivryadmin sslmode=require" \
+psql "host=bivry.postgres.database.azure.com port=5432 dbname=postgres user=RJ sslmode=require" \
   -f database/sql/00-bootstrap.sql
 ```
 
 ### 2.3 Build the connection string
 
 ```
-postgresql://bivryadmin:PASSWORD@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require
+postgresql://RJ:PASSWORD@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require
 ```
 
 Three things that break this and are hard to spot:
 
 - **URL encode the password.** `@` -> `%40`, `#` -> `%23`, `/` -> `%2F`,
   `:` -> `%3A`. An unencoded `@` makes Prisma parse the wrong hostname.
-- **The username is plain `bivryadmin`**, not `bivryadmin@bivry`. The
+- **The username is plain `RJ`**, not `RJ@bivry`. The
   `user@server` form only applied to the retired Single Server.
 - **Keep `?sslmode=require`.** Without it the server rejects the connection.
 
@@ -537,7 +546,7 @@ Publishing Credentials** to **On**.
 
 | Name | Value |
 | --- | --- |
-| `VITE_API_URL` | `https://bivry-api.azurewebsites.net/api` |
+| `VITE_API_URL` | `https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api` |
 
 A variable, not a secret: Vite bakes it into the JavaScript bundle, so it is
 public by definition. The workflow fails fast if it is missing, because the
@@ -628,7 +637,7 @@ failed for a real reason during a first deploy.
 
 | Check | Expected | If it fails |
 | --- | --- | --- |
-| `https://bivry-api.azurewebsites.net/api/health` | `{"status":"ok","database":"connected"}` | see [Troubleshooting](#10-troubleshooting) |
+| `https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api/health` | `{"status":"ok","database":"connected"}` | see [Troubleshooting](#10-troubleshooting) |
 | Open `/driver/login` directly in a new tab | login page renders | SPA fallback: is `staticwebapp.config.json` in `dist/`? |
 | Log in as `driver@bivry.com` / `Bivry@123` | lands on the driver onboarding form | check the browser console for a CORS error |
 | **Refresh the page while logged in** | stays logged in, no 404 | session is in localStorage; a 404 means the SPA fallback is missing |

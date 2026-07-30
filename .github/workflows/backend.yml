@@ -17,8 +17,13 @@ on:
 
 env:
   NODE_VERSION: '20.x'
-  # Change this if you named the App Service something else.
+  # The resource name, used by the deploy action.
   AZURE_WEBAPP_NAME: bivry-api
+  # The public hostname, which is NOT just <name>.azurewebsites.net any more:
+  # App Service now appends a random suffix and the region. Copy it from the
+  # App Service Overview blade ("Default domain"). Defined once here so the
+  # environment URL and the health check cannot drift apart.
+  AZURE_WEBAPP_HOSTNAME: bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net
 
 concurrency:
   # A newer push supersedes an in flight deploy instead of racing it.
@@ -111,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net
+      url: https://${{ env.AZURE_WEBAPP_HOSTNAME }}
 
     steps:
       - uses: actions/checkout@v4
@@ -150,7 +155,7 @@ jobs:
       # success without this. /api/health also proves the database is reachable.
       - name: Smoke test /api/health
         run: |
-          url="https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api/health"
+          url="https://${{ env.AZURE_WEBAPP_HOSTNAME }}/api/health"
           for attempt in $(seq 1 20); do
             body=$(curl -fsS --max-time 15 "$url" || true)
             echo "attempt $attempt: ${body:-no response}"

@@ -44,13 +44,13 @@ folder can never drift from reality.
 in production. Azure requires TLS:
 
 ```
-DATABASE_URL="postgresql://bivryadmin:PASSWORD@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require"
+DATABASE_URL="postgresql://RJ:PASSWORD@bivry.postgres.database.azure.com:5432/bivry-db?sslmode=require"
 ```
 
 Notes for Flexible Server:
 
 - Add your dev machine IP under **Networking > Firewall rules**.
-- The username is plain (`bivryadmin`), not `bivryadmin@servername`. That older
+- The username is plain (`RJ`), not `RJ@bivry`. That older
   form was only for the retired Single Server.
 - URL encode special characters in the password: `@` becomes `%40`, `#` becomes
   `%23`, `/` becomes `%2F`.
