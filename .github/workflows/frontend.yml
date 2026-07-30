@@ -69,7 +69,6 @@ jobs:
           app_location: frontend
           output_location: dist
           skip_app_build: true
-          skip_api_build: true
 
   # Tears down the preview environment when a pull request is closed, so stale
   # preview URLs do not pile up.
