@@ -8,6 +8,7 @@ import { env } from './config/env';
 import routes from './routes';
 import { errorHandler, notFound } from './middleware/error.middleware';
 import { globalLimiter } from './middleware/rateLimiter.middleware';
+import { ApiError } from './utils/apiError';
 
 const app = express();
 
@@ -30,7 +31,11 @@ app.use(
       // Same origin requests and tools like curl send no origin header.
       if (!origin) return callback(null, true);
       if (!env.isProduction || allowedOrigins.has(origin)) return callback(null, true);
-      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+      // An ApiError rather than a plain Error, so a browser hitting the API from
+      // an origin we do not serve gets a 403 it can be told apart from a real
+      // fault. A plain Error lands in the error handler as a 500 and pollutes
+      // the metrics that are supposed to mean "the API is broken".
+      return callback(ApiError.forbidden(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
