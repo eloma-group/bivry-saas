@@ -193,3 +193,40 @@ jobs:
 
           echo "::error::API never reported commit $expected with a connected database within 5 minutes"
           exit 1
+
+      # Separate from the gate above, and deliberately after it: mail being
+      # broken should not stop the code shipping, but it must not pass quietly
+      # either.
+      #
+      # Password reset is the only way back into an account. When SMTP is
+      # misconfigured every layer still reports success - the forgot password
+      # endpoint always does, because it must not reveal whether an address has
+      # an account - so nothing surfaces until a user cannot get in and says so.
+      # That is exactly how a wrong SMTP_USER sat unnoticed in this deployment.
+      - name: Check password reset email can be delivered
+        run: |
+          body=$(curl -fsS --max-time 15 "https://${{ env.AZURE_WEBAPP_HOSTNAME }}/api/health" || true)
+
+          verified=$(echo "$body" | sed -n 's/.*"transportVerified":\([a-z]*\).*/\1/p')
+          reason=$(echo "$body"  | sed -n 's/.*"transportError":"\([^"]*\)".*/\1/p')
+          domain=$(echo "$body"  | sed -n 's/.*"loginDomain":"\([^"]*\)".*/\1/p')
+          sender=$(echo "$body"  | sed -n 's/.*"senderConfigured":\([a-z]*\).*/\1/p')
+
+          echo "transportVerified=$verified transportError=${reason:-none} loginDomain=${domain:-none} senderConfigured=$sender"
+
+          if [ "$verified" = "true" ] && [ "$sender" = "true" ]; then
+            echo "password reset email is deliverable"
+            exit 0
+          fi
+
+          case "$reason" in
+            EAUTH|535)
+              echo "::error::SMTP rejected the login (${reason}). SMTP_USER is currently a '${domain}' address; a provider relay usually wants its own generated login, not an account email. Check SMTP_USER and SMTP_PASSWORD in the App Service application settings." ;;
+            ETIMEDOUT|ESOCKET|ECONNECTION|ECONNREFUSED)
+              echo "::error::Could not open an SMTP connection (${reason}). Outbound SMTP may be blocked from the App Service, or SMTP_PORT is wrong. Port 25 is always blocked on Azure; use 587." ;;
+            *)
+              [ "$sender" != "true" ] \
+                && echo "::error::MAIL_FROM is not set, so mail would be sent from a placeholder address that the provider accepts and then discards." \
+                || echo "::error::Mail transport is not usable (${reason:-unknown})." ;;
+          esac
+          exit 1
