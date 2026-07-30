@@ -1,58 +1,99 @@
-name: Azure Static Web Apps CI/CD
+name: Frontend - build and deploy to Static Web Apps
+
+# This file replaces the template Azure Static Web Apps generated when the repo
+# was connected. Two reasons to keep the generated FILENAME but not its contents:
+#
+#   Filename: Static Web Apps derives the repository secret from the same app
+#   slug, so AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 is already
+#   there and already matches. Nothing to wire up by hand.
+#
+#   Contents: the generated template has no build step, so Oryx builds the app
+#   inside the deploy action, where VITE_API_URL does not exist. Vite inlines
+#   that variable at build time, so the result is a frontend that calls the
+#   wrong API host and fails every request with a CORS error. This workflow
+#   builds first, with the variable set, and uploads the finished dist/.
+#
+# If the portal regenerates this file, or the repo is reconnected, do not accept
+# its version over this one. The build step and skip_app_build must survive.
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/azure-static-web-apps-polite-plant-00c30f600.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+  build_and_deploy:
+    name: Build and deploy
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    permissions:
-       id-token: write
-       contents: read
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          submodules: true
+          # Static Web Apps needs the git history to label preview environments.
+          submodules: false
           lfs: false
-      - name: Install OIDC Client from Core Package
-        run: npm install @actions/core@1.6.0 @actions/http-client
-      - name: Get Id Token
-        uses: actions/github-script@v6
-        id: idtoken
+
+      - uses: actions/setup-node@v4
         with:
-           script: |
-               const coredemo = require('@actions/core')
-               return await coredemo.getIDToken()
-           result-encoding: string
-      - name: Build And Deploy
-        id: builddeploy
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Vite inlines VITE_* variables at build time, so the API URL has to be
+      # present here. It is not a secret - it ships inside the bundle where
+      # anyone can read it - so a repository variable is the right home for it.
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::Repository variable VITE_API_URL is not set. Expected https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net/api"
+            exit 1
+          fi
+          npm run build
+
+      # `skip_app_build: true` because the build above already ran. Without it
+      # Oryx rebuilds and the VITE_API_URL from that step is lost.
+      - name: Deploy to Azure Static Web Apps
+        id: swa
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
-          action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "frontend" # App source code path
-          api_location: "" # Api source code path - optional
-          output_location: "dist" # Built app content directory - optional
-          github_id_token: ${{ steps.idtoken.outputs.result }}
-          ###### End of Repository/Build Configurations ######
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: frontend
+          output_location: dist
+          skip_app_build: true
 
-  close_pull_request_job:
+  # Tears down the preview environment when a pull request is closed, so stale
+  # preview URLs do not pile up.
+  close_pull_request:
+    name: Close preview environment
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    name: Close Pull Request Job
     steps:
-      - name: Close Pull Request
-        id: closepullrequest
-        uses: Azure/static-web-apps-deploy@v1
+      - uses: Azure/static-web-apps-deploy@v1
         with:
-          action: "close"
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600 }}
+          action: close

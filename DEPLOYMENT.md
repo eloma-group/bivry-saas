@@ -42,7 +42,7 @@ Two independent deploy pipelines, so a frontend change never restarts the API:
 | Workflow | Triggered by | Does |
 | --- | --- | --- |
 | `.github/workflows/backend.yml` | changes under `backend/` or `database/` | install, generate Prisma client, typecheck, verify `database/` docs, compile, `prisma migrate deploy`, deploy to App Service, health check |
-| `.github/workflows/frontend.yml` | changes under `frontend/` | install, build with `VITE_API_URL`, deploy to Static Web Apps |
+| `.github/workflows/azure-static-web-apps-polite-plant-00c30f600.yml` | changes under `frontend/` | install, build with `VITE_API_URL`, deploy to Static Web Apps |
 
 **Why the frontend and API are on separate origins.** Static Web Apps can only
 proxy `/api` to your own App Service on the Standard plan ("linked backend").
@@ -66,7 +66,7 @@ literally, so you can copy commands and settings without editing them.
 | Postgres admin user | `RJ` | - |
 | Database name | `bivry-db` | created in step 2. **Different from the server name.** The hyphen means it must be quoted in raw SQL. |
 | App Service | `bivry-api` | -> `https://bivry-api-cmdwbrh7hxcshpca.australiacentral-01.azurewebsites.net` |
-| Static Web App | `bivry-dashboard` | -> `https://<generated>.azurestaticapps.net` |
+| Static Web App | `bivry-dashboard` | -> `https://polite-plant-00c30f600.azurestaticapps.net` |
 | Storage account | `bivrystorage` | - |
 | Blob container | `driver-documents` | created in step 3 |
 | Key Vault | `bivry-keyvault` | optional, see step 5 |
@@ -393,7 +393,7 @@ which is why there is no `.env` file in production.
 | `NODE_ENV` | `production` | turns on the strict startup checks, `Secure` cookies and the CORS allow list |
 | `WEBSITE_RUN_FROM_PACKAGE` | `1` | run from the deployed zip: faster cold start, atomic swap |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` | CI already built it. Leaving this on makes Azure re-run npm install and it will fail without a schema present. |
-| `FRONTEND_URL` | `https://<your-swa>.azurestaticapps.net` | **no trailing slash.** CORS allow list + the host in password reset links. |
+| `FRONTEND_URL` | `https://polite-plant-00c30f600.azurestaticapps.net` | **no trailing slash.** CORS allow list + the host in password reset links. |
 | `DATABASE_URL` | the string from step 2.3 | |
 | `JWT_ACCESS_SECRET` | 96 hex chars | see below |
 | `JWT_REFRESH_SECRET` | a *different* 96 hex chars | |
@@ -496,14 +496,42 @@ nobody reads them off the portal blade:
 
 Portal -> `bivry-dashboard`:
 
-1. **Overview** -> copy the URL (`https://something-1234.azurestaticapps.net`).
-   Put it in the App Service's `FRONTEND_URL` from step 5 if you have not
-   already.
-2. **Overview > Manage deployment token** -> **Copy**. Needed in step 7.
-3. If Static Web Apps already created its own workflow file when you connected
-   the repo (`.github/workflows/azure-static-web-apps-*.yml`), **delete that
-   file**. `.github/workflows/frontend.yml` in this repo replaces it and does the
-   build correctly; two workflows deploying the same app fight each other.
+1. **Overview** -> the URL is `https://polite-plant-00c30f600.azurestaticapps.net`.
+   That is the value for the App Service's `FRONTEND_URL` in step 5, with no
+   trailing slash.
+2. **Overview > Manage deployment token** -> **Copy**, if you ever need to set
+   the secret by hand. Connecting the repo through the portal creates it for you.
+
+### The workflow file name is not arbitrary
+
+The frontend workflow is
+`.github/workflows/azure-static-web-apps-polite-plant-00c30f600.yml`.
+
+When Static Web Apps connects a GitHub repo it does two things: commits a
+workflow named after the app's slug, and creates a repository secret named after
+that same slug, here
+`AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600`. Keeping the filename
+means the token secret Azure already created is the one the workflow reads, with
+nothing to wire up by hand.
+
+**The contents are not Azure's generated template, deliberately.** That template
+lets Oryx build the app inside the deploy action, which never sees
+`VITE_API_URL` and therefore ships a frontend pointing at the wrong host. This
+workflow runs `npm run build` itself with the variable set, then uploads
+`dist/` with `skip_app_build: true`.
+
+So if the portal regenerates that file, or you reconnect the repo, **do not
+accept its version over this one.** Check that these three lines survive:
+
+```yaml
+env:
+  VITE_API_URL: ${{ vars.VITE_API_URL }}
+...
+          skip_app_build: true
+```
+
+There must also be exactly one workflow deploying this app. Two of them race,
+and the loser overwrites the winner.
 
 ### SPA fallback - already handled
 
@@ -535,7 +563,7 @@ Repo -> **Settings > Secrets and variables > Actions**.
 | Name | Where to get it |
 | --- | --- |
 | `AZURE_WEBAPP_PUBLISH_PROFILE` | App Service -> **Overview** -> **Download publish profile**. Paste the whole XML file contents. |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | the deployment token from step 6.2 |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN_POLITE_PLANT_00C30F600` | created automatically when the portal connected the repo. Only set it by hand if it is missing. |
 | `DATABASE_URL` | same connection string as step 2.3. The workflow uses it for `prisma migrate deploy`. |
 
 If **Download publish profile** is greyed out: App Service ->
@@ -759,7 +787,7 @@ Seeded accounts: `admin@bivry.com`, `customer@bivry.com`, `vendor@bivry.com`,
 | First request after idle takes 20s | Always On is off | step 4.1 (needs Basic or higher) |
 | `too many connections` | every instance opens its own pool | add `&connection_limit=5&pool_timeout=20` to `DATABASE_URL` |
 | CI: `database/ is out of date` | schema changed, docs not regenerated | `npm run db:sql` and commit |
-| Deploy is green but the site is unchanged | build cached, or two workflows deploying | check for a leftover `azure-static-web-apps-*.yml` |
+| Deploy is green but the site is unchanged | build cached, or two workflows deploying | check for a second workflow deploying the same app |
 
 **Where to look first, always:** App Service ->
 **Monitoring > Log stream**. Startup errors, SMTP errors and unhandled
