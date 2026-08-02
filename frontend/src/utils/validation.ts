@@ -3,6 +3,13 @@
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_RE = /^[+]?[\d\s()-]{7,17}$/;
 
+/**
+ * What the document store actually accepts. Kept in step with the backend
+ * upload filter, so a file is never picked here only to be refused on save.
+ */
+export const ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/heic";
+export const ACCEPT_DOCUMENT = `${ACCEPT_IMAGE},application/pdf`;
+
 export const rules = {
   required: (label: string) => ({
     required: `${label} is required`,
@@ -29,6 +36,27 @@ export function readAsDataUrl(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Turns a data URL held in form state back into a `File`, so a file that was
+ * picked or captured offline can be posted as multipart later on.
+ */
+export function dataUrlToFile(file: {
+  name: string;
+  type: string;
+  dataUrl: string;
+}): File {
+  const [meta, base64] = file.dataUrl.split(",");
+  const mimeType = /:(.*?);/.exec(meta ?? "")?.[1] || file.type || "application/octet-stream";
+
+  const binary = atob(base64 ?? "");
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new File([bytes], file.name, { type: mimeType });
 }
 
 export function formatBytes(bytes: number): string {

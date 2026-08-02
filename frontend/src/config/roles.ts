@@ -8,9 +8,16 @@ export interface PortalConfig {
   tagline: string;
   /** Where a signed in user of this role lands. */
   homePath: string;
+  /**
+   * Their own profile page, where the portal has one built. The account id is
+   * part of the path, so the URL says whose profile is on screen.
+   */
+  profilePath?: (accountId: string) => string;
   loginPath: string;
   forgotPasswordPath: string;
   resetPasswordPath: string;
+  /** Signed in password change. Every portal has one. */
+  changePasswordPath: string;
   /** Whether the login card offers a "Create account" link. */
   selfSignup: boolean;
   /** Tailwind classes for the portal accent, used on the brand panel. */
@@ -28,9 +35,15 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     label: "Admin",
     tagline: "Full control over fleet, people and compliance.",
     homePath: "/admin",
+    profilePath: () => "/admin/profile",
     loginPath: "/admin/login",
     forgotPasswordPath: "/admin/forgot-password",
     resetPasswordPath: "/admin/reset-password",
+    changePasswordPath: "/admin/change-password",
+    // Admins are provisioned by whoever holds the database, with
+    // `backend/scripts/create-admin.ts`, and then sign in. There is nothing a
+    // public register page could add here except a way in for strangers, so
+    // /admin/register is not mounted at all.
     selfSignup: false,
     accentClass: "from-brand-navy via-[#123256] to-[#1b4b7d]",
   },
@@ -42,6 +55,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     loginPath: "/customer/login",
     forgotPasswordPath: "/customer/forgot-password",
     resetPasswordPath: "/customer/reset-password",
+    changePasswordPath: "/customer/change-password",
     selfSignup: true,
     accentClass: "from-[#0d2440] via-[#134e4a] to-brand-green",
   },
@@ -53,6 +67,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     loginPath: "/vendor/login",
     forgotPasswordPath: "/vendor/forgot-password",
     resetPasswordPath: "/vendor/reset-password",
+    changePasswordPath: "/vendor/change-password",
     selfSignup: true,
     accentClass: "from-[#0d2440] via-[#3b2f63] to-[#6d4aa8]",
   },
@@ -64,6 +79,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     loginPath: "/employee/login",
     forgotPasswordPath: "/employee/forgot-password",
     resetPasswordPath: "/employee/reset-password",
+    changePasswordPath: "/employee/change-password",
     selfSignup: false,
     accentClass: "from-[#0d2440] via-[#1f3d63] to-[#2f6f9e]",
   },
@@ -72,9 +88,11 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     label: "Driver",
     tagline: "Complete your onboarding and keep documents current.",
     homePath: "/driver",
+    profilePath: (accountId) => `/driver/${accountId}`,
     loginPath: "/driver/login",
     forgotPasswordPath: "/driver/forgot-password",
     resetPasswordPath: "/driver/reset-password",
+    changePasswordPath: "/driver/change-password",
     selfSignup: true,
     accentClass: "from-[#0d2440] via-[#14503c] to-brand-green",
   },

@@ -21,6 +21,17 @@ export function daysUntil(expiry?: string | null): number | null {
   return differenceInCalendarDays(d, new Date());
 }
 
+/**
+ * Whole days from one date to another, e.g. how long a certificate is valid for
+ * counting from the day it was issued rather than from today.
+ */
+export function daysBetween(from?: string | null, to?: string | null): number | null {
+  const start = toDate(from);
+  const end = toDate(to);
+  if (!start || !end) return null;
+  return differenceInCalendarDays(end, start);
+}
+
 /** Map a remaining-days count to a severity level for badge colouring. */
 export function expiryLevel(days: number | null): ExpiryLevel {
   if (days === null) return "none";
@@ -47,4 +58,13 @@ export function expiryLabel(days: number | null): string {
   if (days < 0) return `Expired ${Math.abs(days)}d ago`;
   if (days === 0) return "Expires today";
   return `${days} days left`;
+}
+
+/** How long a document is valid for, counted from its issue date to its expiry. */
+export function validityLabel(days: number | null): string {
+  if (days === null) return "No date";
+  // Expiry before issue is a typo in one of the two dates, not a valid window.
+  if (days < 0) return "Check the dates";
+  if (days === 0) return "Same day expiry";
+  return `Valid for ${days} days`;
 }

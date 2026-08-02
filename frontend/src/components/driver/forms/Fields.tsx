@@ -36,6 +36,7 @@ function FieldShell({
   htmlFor,
   required,
   error,
+  hint,
   children,
   className,
 }: {
@@ -43,6 +44,8 @@ function FieldShell({
   htmlFor?: string;
   required?: boolean;
   error?: string;
+  /** Helper line under the input. An error takes its place while one is shown. */
+  hint?: string;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -56,6 +59,9 @@ function FieldShell({
         {required && <span className="ml-0.5 text-primary">*</span>}
       </label>
       {children}
+      {hint && !error ? (
+        <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+      ) : null}
       <AnimatePresence>
         {error && (
           <motion.p
@@ -76,6 +82,7 @@ interface TextFieldProps extends BaseFieldProps {
   type?: string;
   placeholder?: string;
   readOnly?: boolean;
+  hint?: string;
 }
 
 /** Reusable text/email/number input wired to react-hook-form. */
@@ -87,6 +94,7 @@ export function TextField({
   rules,
   required,
   readOnly,
+  hint,
   className,
 }: TextFieldProps) {
   const {
@@ -101,6 +109,7 @@ export function TextField({
       htmlFor={name}
       required={required}
       error={error}
+      hint={hint}
       className={className}
     >
       <Input
@@ -108,6 +117,7 @@ export function TextField({
         type={type}
         placeholder={placeholder}
         readOnly={readOnly}
+        aria-readonly={readOnly || undefined}
         aria-invalid={!!error}
         className={cn(
           error && "border-red-300 focus-visible:ring-red-500/10",

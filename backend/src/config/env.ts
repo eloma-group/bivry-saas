@@ -110,7 +110,13 @@ export const env = {
     connectionString: optional('AZURE_STORAGE_CONNECTION_STRING', ''),
     accountName: optional('AZURE_STORAGE_ACCOUNT_NAME', ''),
     accountKey: optional('AZURE_STORAGE_ACCOUNT_KEY', ''),
-    container: optional('AZURE_STORAGE_CONTAINER', 'driver-documents'),
+    /**
+     * One container per area, so a driver's documents and an admin's own files
+     * are never mixed together and can be governed separately (retention,
+     * access reviews, deletion on request).
+     */
+    driverContainer: optional('AZURE_STORAGE_CONTAINER', 'driver-documents'),
+    adminContainer: optional('AZURE_STORAGE_CONTAINER_ADMIN', 'admin'),
     /** Lifetime of the short lived read URL handed to the browser. */
     sasTtlMinutes: num('AZURE_STORAGE_SAS_TTL_MINUTES', 15),
     get isBlobConfigured(): boolean {

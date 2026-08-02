@@ -4,6 +4,9 @@ import { logger } from '../utils/logger';
 import * as storage from './storage.service';
 import type { AddressType, DriverDocumentType, Prisma } from '@prisma/client';
 
+/** Driver documents live in their own container, away from admin files. */
+const DRIVER_AREA = 'driver' as const;
+
 /** Everything the onboarding wizard needs to render and resume. */
 export async function getOnboarding(driverId: string) {
   const driver = await prisma.driver.findFirst({
@@ -37,6 +40,11 @@ export async function updatePersonal(
     phone: string | null;
   },
 ) {
+  // Correcting a name or phone number must not drag an application that is
+  // already with the reviewers back to IN_PROGRESS, so the status only moves on
+  // for a driver who had not started yet.
+  await touchOnboarding(driverId);
+
   const driver = await prisma.driver.update({
     where: { id: driverId },
     data: {
@@ -46,7 +54,6 @@ export async function updatePersonal(
       dateOfBirth: data.dateOfBirth,
       nationality: data.nationality,
       phone: data.phone,
-      onboardingStatus: 'IN_PROGRESS',
     },
   });
 
@@ -210,6 +217,7 @@ export async function addDocument(
     buffer,
     mimeType: input.mimeType,
     fileName: input.fileName,
+    area: DRIVER_AREA,
   });
 
   // Single slot document types replace whatever was there before.
@@ -265,7 +273,7 @@ export async function getDocumentForDriver(driverId: string, documentId: string)
 /** Opens the stored file for an authenticated streaming download. */
 export async function openDocument(driverId: string, documentId: string) {
   const document = await getDocumentForDriver(driverId, documentId);
-  const file = await storage.openFile(document.storageKey, document.mimeType);
+  const file = await storage.openFile(document.storageKey, document.mimeType, DRIVER_AREA);
   return { document, file };
 }
 
@@ -280,6 +288,7 @@ export async function createDocumentLink(driverId: string, documentId: string) {
     storageKey: document.storageKey,
     fileName: document.fileName,
     fallbackPath: `/api/driver/documents/${document.id}/file`,
+    area: DRIVER_AREA,
   });
 
   return {
@@ -294,7 +303,7 @@ export async function createDocumentLink(driverId: string, documentId: string) {
 /** Best effort blob cleanup. A stale file must never fail the request. */
 async function removeStoredFile(storageKey: string, documentId: string): Promise<void> {
   try {
-    await storage.deleteFile(storageKey);
+    await storage.deleteFile(storageKey, DRIVER_AREA);
   } catch (error) {
     logger.warn(`Could not remove stored file for document ${documentId}`, error);
   }

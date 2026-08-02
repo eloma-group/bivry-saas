@@ -2,6 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { sendCreated, sendSuccess } from '../utils/apiResponse';
 import { ApiError } from '../utils/apiError';
 import * as driverService from '../services/driver.service';
+import { getExpiryNotifications } from '../services/notification.service';
 import type { DriverDocumentType } from '@prisma/client';
 
 /** The signed in driver's id. `authenticate` guarantees it is present. */
@@ -13,6 +14,12 @@ export const driverController = {
   getOnboarding: asyncHandler(async (req, res) => {
     const data = await driverService.getOnboarding(driverId(req));
     sendSuccess(res, data, 'Onboarding loaded');
+  }),
+
+  /** This driver's own documents that have expired or are about to. */
+  notifications: asyncHandler(async (req, res) => {
+    const data = await getExpiryNotifications(driverId(req));
+    sendSuccess(res, data, 'Notifications loaded');
   }),
 
   updatePersonal: asyncHandler(async (req, res) => {

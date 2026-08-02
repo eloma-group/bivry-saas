@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { motion } from "framer-motion";
 import { Camera, ImageUp, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/driver/camera/CameraCapture";
-import { readAsDataUrl } from "@/utils/validation";
+import { useDocumentUrl } from "@/hooks/useDocumentUrl";
+import { ACCEPT_IMAGE, readAsDataUrl } from "@/utils/validation";
 import type { DriverFormValues, UploadedFile } from "@/types/driver";
 
 /** Large circular profile-photo control: upload from disk or capture live. */
@@ -12,6 +13,9 @@ export function AvatarUpload() {
   const { control } = useFormContext<DriverFormValues>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [camOpen, setCamOpen] = useState(false);
+  const stored = useWatch({ control, name: "profilePhoto" }) as UploadedFile | null;
+  // A photo saved earlier has no local bytes, so it is fetched for the preview.
+  const storedUrl = useDocumentUrl(stored?.dataUrl ? null : stored?.documentId);
 
   return (
     <Controller
@@ -19,6 +23,7 @@ export function AvatarUpload() {
       name="profilePhoto"
       render={({ field }) => {
         const value = field.value as UploadedFile | null;
+        const preview = value ? value.dataUrl || storedUrl : null;
         const onFile = async (file?: File | null) => {
           if (!file) return;
           const dataUrl = await readAsDataUrl(file);
@@ -38,9 +43,9 @@ export function AvatarUpload() {
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
                 className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border-4 border-white bg-secondary shadow-card ring-1 ring-border"
               >
-                {value ? (
+                {preview ? (
                   <img
-                    src={value.dataUrl}
+                    src={preview}
                     alt="Profile"
                     className="h-full w-full object-cover"
                   />
@@ -94,7 +99,7 @@ export function AvatarUpload() {
               <input
                 ref={inputRef}
                 type="file"
-                accept="image/*"
+                accept={ACCEPT_IMAGE}
                 className="hidden"
                 onChange={(e) => void onFile(e.target.files?.[0])}
               />

@@ -12,59 +12,137 @@ import {
   LogOut,
 } from "lucide-react";
 import type { NavItem } from "@/types/nav";
+import type { RoleSlug } from "@/types/auth";
 
 /**
- * Full fleet-management menu. Only "Onboarding → Driver" is enabled;
- * every other entry renders realistically but stays disabled.
+ * The fleet management menu.
+ *
+ * Which entries actually go anywhere depends on the portal: an admin governs the
+ * onboarding modules, a driver only ever sees their own form. Everything else
+ * renders realistically but stays disabled until its feature work lands.
  */
-export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard },
-  {
-    label: "Bookings",
-    icon: CalendarDays,
-    children: [
-      { label: "All Bookings" },
-      { label: "Create Booking" },
-      { label: "Calendar" },
-    ],
-  },
-  {
-    label: "Operations",
-    icon: Truck,
-    children: [{ label: "Live Map" }, { label: "Routes" }, { label: "Jobs" }],
-  },
-  {
-    label: "Dispatch",
-    icon: Send,
-    children: [{ label: "Assign" }, { label: "Queue" }],
-  },
-  {
-    label: "Accounts",
-    icon: Wallet,
-    children: [{ label: "Invoices" }, { label: "Payments" }, { label: "Payroll" }],
-  },
-  {
-    label: "Management",
-    icon: Users2,
-    children: [{ label: "Teams" }, { label: "Roles" }, { label: "Assets" }],
-  },
-  {
-    label: "Reports",
-    icon: BarChart3,
-    children: [{ label: "Overview" }, { label: "Compliance" }, { label: "Exports" }],
-  },
-  {
-    label: "Onboarding",
-    icon: UserPlus,
-    children: [
-      { label: "Vehicle" },
-      { label: "Customer" },
-      { label: "User" },
-      { label: "Supplier" },
-      { label: "Driver", enabled: true, href: "driver" },
-    ],
-  },
-];
+
+/** The five records the Onboarding menu covers. Only Driver is built. */
+export const ONBOARDING_MODULES = [
+  { slug: "vehicle", label: "Vehicle", ready: false },
+  { slug: "customer", label: "Customer", ready: false },
+  { slug: "user", label: "User", ready: false },
+  { slug: "supplier", label: "Supplier", ready: false },
+  { slug: "driver", label: "Driver", ready: true },
+] as const;
+
+export type OnboardingModuleSlug = (typeof ONBOARDING_MODULES)[number]["slug"];
+
+export function isOnboardingModule(value: string): value is OnboardingModuleSlug {
+  return ONBOARDING_MODULES.some((module) => module.slug === value);
+}
+
+export function onboardingModule(slug: string) {
+  return ONBOARDING_MODULES.find((module) => module.slug === slug);
+}
+
+/** Menu for the Admin portal: every module is reachable, built or not. */
+function adminNav(): NavItem[] {
+  return [
+    { label: "Dashboard", icon: LayoutDashboard, enabled: true, href: "/admin" },
+    {
+      label: "Bookings",
+      icon: CalendarDays,
+      children: [{ label: "All Bookings" }, { label: "Create Booking" }, { label: "Calendar" }],
+    },
+    {
+      label: "Operations",
+      icon: Truck,
+      children: [{ label: "Live Map" }, { label: "Routes" }, { label: "Jobs" }],
+    },
+    {
+      label: "Dispatch",
+      icon: Send,
+      children: [{ label: "Assign" }, { label: "Queue" }],
+    },
+    {
+      label: "Accounts",
+      icon: Wallet,
+      children: [{ label: "Invoices" }, { label: "Payments" }, { label: "Payroll" }],
+    },
+    {
+      label: "Management",
+      icon: Users2,
+      children: [{ label: "Teams" }, { label: "Roles" }, { label: "Assets" }],
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      children: [{ label: "Overview" }, { label: "Compliance" }, { label: "Exports" }],
+    },
+    {
+      label: "Onboarding",
+      icon: UserPlus,
+      // Every module opens: the ones without a table yet say so on the page,
+      // which is more useful than a menu item that cannot be clicked.
+      children: ONBOARDING_MODULES.map((module) => ({
+        label: module.label,
+        enabled: true,
+        href: `/admin/onboarding/${module.slug}`,
+      })),
+    },
+  ];
+}
+
+/** Menu for the Driver portal: their own form and nothing else. */
+function driverNav(): NavItem[] {
+  return [
+    { label: "Dashboard", icon: LayoutDashboard },
+    {
+      label: "Bookings",
+      icon: CalendarDays,
+      children: [{ label: "All Bookings" }, { label: "Create Booking" }, { label: "Calendar" }],
+    },
+    {
+      label: "Operations",
+      icon: Truck,
+      children: [{ label: "Live Map" }, { label: "Routes" }, { label: "Jobs" }],
+    },
+    {
+      label: "Dispatch",
+      icon: Send,
+      children: [{ label: "Assign" }, { label: "Queue" }],
+    },
+    {
+      label: "Accounts",
+      icon: Wallet,
+      children: [{ label: "Invoices" }, { label: "Payments" }, { label: "Payroll" }],
+    },
+    {
+      label: "Management",
+      icon: Users2,
+      children: [{ label: "Teams" }, { label: "Roles" }, { label: "Assets" }],
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      children: [{ label: "Overview" }, { label: "Compliance" }, { label: "Exports" }],
+    },
+    {
+      label: "Onboarding",
+      icon: UserPlus,
+      children: [
+        { label: "Vehicle" },
+        { label: "Customer" },
+        { label: "User" },
+        { label: "Supplier" },
+        { label: "Driver", enabled: true, href: "/driver/onboarding" },
+      ],
+    },
+  ];
+}
+
+export function navItemsFor(role: RoleSlug | null): NavItem[] {
+  return role === "admin" ? adminNav() : driverNav();
+}
+
+/** Kept for the shell's own default, which renders before a role is known. */
+export const NAV_ITEMS: NavItem[] = driverNav();
 
 export const NAV_FOOTER: NavItem[] = [
   { label: "Settings", icon: Settings, footer: true },

@@ -4,10 +4,18 @@ import { TextField, DateField, SelectField } from "./Fields";
 import { AvatarUpload } from "@/components/driver/AvatarUpload";
 import { COUNTRIES } from "@/constants/options";
 import { rules } from "@/utils/validation";
+import { useAuth } from "@/context/AuthContext";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 export function PersonalInfoSection() {
+  const { user } = useAuth();
+
+  // The email is what identifies this driver's account, so it is shown as read
+  // only and can never be edited from here. Without a session (the development
+  // auth bypass) there is no account email to lock to, so the field stays open.
+  const emailLocked = Boolean(user?.email);
+
   return (
     <SectionCard
       index={1}
@@ -64,6 +72,12 @@ export function PersonalInfoSection() {
           type="email"
           placeholder="sanket.r.salve@gmail.com"
           required
+          readOnly={emailLocked}
+          hint={
+            emailLocked
+              ? "Taken from your account and used to identify you. It cannot be changed here."
+              : undefined
+          }
           rules={rules.email}
           className="sm:col-span-2"
         />

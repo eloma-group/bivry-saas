@@ -1,9 +1,18 @@
-/** A single uploaded / captured file stored as a preview-able data URL. */
+/**
+ * A file in the form.
+ *
+ * Freshly picked or captured files carry their bytes as a preview-able data URL.
+ * Files that are already stored on the server come back with a `documentId` and
+ * an empty `dataUrl` instead: their bytes stay on the server and are only
+ * fetched when someone asks to view them.
+ */
 export interface UploadedFile {
   name: string;
   size: number;
   type: string;
   dataUrl: string;
+  /** Set once the file lives in the driver's document store. */
+  documentId?: string;
 }
 
 export type LicenceType =

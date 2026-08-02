@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Navbar } from "./navbar/Navbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { navItemsFor } from "@/constants/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -11,11 +14,33 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [active, setActive] = useState("driver");
+  const routerNavigate = useNavigate();
+  const { pathname } = useLocation();
+  const { role } = useAuth();
+
+  // Each portal governs different things, so the menu is built per role.
+  const items = useMemo(() => navItemsFor(role), [role]);
+
+  /**
+   * Highlight follows the route rather than the last thing clicked, so a page
+   * reached any other way still lights up its menu entry. The longest matching
+   * href wins, which keeps `/admin/onboarding/driver` from also lighting up
+   * `/admin`.
+   */
+  const activeHref = useMemo(() => {
+    const candidates = items.flatMap((item) => [
+      ...(item.href ? [item.href] : []),
+      ...(item.children ?? []).flatMap((child) => (child.href ? [child.href] : [])),
+    ]);
+
+    return candidates
+      .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+      .sort((a, b) => b.length - a.length)[0] ?? "";
+  }, [items, pathname]);
 
   const navigate = (href: string) => {
-    setActive(href);
     setDrawerOpen(false);
+    if (href !== pathname) routerNavigate(href);
   };
 
   return (
@@ -47,7 +72,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 >
                   <X className="h-5 w-5" />
                 </button>
-                <Sidebar activeHref={active} onNavigate={navigate} />
+                <Sidebar items={items} activeHref={activeHref} onNavigate={navigate} />
               </motion.div>
             </>
           )}
@@ -56,8 +81,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main column */}
         <div>
           <Navbar
+            items={items}
             onMenuClick={() => setDrawerOpen(true)}
-            activeHref={active}
+            activeHref={activeHref}
             onNavigate={navigate}
           />
           {/* Fluid full-width: fills the viewport on 1.5K/2K/4K instead of

@@ -31,7 +31,9 @@ async function main(): Promise<void> {
   console.log('\nStorage check');
   console.log('-------------');
   console.log(`driver     : ${storage.storageDriver}`);
-  console.log(`container  : ${env.storage.container}`);
+  console.log(`containers : ${storage.STORAGE_AREAS.map(
+    (area) => `${area} -> ${storage.containerFor(area)}`,
+  ).join(', ')}`);
   console.log(`account    : ${env.storage.accountName || '(from connection string)'}`);
   console.log(`SAS TTL    : ${env.storage.sasTtlMinutes} minutes\n`);
 
@@ -41,15 +43,7 @@ async function main(): Promise<void> {
     console.log('server will refuse to start in production without Blob Storage.\n');
   }
 
-  const storageKey = storage.buildStorageKey({
-    role: 'driver',
-    actorId: '00000000-0000-0000-0000-000000000000',
-    docType: 'ADDITIONAL',
-    originalName: 'bivry-storage-check.txt',
-  });
-  const payload = `bivry storage check ${new Date().toISOString()}`;
-
-  // 1. Reach the container.
+  // 1. Reach every container.
   try {
     const ok = await storage.verifyStorage();
     if (!ok) throw new Error('verifyStorage() returned false, see the error above');
@@ -59,6 +53,25 @@ async function main(): Promise<void> {
     return report();
   }
 
+  // 2-5. Round trip a file through each container in turn.
+  for (const area of storage.STORAGE_AREAS) {
+    await checkArea(area);
+  }
+
+  report();
+}
+
+/** Upload, read back, sign and delete one test file in one container. */
+async function checkArea(area: storage.StorageArea): Promise<void> {
+  const label = `[${area} -> ${storage.containerFor(area)}]`;
+  const storageKey = storage.buildStorageKey({
+    role: area,
+    actorId: '00000000-0000-0000-0000-000000000000',
+    docType: 'ADDITIONAL',
+    originalName: 'bivry-storage-check.txt',
+  });
+  const payload = `bivry storage check ${area} ${new Date().toISOString()}`;
+
   // 2. Upload.
   let uploaded = false;
   try {
@@ -67,17 +80,18 @@ async function main(): Promise<void> {
       buffer: Buffer.from(payload, 'utf8'),
       mimeType: 'text/plain',
       fileName: 'bivry-storage-check.txt',
+      area,
     });
     uploaded = true;
-    pass('upload a file', saved.storageUrl ?? '(local disk)');
+    pass(`${label} upload a file`, saved.storageUrl ?? '(local disk)');
   } catch (error) {
-    fail('upload a file', error);
-    return report();
+    fail(`${label} upload a file`, error);
+    return;
   }
 
   // 3. Read it back and confirm the bytes survived.
   try {
-    const file = await storage.openFile(storageKey, 'text/plain');
+    const file = await storage.openFile(storageKey, 'text/plain', area);
     const chunks: Buffer[] = [];
     for await (const chunk of file.stream) chunks.push(Buffer.from(chunk));
     const roundTripped = Buffer.concat(chunks).toString('utf8');
@@ -85,9 +99,9 @@ async function main(): Promise<void> {
     if (roundTripped !== payload) {
       throw new Error(`content changed in transit: got "${roundTripped}"`);
     }
-    pass('read it back', `${file.contentLength ?? '?'} bytes, ${file.contentType}`);
+    pass(`${label} read it back`, `${file.contentLength ?? '?'} bytes, ${file.contentType}`);
   } catch (error) {
-    fail('read it back', error);
+    fail(`${label} read it back`, error);
   }
 
   // 4. Signed URL. This is what the browser gets, so it matters that the
@@ -97,6 +111,7 @@ async function main(): Promise<void> {
       storageKey,
       fileName: 'bivry-storage-check.txt',
       fallbackPath: '/api/driver/documents/test/file',
+      area,
     });
 
     if (storage.storageDriver === 'blob') {
@@ -106,7 +121,7 @@ async function main(): Promise<void> {
             'previews will fall back to streaming through the API.',
         );
       }
-      pass('sign a preview URL', `expires ${link.expiresAt?.toISOString()}`);
+      pass(`${label} sign a preview URL`, `expires ${link.expiresAt?.toISOString()}`);
 
       // A signed URL is only useful if it really opens without any auth header.
       const response = await fetch(link.url);
@@ -115,36 +130,34 @@ async function main(): Promise<void> {
       }
       const body = await response.text();
       if (body !== payload) throw new Error('signed URL served different content');
-      pass('open the signed URL anonymously');
+      pass(`${label} open the signed URL anonymously`);
     } else {
-      pass('sign a preview URL', '(local driver falls back to the API route)');
+      pass(`${label} sign a preview URL`, '(local driver falls back to the API route)');
     }
   } catch (error) {
-    fail('sign a preview URL', error);
+    fail(`${label} sign a preview URL`, error);
   }
 
   // 5. Delete, and confirm it is really gone.
   try {
-    await storage.deleteFile(storageKey);
+    await storage.deleteFile(storageKey, area);
     let stillThere = false;
     try {
-      await storage.openFile(storageKey, 'text/plain');
+      await storage.openFile(storageKey, 'text/plain', area);
       stillThere = true;
     } catch {
       // Expected: the file should no longer be readable.
     }
     if (stillThere) throw new Error('the file is still readable after deletion');
     uploaded = false;
-    pass('delete it');
+    pass(`${label} delete it`);
   } catch (error) {
-    fail('delete it', error);
+    fail(`${label} delete it`, error);
   }
 
   if (uploaded) {
     console.log(`\nNote: test blob may be left behind at ${storageKey}`);
   }
-
-  report();
 }
 
 function report(): void {

@@ -5,7 +5,7 @@ import { TextField, DateField, SelectField } from "./Fields";
 import { FormUpload } from "@/components/driver/upload/FormUpload";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { AU_STATES, LICENCE_TYPES } from "@/constants/options";
-import { rules } from "@/utils/validation";
+import { ACCEPT_IMAGE, rules } from "@/utils/validation";
 import type { DriverFormValues } from "@/types/driver";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -73,7 +73,7 @@ export function LicenceSection() {
           <FormUpload
             name="licenceFront"
             label="Upload front"
-            accept="image/*"
+            accept={ACCEPT_IMAGE}
             allowCamera
             cameraTitle="Capture licence front"
           />
@@ -85,7 +85,7 @@ export function LicenceSection() {
           <FormUpload
             name="licenceBack"
             label="Upload back"
-            accept="image/*"
+            accept={ACCEPT_IMAGE}
             allowCamera
             cameraTitle="Capture licence back"
           />

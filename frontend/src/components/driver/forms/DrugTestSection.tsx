@@ -3,6 +3,7 @@ import { useFormContext, useWatch } from "react-hook-form";
 import { SectionCard } from "./SectionCard";
 import { DateField } from "./Fields";
 import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { ACCEPT_DOCUMENT } from "@/utils/validation";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import type { DriverFormValues } from "@/types/driver";
 
@@ -21,7 +22,7 @@ export function DrugTestSection() {
         <FormUpload
           name="drugTestFile"
           label="Upload test report"
-          accept="image/*,application/pdf"
+          accept={ACCEPT_DOCUMENT}
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <DateField name="drugTestIssue" label="Issue Date" />

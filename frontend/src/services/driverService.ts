@@ -25,6 +25,17 @@ export type OnboardingStatus =
   | "APPROVED"
   | "REJECTED";
 
+/** Where a single onboarding section stands with the compliance team. */
+export type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED" | "EXPIRED";
+
+/** Licence classes as the database stores them. */
+export type ApiLicenceType =
+  | "CAR"
+  | "HEAVY_RIGID"
+  | "HEAVY_COMBINATION"
+  | "MULTI_COMBINATION"
+  | "MOTORCYCLE";
+
 export interface DriverDocument {
   id: string;
   docType: DriverDocumentType;
@@ -54,6 +65,43 @@ export interface DriverAddressPayload {
   postCode: string | null;
 }
 
+/** Personal details. The email is absent on purpose: it identifies the account. */
+export interface PersonalPayload {
+  firstName: string;
+  middleName: string | null;
+  lastName: string | null;
+  dateOfBirth: string | null;
+  nationality: string | null;
+  phone: string | null;
+}
+
+export interface LicencePayload {
+  licenceNumber: string | null;
+  licenceCardNumber: string | null;
+  licenceType: ApiLicenceType | null;
+  issuingState: string | null;
+  expiryDate: string | null;
+}
+
+/** Driving history, police check and medical all carry an issue + expiry date. */
+export interface IssueExpiryPayload {
+  issueDate: string | null;
+  expiryDate: string | null;
+}
+
+export interface DrugTestPayload {
+  issueDate: string | null;
+}
+
+export interface VisaPayload {
+  visaStatus: string | null;
+  visaType: string | null;
+  expiryDate: string | null;
+}
+
+/** A stored section also reports where its review stands. */
+type Reviewed<T> = T & { verificationStatus: VerificationStatus };
+
 export interface DriverOnboardingData {
   id: string;
   email: string;
@@ -64,16 +112,20 @@ export interface DriverOnboardingData {
   dateOfBirth: string | null;
   nationality: string | null;
   avatarUrl: string | null;
+  status: "PENDING" | "ACTIVE" | "SUSPENDED" | "DEACTIVATED";
   onboardingStatus: OnboardingStatus;
   onboardingStep: number;
   submittedAt: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
   addresses: Array<DriverAddressPayload & { id: string; type: "CURRENT" | "PERMANENT" }>;
-  licence: Record<string, unknown> | null;
-  drivingHistory: Record<string, unknown> | null;
-  policeVerification: Record<string, unknown> | null;
-  visa: Record<string, unknown> | null;
-  medical: Record<string, unknown> | null;
-  drugTest: Record<string, unknown> | null;
+  licence: Reviewed<LicencePayload> | null;
+  drivingHistory: Reviewed<IssueExpiryPayload> | null;
+  policeVerification: Reviewed<IssueExpiryPayload> | null;
+  visa: Reviewed<VisaPayload> | null;
+  medical: Reviewed<IssueExpiryPayload> | null;
+  drugTest: Reviewed<DrugTestPayload> | null;
   documents: DriverDocument[];
 }
 
@@ -82,7 +134,7 @@ export const driverService = {
     return request<DriverOnboardingData>({ url: "/driver/onboarding", method: "GET" });
   },
 
-  savePersonal(values: Record<string, unknown>) {
+  savePersonal(values: PersonalPayload) {
     return request({ url: "/driver/onboarding/personal", method: "PUT", data: values });
   },
 
@@ -94,27 +146,27 @@ export const driverService = {
     return request({ url: "/driver/onboarding/address", method: "PUT", data: values });
   },
 
-  saveLicence(values: Record<string, unknown>) {
+  saveLicence(values: LicencePayload) {
     return request({ url: "/driver/onboarding/licence", method: "PUT", data: values });
   },
 
-  saveDrivingHistory(values: Record<string, unknown>) {
+  saveDrivingHistory(values: IssueExpiryPayload) {
     return request({ url: "/driver/onboarding/driving-history", method: "PUT", data: values });
   },
 
-  savePoliceVerification(values: Record<string, unknown>) {
+  savePoliceVerification(values: IssueExpiryPayload) {
     return request({ url: "/driver/onboarding/police-verification", method: "PUT", data: values });
   },
 
-  saveVisa(values: Record<string, unknown>) {
+  saveVisa(values: VisaPayload) {
     return request({ url: "/driver/onboarding/visa", method: "PUT", data: values });
   },
 
-  saveMedical(values: Record<string, unknown>) {
+  saveMedical(values: IssueExpiryPayload) {
     return request({ url: "/driver/onboarding/medical", method: "PUT", data: values });
   },
 
-  saveDrugTest(values: Record<string, unknown>) {
+  saveDrugTest(values: DrugTestPayload) {
     return request({ url: "/driver/onboarding/drug-test", method: "PUT", data: values });
   },
 

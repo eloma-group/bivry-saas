@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell,
   MessageSquare,
   HelpCircle,
+  KeyRound,
   Menu,
   ChevronDown,
   User,
   LogOut,
   Loader2,
 } from "lucide-react";
+import type { NavItem } from "@/types/nav";
 import { Logo } from "@/components/layout/Logo";
 import { NavMenu } from "./NavMenu";
+import { NotificationBell } from "./NotificationBell";
 import {
   Popover,
   PopoverContent,
@@ -23,14 +25,20 @@ import { avatarTintOf, initialsOf, roleLabelOf } from "@/utils/user";
 import { cn } from "@/lib/utils";
 
 interface NavbarProps {
+  items: NavItem[];
   onMenuClick: () => void;
   activeHref: string;
   onNavigate: (href: string) => void;
 }
 
+/**
+ * The account menu. `target: "profile"` resolves to the portal's own profile
+ * page at render time; the rest are still waiting on their feature work.
+ */
 const MENU_ITEMS = [
-  { icon: User, label: "Profile" },
-  { icon: Bell, label: "Notifications", dot: true },
+  { icon: User, label: "Profile", target: "profile" as const },
+  { icon: KeyRound, label: "Change password", target: "password" as const },
+  // Notifications live in their own bell in the header, next to this menu.
   { icon: MessageSquare, label: "Messages" },
   { icon: HelpCircle, label: "Help" },
 ];
@@ -59,7 +67,7 @@ function Avatar({
   );
 }
 
-export function Navbar({ onMenuClick, activeHref, onNavigate }: NavbarProps) {
+export function Navbar({ items, onMenuClick, activeHref, onNavigate }: NavbarProps) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const { user, role, logout } = useAuth();
@@ -71,6 +79,11 @@ export function Navbar({ onMenuClick, activeHref, onNavigate }: NavbarProps) {
   const roleLabel = roleLabelOf(user, role);
   const initials = user ? initialsOf(user) : "?";
   const tint = user ? avatarTintOf(user) : "bg-slate-400";
+  // Only the portals that have a profile page get a working Profile entry, and
+  // only once the account it belongs to is known: its id is part of the path.
+  const profilePath = role && user ? getPortal(role).profilePath?.(user.id) : undefined;
+  // Every portal can change its own password.
+  const changePasswordPath = role ? getPortal(role).changePasswordPath : undefined;
 
   async function handleLogout() {
     if (signingOut) return;
@@ -103,12 +116,15 @@ export function Navbar({ onMenuClick, activeHref, onNavigate }: NavbarProps) {
       </div>
 
       <NavMenu
+        items={items}
         activeHref={activeHref}
         onNavigate={onNavigate}
         className="hidden flex-1 justify-center lg:flex"
       />
 
-      <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3 lg:ml-0">
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2 lg:ml-0">
+        <NotificationBell role={role} />
+
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -149,19 +165,29 @@ export function Navbar({ onMenuClick, activeHref, onNavigate }: NavbarProps) {
             <div className="my-1 h-px bg-border/70" />
 
             <ul className="space-y-0.5">
-              {MENU_ITEMS.map(({ icon: Icon, label, dot }) => (
-                <li key={label}>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-secondary hover:text-foreground"
-                  >
-                    <Icon className="h-[1.125rem] w-[1.125rem] shrink-0 text-slate-400" />
-                    <span className="flex-1 text-left">{label}</span>
-                    {dot && <span className="h-2 w-2 rounded-full bg-red-500" />}
-                  </button>
-                </li>
-              ))}
+              {MENU_ITEMS.map(({ icon: Icon, label, target }) => {
+                const path =
+                  target === "profile"
+                    ? profilePath
+                    : target === "password"
+                      ? changePasswordPath
+                      : undefined;
+                return (
+                  <li key={label}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        if (path) navigate(path);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      <Icon className="h-[1.125rem] w-[1.125rem] shrink-0 text-slate-400" />
+                      <span className="flex-1 text-left">{label}</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="my-1 h-px bg-border/70" />

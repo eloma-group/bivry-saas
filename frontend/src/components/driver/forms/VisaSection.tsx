@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "./SectionCard";
 import { DateField, SelectField } from "./Fields";
 import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { ACCEPT_DOCUMENT } from "@/utils/validation";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { COUNTRIES, VISA_STATUSES, VISA_TYPES } from "@/constants/options";
 import type { DriverFormValues } from "@/types/driver";
@@ -67,7 +68,7 @@ export function VisaSection() {
               <FormUpload
                 name="visaFile"
                 label="Upload visa document"
-                accept="image/*,application/pdf"
+                accept={ACCEPT_DOCUMENT}
               />
               <div className="flex items-center">
                 <ExpiryBadge expiry={visaExpiry} />

@@ -52,23 +52,17 @@ export function SuccessDialog({ open, onOpenChange, name }: SuccessDialogProps) 
           </motion.div>
 
           <div>
-            <DialogTitle className="text-xl">Driver onboarded</DialogTitle>
+            <DialogTitle className="text-xl">Application submitted</DialogTitle>
             <DialogDescription className="mt-1.5">
               {name || "The driver"} has been submitted successfully and is now
-              pending review by your compliance team.
+              pending review by the compliance team. You can keep editing these
+              details while the review is in progress.
             </DialogDescription>
           </div>
 
-          <div className="mt-2 flex w-full gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              Add another
-            </Button>
+          <div className="mt-2 flex w-full">
             <Button className="flex-1" onClick={() => onOpenChange(false)}>
-              View driver
+              View my profile
             </Button>
           </div>
         </div>

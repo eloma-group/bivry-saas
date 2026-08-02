@@ -7,10 +7,33 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
+import { ChangePasswordPage } from "@/pages/auth/ChangePasswordPage";
 import { PortalPickerPage } from "@/pages/PortalPickerPage";
+import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
+import { AdminOnboardingPage } from "@/pages/admin/AdminOnboardingPage";
+import { AdminProfilePage } from "@/pages/admin/AdminProfilePage";
 import { PlaceholderDashboardPage } from "@/pages/PlaceholderDashboardPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { DriverOnboardingPage } from "@/pages/DriverOnboardingPage";
+import { DriverProfilePage } from "@/pages/DriverProfilePage";
+import { useAuth } from "@/context/AuthContext";
+
+/**
+ * Where a driver lands when they open the portal. Somebody still filling the
+ * form in goes back to it; once it has been handed in, their profile is the
+ * more useful place to be.
+ */
+function DriverHome() {
+  const { user } = useAuth();
+  const status = typeof user?.onboardingStatus === "string" ? user.onboardingStatus : "";
+  const stillFilling = status === "" || status === "NOT_STARTED" || status === "IN_PROGRESS";
+
+  // The profile lives at the driver's own id, so there is nowhere to send
+  // someone who is not signed in (the development auth bypass).
+  if (stillFilling || !user) return <Navigate to="onboarding" replace />;
+
+  return <Navigate to={user.id} replace />;
+}
 
 /**
  * Route map.
@@ -52,16 +75,37 @@ export function AppRoutes() {
         ))}
       </Route>
 
+      {/* Changing your own password needs a session, so it sits behind the guard
+          for its own portal rather than with the public auth pages. */}
+      {PORTAL_LIST.map((portal) => (
+        <Route
+          key={`${portal.slug}-password`}
+          path={portal.slug}
+          element={<ProtectedRoute role={portal.slug} />}
+        >
+          <Route path="change-password" element={<ChangePasswordPage role={portal.slug} />} />
+        </Route>
+      ))}
+
       {/* Driver portal - the module currently in active development. */}
       <Route path="/driver" element={<ProtectedRoute role="driver" />}>
-        <Route index element={<Navigate to="onboarding" replace />} />
+        <Route index element={<DriverHome />} />
         <Route path="onboarding" element={<DriverOnboardingPage />} />
+        {/* The driver's own profile, addressed by their id. Static siblings such
+            as `onboarding` rank above this, so they still win. */}
+        <Route path=":driverId" element={<DriverProfilePage />} />
+      </Route>
+
+      {/* Admin portal: the dashboard and the onboarding modules it governs. */}
+      <Route path="/admin" element={<ProtectedRoute role="admin" />}>
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="profile" element={<AdminProfilePage />} />
+        <Route path="onboarding" element={<Navigate to="driver" replace />} />
+        <Route path="onboarding/:module" element={<AdminOnboardingPage />} />
+        <Route path="onboarding/:module/:driverId" element={<AdminOnboardingPage />} />
       </Route>
 
       {/* Remaining portals, authenticated and waiting on their feature work. */}
-      <Route path="/admin" element={<ProtectedRoute role="admin" />}>
-        <Route index element={<PlaceholderDashboardPage role="admin" />} />
-      </Route>
       <Route path="/customer" element={<ProtectedRoute role="customer" />}>
         <Route index element={<PlaceholderDashboardPage role="customer" />} />
       </Route>

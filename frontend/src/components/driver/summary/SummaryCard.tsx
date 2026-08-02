@@ -12,25 +12,37 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
+import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import { daysUntil, expiryLevel } from "@/utils/date";
 import type { DriverFormValues, UploadedFile } from "@/types/driver";
 
 interface SummaryCardProps {
   percent: number;
   submitting: boolean;
+  /** "Submit Application" first time round, "Save Changes" when editing. */
+  submitLabel?: string;
 }
 
 interface StatusRow {
   label: string;
+  /** Given one, the badge counts the validity window from here. */
+  issue?: string | null;
   expiry?: string | null;
   staticValid?: boolean;
 }
 
-export function SummaryCard({ percent, submitting }: SummaryCardProps) {
+export function SummaryCard({
+  percent,
+  submitting,
+  submitLabel = "Submit Driver",
+}: SummaryCardProps) {
   const { control } = useFormContext<DriverFormValues>();
   const v = useWatch({ control }) as DriverFormValues;
 
   const photo = v?.profilePhoto as UploadedFile | null;
+  // A photo saved on an earlier visit has no local bytes to draw from.
+  const storedPhotoUrl = useDocumentUrl(photo?.dataUrl ? null : photo?.documentId);
+  const photoUrl = photo ? photo.dataUrl || storedPhotoUrl : null;
   const name =
     [v?.firstName, v?.lastName].filter(Boolean).join(" ") || "New Driver";
 
@@ -46,8 +58,8 @@ export function SummaryCard({ percent, submitting }: SummaryCardProps) {
 
   const statuses: StatusRow[] = [
     { label: "Licence", expiry: v?.licenceExpiry },
-    { label: "Medical", expiry: v?.medicalExpiry },
-    { label: "Police Check", expiry: v?.policeExpiry },
+    { label: "Medical", issue: v?.medicalIssue, expiry: v?.medicalExpiry },
+    { label: "Police Check", issue: v?.policeIssue, expiry: v?.policeExpiry },
     {
       label: "Visa",
       expiry: v?.nationality === "Australia" ? null : v?.visaExpiry,
@@ -73,9 +85,9 @@ export function SummaryCard({ percent, submitting }: SummaryCardProps) {
         <div className="bg-brand-navy p-6 text-white">
           <div className="flex items-center gap-4">
             <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/20">
-              {photo ? (
+              {photoUrl ? (
                 <img
-                  src={photo.dataUrl}
+                  src={photoUrl}
                   alt={name}
                   className="h-full w-full object-cover"
                 />
@@ -139,7 +151,11 @@ export function SummaryCard({ percent, submitting }: SummaryCardProps) {
                 className="flex items-center justify-between gap-2"
               >
                 <span className="text-sm text-muted-foreground">{s.label}</span>
-                <ExpiryBadge expiry={s.expiry} staticValid={s.staticValid} />
+                <ExpiryBadge
+                  issue={s.issue}
+                  expiry={s.expiry}
+                  staticValid={s.staticValid}
+                />
               </div>
             ))}
           </div>
@@ -164,11 +180,11 @@ export function SummaryCard({ percent, submitting }: SummaryCardProps) {
           >
             {submitting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Submitting…
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving…
               </>
             ) : (
               <>
-                Submit Driver <ArrowRight className="h-4 w-4" />
+                {submitLabel} <ArrowRight className="h-4 w-4" />
               </>
             )}
           </Button>

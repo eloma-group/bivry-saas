@@ -29,6 +29,23 @@ import { logger } from '../utils/logger';
  * Nothing outside this file knows which driver is active.
  */
 
+/**
+ * Which container a file belongs in. Driver documents and an admin's own files
+ * are kept apart, so each can be governed on its own terms.
+ */
+export type StorageArea = 'driver' | 'admin';
+
+const CONTAINERS: Record<StorageArea, string> = {
+  driver: env.storage.driverContainer,
+  admin: env.storage.adminContainer,
+};
+
+export const STORAGE_AREAS = Object.keys(CONTAINERS) as StorageArea[];
+
+export function containerFor(area: StorageArea): string {
+  return CONTAINERS[area];
+}
+
 export interface StoredFile {
   /** Path inside the container. This is what goes in `driver_documents.storage_key`. */
   storageKey: string;
@@ -99,7 +116,8 @@ function assertSafeKey(storageKey: string): void {
 // Azure Blob Storage driver
 // ---------------------------------------------------------------------------
 
-let containerPromise: Promise<ContainerClient> | null = null;
+/** One cached client per container, created on first use. */
+const containerPromises = new Map<string, Promise<ContainerClient>>();
 
 function createBlobServiceClient(): BlobServiceClient {
   if (env.storage.connectionString) {
@@ -116,21 +134,26 @@ function createBlobServiceClient(): BlobServiceClient {
 }
 
 /** Container client, created on first use and reused for the process lifetime. */
-function getContainer(): Promise<ContainerClient> {
-  containerPromise ??= (async () => {
-    const container = createBlobServiceClient().getContainerClient(env.storage.container);
+function getContainer(area: StorageArea): Promise<ContainerClient> {
+  const name = containerFor(area);
+  const existing = containerPromises.get(name);
+  if (existing) return existing;
+
+  const created = (async () => {
+    const container = createBlobServiceClient().getContainerClient(name);
     // No `access` option: the container stays private. Files are only reachable
     // through the API or a signed URL.
     await container.createIfNotExists();
-    logger.info(`Blob container ready: ${env.storage.container}`);
+    logger.info(`Blob container ready: ${name}`);
     return container;
   })().catch((error) => {
     // Do not cache a failed connection, the next request should retry.
-    containerPromise = null;
+    containerPromises.delete(name);
     throw error;
   });
 
-  return containerPromise;
+  containerPromises.set(name, created);
+  return created;
 }
 
 /** Shared key credential used to sign SAS URLs, or null when it cannot be derived. */
@@ -161,10 +184,16 @@ const localRoot = path.isAbsolute(env.upload.localDir)
   ? env.upload.localDir
   : path.resolve(__dirname, '../../', env.upload.localDir);
 
-function localPath(storageKey: string): string {
+/** The local fallback mirrors the container layout, one folder per area. */
+function localAreaRoot(area: StorageArea): string {
+  return path.resolve(localRoot, containerFor(area));
+}
+
+function localPath(area: StorageArea, storageKey: string): string {
   assertSafeKey(storageKey);
-  const absolute = path.resolve(localRoot, storageKey);
-  if (!absolute.startsWith(path.resolve(localRoot))) {
+  const root = localAreaRoot(area);
+  const absolute = path.resolve(root, storageKey);
+  if (!absolute.startsWith(root)) {
     throw ApiError.badRequest('Invalid document path');
   }
   return absolute;
@@ -181,17 +210,20 @@ export async function saveFile(input: {
   buffer: Buffer;
   mimeType: string;
   fileName: string;
+  /** Which container to write to. Defaults to the driver document store. */
+  area?: StorageArea;
 }): Promise<StoredFile> {
   assertSafeKey(input.storageKey);
+  const area = input.area ?? 'driver';
 
   if (storageDriver === 'local') {
-    const absolute = localPath(input.storageKey);
+    const absolute = localPath(area, input.storageKey);
     await fs.mkdir(path.dirname(absolute), { recursive: true });
     await fs.writeFile(absolute, input.buffer);
     return { storageKey: input.storageKey, storageUrl: null };
   }
 
-  const container = await getContainer();
+  const container = await getContainer(area);
   const blob = container.getBlockBlobClient(input.storageKey);
 
   await blob.uploadData(input.buffer, {
@@ -209,24 +241,31 @@ export async function saveFile(input: {
   return { storageKey: input.storageKey, storageUrl: blob.url };
 }
 
-export async function deleteFile(storageKey: string): Promise<void> {
+export async function deleteFile(
+  storageKey: string,
+  area: StorageArea = 'driver',
+): Promise<void> {
   assertSafeKey(storageKey);
 
   if (storageDriver === 'local') {
-    await fs.unlink(localPath(storageKey));
+    await fs.unlink(localPath(area, storageKey));
     return;
   }
 
-  const container = await getContainer();
+  const container = await getContainer(area);
   await container.getBlockBlobClient(storageKey).deleteIfExists();
 }
 
 /** Streams a file back through the API. Used for authenticated downloads. */
-export async function openFile(storageKey: string, mimeType: string): Promise<FileStream> {
+export async function openFile(
+  storageKey: string,
+  mimeType: string,
+  area: StorageArea = 'driver',
+): Promise<FileStream> {
   assertSafeKey(storageKey);
 
   if (storageDriver === 'local') {
-    const absolute = localPath(storageKey);
+    const absolute = localPath(area, storageKey);
     if (!fsSync.existsSync(absolute)) {
       throw ApiError.notFound('The stored file is missing');
     }
@@ -234,7 +273,7 @@ export async function openFile(storageKey: string, mimeType: string): Promise<Fi
     return { stream: fsSync.createReadStream(absolute), contentType: mimeType, contentLength: size };
   }
 
-  const container = await getContainer();
+  const container = await getContainer(area);
   const blob = container.getBlockBlobClient(storageKey);
 
   if (!(await blob.exists())) {
@@ -263,8 +302,10 @@ export async function createSignedLink(input: {
   fileName: string;
   /** API path used as the fallback when signing is not available. */
   fallbackPath: string;
+  area?: StorageArea;
 }): Promise<SignedLink> {
   assertSafeKey(input.storageKey);
+  const area = input.area ?? 'driver';
 
   if (storageDriver === 'local') {
     return { url: input.fallbackPath, expiresAt: null };
@@ -276,12 +317,12 @@ export async function createSignedLink(input: {
     return { url: input.fallbackPath, expiresAt: null };
   }
 
-  const container = await getContainer();
+  const container = await getContainer(area);
   const expiresOn = new Date(Date.now() + env.storage.sasTtlMinutes * 60 * 1000);
 
   const sas = generateBlobSASQueryParameters(
     {
-      containerName: env.storage.container,
+      containerName: containerFor(area),
       blobName: input.storageKey,
       permissions: BlobSASPermissions.parse('r'),
       startsOn: new Date(Date.now() - 60 * 1000), // tolerate small clock skew
@@ -298,14 +339,22 @@ export async function createSignedLink(input: {
 /** Called at boot so a bad storage configuration surfaces immediately. */
 export async function verifyStorage(): Promise<boolean> {
   if (storageDriver === 'local') {
-    await fs.mkdir(localRoot, { recursive: true });
+    for (const area of STORAGE_AREAS) {
+      await fs.mkdir(localAreaRoot(area), { recursive: true });
+    }
     logger.warn(`Storage driver: local disk (${localRoot}). Development only.`);
     return true;
   }
 
   try {
-    await getContainer();
-    logger.success(`Storage driver: Azure Blob Storage (${env.storage.container})`);
+    // Every container is opened up front: a missing or misnamed one must fail at
+    // boot, not on the first upload that happens to need it.
+    for (const area of STORAGE_AREAS) {
+      await getContainer(area);
+    }
+    logger.success(
+      `Storage driver: Azure Blob Storage (${STORAGE_AREAS.map(containerFor).join(', ')})`,
+    );
     return true;
   } catch (error) {
     logger.error('Azure Blob Storage is not reachable', error);

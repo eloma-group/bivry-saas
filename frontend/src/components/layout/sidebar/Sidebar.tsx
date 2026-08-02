@@ -8,15 +8,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { NAV_ITEMS, NAV_FOOTER } from "@/constants/navigation";
+import { NAV_FOOTER } from "@/constants/navigation";
+import type { NavItem } from "@/types/nav";
 
 interface SidebarProps {
+  items: NavItem[];
   activeHref: string;
   onNavigate: (href: string) => void;
   className?: string;
 }
 
-export function Sidebar({ activeHref, onNavigate, className }: SidebarProps) {
+export function Sidebar({ items, activeHref, onNavigate, className }: SidebarProps) {
   return (
     <aside
       className={cn(
@@ -29,7 +31,7 @@ export function Sidebar({ activeHref, onNavigate, className }: SidebarProps) {
       </div>
 
       <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-4 pb-4">
-        {NAV_ITEMS.map((item, i) => (
+        {items.map((item, i) => (
           <motion.div
             key={item.label}
             initial={{ opacity: 0, x: -8 }}

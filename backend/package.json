@@ -21,7 +21,8 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "db:sql": "prisma generate && node scripts/export-schema.mjs"
+    "db:sql": "prisma generate && node scripts/export-schema.mjs",
+    "create:admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.33.0",

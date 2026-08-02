@@ -11,10 +11,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { NAV_ITEMS } from "@/constants/navigation";
 import type { NavItem } from "@/types/nav";
 
 interface NavMenuProps {
+  items: NavItem[];
   activeHref: string;
   onNavigate: (href: string) => void;
   className?: string;
@@ -52,17 +52,20 @@ function TopItem({
   );
 
   if (!hasChildren) {
-    const enabled = item.enabled;
+    const enabled = Boolean(item.enabled && item.href);
+    const active = enabled && item.href === activeHref;
     const button = (
       <button
         type="button"
         disabled={!enabled}
-        onClick={() => enabled && onNavigate(item.label)}
+        onClick={() => enabled && item.href && onNavigate(item.href)}
         className={cn(
           "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-          enabled
-            ? "text-slate-600 hover:bg-secondary hover:text-foreground"
-            : "cursor-not-allowed text-slate-400 opacity-70"
+          active
+            ? "bg-primary/[0.07] font-semibold text-primary"
+            : enabled
+              ? "text-slate-600 hover:bg-secondary hover:text-foreground"
+              : "cursor-not-allowed text-slate-400 opacity-70"
         )}
       >
         <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" />
@@ -135,10 +138,10 @@ function TopItem({
 }
 
 /** Horizontal top-navigation menu (replaces the old left sidebar). */
-export function NavMenu({ activeHref, onNavigate, className }: NavMenuProps) {
+export function NavMenu({ items, activeHref, onNavigate, className }: NavMenuProps) {
   return (
     <nav className={cn("flex items-center gap-0.5 xl:gap-2", className)}>
-      {NAV_ITEMS.map((item) => (
+      {items.map((item) => (
         <TopItem
           key={item.label}
           item={item}

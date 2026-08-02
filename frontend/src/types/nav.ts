@@ -11,6 +11,8 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   enabled?: boolean;
+  /** Route this item leads to. Items without one are not clickable. */
+  href?: string;
   children?: NavChild[];
   /** Rendered pinned to the bottom of the sidebar. */
   footer?: boolean;

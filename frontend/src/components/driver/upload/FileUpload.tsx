@@ -4,7 +4,7 @@ import { UploadCloud, Camera, X, FileText, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/driver/camera/CameraCapture";
-import { readAsDataUrl, formatBytes } from "@/utils/validation";
+import { ACCEPT_DOCUMENT, readAsDataUrl, formatBytes } from "@/utils/validation";
 import type { UploadedFile } from "@/types/driver";
 
 interface FileUploadProps {
@@ -27,7 +27,7 @@ export function FileUpload({
   value,
   onChange,
   label = "Upload file",
-  accept = "image/*,application/pdf",
+  accept = ACCEPT_DOCUMENT,
   allowCamera = false,
   cameraTitle = "Capture image",
   className,
@@ -44,7 +44,9 @@ export function FileUpload({
     onChange({ name: file.name, size: file.size, type: file.type, dataUrl });
   };
 
-  const isImage = value?.type.startsWith("image/");
+  // A file that is already stored keeps its bytes on the server, so there is
+  // nothing local to draw a thumbnail from.
+  const thumbnail = value?.type.startsWith("image/") ? value.dataUrl : "";
 
   return (
     <div className={cn("w-full", className)}>
@@ -58,9 +60,9 @@ export function FileUpload({
             className="flex items-center gap-3 rounded-2xl border border-border/70 bg-white p-3"
           >
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-secondary">
-              {isImage ? (
+              {thumbnail ? (
                 <img
-                  src={value.dataUrl}
+                  src={thumbnail}
                   alt={value.name}
                   className="h-full w-full object-cover"
                 />
@@ -77,6 +79,7 @@ export function FileUpload({
               </p>
               <p className="text-xs text-muted-foreground">
                 {formatBytes(value.size)}
+                {value.documentId ? " - already uploaded" : ""}
               </p>
             </div>
             <button

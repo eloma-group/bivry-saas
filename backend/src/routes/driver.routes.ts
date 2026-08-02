@@ -19,6 +19,8 @@ const router = Router();
 // Everything below belongs to the signed in driver and nobody else.
 router.use(authenticate, requireRole('driver'));
 
+router.get('/notifications', driverController.notifications);
+
 router.get('/onboarding', driverController.getOnboarding);
 router.post('/onboarding/progress', validateBody(onboardingStepSchema), driverController.saveProgress);
 router.post('/onboarding/submit', driverController.submit);

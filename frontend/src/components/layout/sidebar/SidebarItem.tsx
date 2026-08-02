@@ -41,17 +41,20 @@ export function SidebarItem({ item, activeHref, onNavigate }: SidebarItemProps) 
   const Icon = item.icon;
 
   if (!hasChildren) {
-    const enabled = item.enabled;
+    const enabled = Boolean(item.enabled && item.href);
+    const active = enabled && item.href === activeHref;
     const button = (
       <button
         type="button"
         disabled={!enabled}
-        onClick={() => enabled && item.enabled && onNavigate(item.label)}
+        onClick={() => enabled && item.href && onNavigate(item.href)}
         className={cn(
           "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-          enabled
-            ? "text-slate-600 hover:bg-secondary hover:text-foreground"
-            : "cursor-not-allowed text-slate-400 opacity-60"
+          active
+            ? "bg-primary/[0.07] font-semibold text-primary"
+            : enabled
+              ? "text-slate-600 hover:bg-secondary hover:text-foreground"
+              : "cursor-not-allowed text-slate-400 opacity-60"
         )}
       >
         <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" />

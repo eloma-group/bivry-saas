@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "./SectionCard";
 import { SelectField } from "./Fields";
 import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { ACCEPT_DOCUMENT } from "@/utils/validation";
 import { Button } from "@/components/ui/button";
 import { ADDITIONAL_DOC_CATEGORIES } from "@/constants/options";
 import type { DriverFormValues } from "@/types/driver";
@@ -45,7 +46,7 @@ export function AdditionalDocsSection() {
                 <FormUpload
                   name={`additionalDocs.${i}.file`}
                   label="Upload document"
-                  accept="image/*,application/pdf"
+                  accept={ACCEPT_DOCUMENT}
                 />
               </div>
               <Button
