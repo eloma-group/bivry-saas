@@ -130,6 +130,8 @@ model Driver {
   drugTest            DriverDrugTest?
   licence             DriverLicence?
   medical             DriverMedical?
+  medicare            DriverMedicare?
+  passport            DriverPassport?
   policeVerification  DriverPoliceVerification?
   visa                DriverVisa?
 
@@ -245,6 +247,8 @@ model DriverDrugTest {
   id                 String             @id @default(uuid()) @db.Uuid
   driverId           String             @unique @map("driver_id") @db.Uuid
   issueDate          DateTime?          @map("issue_date") @db.Date
+  /// Always six months after the issue date - the form fills it in.
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
   verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
   verifiedAt         DateTime?          @map("verified_at")
   verifiedBy         String?            @map("verified_by") @db.Uuid
@@ -256,12 +260,49 @@ model DriverDrugTest {
   @@map("driver_drug_tests")
 }
 
+/// Passport details. Asked of Australian nationals, who carry no visa.
+model DriverPassport {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  passportNumber     String?            @map("passport_number")
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_passports")
+}
+
+/// Medicare card details. Asked of Australian nationals alongside the passport.
+model DriverMedicare {
+  id                 String             @id @default(uuid()) @db.Uuid
+  driverId           String             @unique @map("driver_id") @db.Uuid
+  cardNumber         String?            @map("card_number")
+  expiryDate         DateTime?          @map("expiry_date") @db.Date
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  driver             Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_medicares")
+}
+
 /// Every file a driver uploads. `category` is only used by ADDITIONAL docs.
 model DriverDocument {
   id          String             @id @default(uuid()) @db.Uuid
   driverId    String             @map("driver_id") @db.Uuid
   docType     DriverDocumentType @map("doc_type")
   category    String?
+  /// Only ADDITIONAL documents carry one: every other type has a section that
+  /// holds its own expiry date.
+  expiryDate  DateTime?          @map("expiry_date") @db.Date
   fileName    String             @map("file_name")
   storageKey  String             @map("storage_key")
   storageUrl  String?            @map("storage_url")
@@ -390,6 +431,9 @@ enum DriverDocumentType {
   VISA
   MEDICAL
   DRUG_TEST
+  PASSPORT_FRONT
+  PASSPORT_BACK
+  MEDICARE
   ADDITIONAL
 
   @@map("driver_document_type")

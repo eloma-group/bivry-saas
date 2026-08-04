@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**16 tables, 7 enum types.**
+**18 tables, 7 enum types.**
 
 ## Tables
 
@@ -22,6 +22,8 @@ look up a column. Every table, column, type, default and relation is below.
 - [`driver_visas`](#drivervisas)
 - [`driver_medicals`](#drivermedicals)
 - [`driver_drug_tests`](#driverdrugtests)
+- [`driver_passports`](#driverpassports)
+- [`driver_medicares`](#drivermedicares)
 - [`driver_documents`](#driverdocuments)
 - [`refresh_tokens`](#refreshtokens)
 - [`password_reset_tokens`](#passwordresettokens)
@@ -37,7 +39,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `verification_status` | `PENDING`, `VERIFIED`, `REJECTED`, `EXPIRED` |
 | `address_type` | `CURRENT`, `PERMANENT` |
 | `licence_type` | `CAR`, `HEAVY_RIGID`, `HEAVY_COMBINATION`, `MULTI_COMBINATION`, `MOTORCYCLE` |
-| `driver_document_type` | `PROFILE_PHOTO`, `LICENCE_FRONT`, `LICENCE_BACK`, `DRIVING_HISTORY`, `POLICE_VERIFICATION`, `VISA`, `MEDICAL`, `DRUG_TEST`, `ADDITIONAL` |
+| `driver_document_type` | `PROFILE_PHOTO`, `LICENCE_FRONT`, `LICENCE_BACK`, `DRIVING_HISTORY`, `POLICE_VERIFICATION`, `VISA`, `MEDICAL`, `DRUG_TEST`, `PASSPORT_FRONT`, `PASSPORT_BACK`, `MEDICARE`, `ADDITIONAL` |
 
 ## Table detail
 
@@ -163,6 +165,8 @@ look up a column. Every table, column, type, default and relation is below.
 - optional one `driver_drug_tests`
 - optional one `driver_licences`
 - optional one `driver_medicals`
+- optional one `driver_medicares`
+- optional one `driver_passports`
 - optional one `driver_police_verifications`
 - optional one `driver_visas`
 
@@ -296,6 +300,49 @@ look up a column. Every table, column, type, default and relation is below.
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `driver_id` | uuid | NOT NULL |  | unique; FK to `drivers` (cascade delete) |
 | `issue_date` | date | NULL |  |  |
+| `expiry_date` | date | NULL |  | Always six months after the issue date - the form fills it in. |
+| `verification_status` | verification_status | NOT NULL | 'PENDING' |  |
+| `verified_at` | timestamp(3) | NULL |  |  |
+| `verified_by` | uuid | NULL |  |  |
+| `remarks` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `drivers`
+
+### `driver_passports`
+
+Passport details. Asked of Australian nationals, who carry no visa.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `driver_id` | uuid | NOT NULL |  | unique; FK to `drivers` (cascade delete) |
+| `passport_number` | text | NULL |  |  |
+| `expiry_date` | date | NULL |  |  |
+| `verification_status` | verification_status | NOT NULL | 'PENDING' |  |
+| `verified_at` | timestamp(3) | NULL |  |  |
+| `verified_by` | uuid | NULL |  |  |
+| `remarks` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `drivers`
+
+### `driver_medicares`
+
+Medicare card details. Asked of Australian nationals alongside the passport.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `driver_id` | uuid | NOT NULL |  | unique; FK to `drivers` (cascade delete) |
+| `card_number` | text | NULL |  |  |
+| `expiry_date` | date | NULL |  |  |
 | `verification_status` | verification_status | NOT NULL | 'PENDING' |  |
 | `verified_at` | timestamp(3) | NULL |  |  |
 | `verified_by` | uuid | NULL |  |  |
@@ -317,6 +364,7 @@ Every file a driver uploads. `category` is only used by ADDITIONAL docs.
 | `driver_id` | uuid | NOT NULL |  | FK to `drivers` (cascade delete) |
 | `doc_type` | driver_document_type | NOT NULL |  |  |
 | `category` | text | NULL |  |  |
+| `expiry_date` | date | NULL |  | Only ADDITIONAL documents carry one: every other type has a section that\nholds its own expiry date. |
 | `file_name` | text | NOT NULL |  |  |
 | `storage_key` | text | NOT NULL |  |  |
 | `storage_url` | text | NULL |  |  |

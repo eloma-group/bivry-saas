@@ -32,7 +32,7 @@ CREATE TYPE "address_type" AS ENUM ('CURRENT', 'PERMANENT');
 CREATE TYPE "licence_type" AS ENUM ('CAR', 'HEAVY_RIGID', 'HEAVY_COMBINATION', 'MULTI_COMBINATION', 'MOTORCYCLE');
 
 -- CreateEnum
-CREATE TYPE "driver_document_type" AS ENUM ('PROFILE_PHOTO', 'LICENCE_FRONT', 'LICENCE_BACK', 'DRIVING_HISTORY', 'POLICE_VERIFICATION', 'VISA', 'MEDICAL', 'DRUG_TEST', 'ADDITIONAL');
+CREATE TYPE "driver_document_type" AS ENUM ('PROFILE_PHOTO', 'LICENCE_FRONT', 'LICENCE_BACK', 'DRIVING_HISTORY', 'POLICE_VERIFICATION', 'VISA', 'MEDICAL', 'DRUG_TEST', 'PASSPORT_FRONT', 'PASSPORT_BACK', 'MEDICARE', 'ADDITIONAL');
 
 -- CreateTable
 CREATE TABLE "admins" (
@@ -259,6 +259,7 @@ CREATE TABLE "driver_drug_tests" (
     "id" UUID NOT NULL,
     "driver_id" UUID NOT NULL,
     "issue_date" DATE,
+    "expiry_date" DATE,
     "verification_status" "verification_status" NOT NULL DEFAULT 'PENDING',
     "verified_at" TIMESTAMP(3),
     "verified_by" UUID,
@@ -270,11 +271,44 @@ CREATE TABLE "driver_drug_tests" (
 );
 
 -- CreateTable
+CREATE TABLE "driver_passports" (
+    "id" UUID NOT NULL,
+    "driver_id" UUID NOT NULL,
+    "passport_number" TEXT,
+    "expiry_date" DATE,
+    "verification_status" "verification_status" NOT NULL DEFAULT 'PENDING',
+    "verified_at" TIMESTAMP(3),
+    "verified_by" UUID,
+    "remarks" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "driver_passports_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "driver_medicares" (
+    "id" UUID NOT NULL,
+    "driver_id" UUID NOT NULL,
+    "card_number" TEXT,
+    "expiry_date" DATE,
+    "verification_status" "verification_status" NOT NULL DEFAULT 'PENDING',
+    "verified_at" TIMESTAMP(3),
+    "verified_by" UUID,
+    "remarks" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "driver_medicares_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "driver_documents" (
     "id" UUID NOT NULL,
     "driver_id" UUID NOT NULL,
     "doc_type" "driver_document_type" NOT NULL,
     "category" TEXT,
+    "expiry_date" DATE,
     "file_name" TEXT NOT NULL,
     "storage_key" TEXT NOT NULL,
     "storage_url" TEXT,
@@ -403,6 +437,12 @@ CREATE UNIQUE INDEX "driver_medicals_driver_id_key" ON "driver_medicals"("driver
 CREATE UNIQUE INDEX "driver_drug_tests_driver_id_key" ON "driver_drug_tests"("driver_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "driver_passports_driver_id_key" ON "driver_passports"("driver_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "driver_medicares_driver_id_key" ON "driver_medicares"("driver_id");
+
+-- CreateIndex
 CREATE INDEX "driver_documents_driver_id_doc_type_idx" ON "driver_documents"("driver_id", "doc_type");
 
 -- CreateIndex
@@ -446,6 +486,12 @@ ALTER TABLE "driver_medicals" ADD CONSTRAINT "driver_medicals_driver_id_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "driver_drug_tests" ADD CONSTRAINT "driver_drug_tests_driver_id_fkey" FOREIGN KEY ("driver_id") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "driver_passports" ADD CONSTRAINT "driver_passports_driver_id_fkey" FOREIGN KEY ("driver_id") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "driver_medicares" ADD CONSTRAINT "driver_medicares_driver_id_fkey" FOREIGN KEY ("driver_id") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "driver_documents" ADD CONSTRAINT "driver_documents_driver_id_fkey" FOREIGN KEY ("driver_id") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
