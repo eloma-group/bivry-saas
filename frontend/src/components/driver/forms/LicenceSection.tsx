@@ -34,6 +34,8 @@ export function LicenceSection() {
           name="licenceCardNumber"
           label="Licence Card Number"
           placeholder="AB123456"
+          required
+          rules={rules.required("Licence card number")}
         />
         <SelectField
           name="licenceType"
@@ -76,6 +78,7 @@ export function LicenceSection() {
             accept={ACCEPT_IMAGE}
             allowCamera
             cameraTitle="Capture licence front"
+            required
           />
         </div>
         <div>
@@ -88,6 +91,7 @@ export function LicenceSection() {
             accept={ACCEPT_IMAGE}
             allowCamera
             cameraTitle="Capture licence back"
+            required
           />
         </div>
       </div>

@@ -17,6 +17,8 @@ export async function getOnboarding(driverId: string) {
       drivingHistory: true,
       policeVerification: true,
       visa: true,
+      passport: true,
+      medicare: true,
       medical: true,
       drugTest: true,
       documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
@@ -32,7 +34,7 @@ export async function getOnboarding(driverId: string) {
 export async function updatePersonal(
   driverId: string,
   data: {
-    firstName: string;
+    firstName: string | null;
     middleName: string | null;
     lastName: string | null;
     dateOfBirth: Date | null;
@@ -48,7 +50,9 @@ export async function updatePersonal(
   const driver = await prisma.driver.update({
     where: { id: driverId },
     data: {
-      firstName: data.firstName,
+      // The account always has a first name, so a draft that left the field
+      // empty keeps the one already stored rather than blanking it.
+      ...(data.firstName ? { firstName: data.firstName } : {}),
       middleName: data.middleName,
       lastName: data.lastName,
       dateOfBirth: data.dateOfBirth,
@@ -105,6 +109,8 @@ type OneToOneSection =
   | 'drivingHistory'
   | 'policeVerification'
   | 'visa'
+  | 'passport'
+  | 'medicare'
   | 'medical'
   | 'drugTest';
 
@@ -113,6 +119,8 @@ const SECTION_MODEL: Record<OneToOneSection, keyof typeof prisma> = {
   drivingHistory: 'driverDrivingHistory',
   policeVerification: 'driverPoliceVerification',
   visa: 'driverVisa',
+  passport: 'driverPassport',
+  medicare: 'driverMedicare',
   medical: 'driverMedical',
   drugTest: 'driverDrugTest',
 };
@@ -194,6 +202,8 @@ export async function addDocument(
   input: {
     docType: DriverDocumentType;
     category: string | null;
+    /** Only additional documents carry one. */
+    expiryDate: Date | null;
     fileName: string;
     mimeType: string;
     sizeInBytes: number;
@@ -307,6 +317,26 @@ async function removeStoredFile(storageKey: string, documentId: string): Promise
   } catch (error) {
     logger.warn(`Could not remove stored file for document ${documentId}`, error);
   }
+}
+
+/**
+ * Corrects the metadata of a stored file. The bytes are never touched here:
+ * replacing those means uploading again.
+ */
+export async function updateDocument(
+  driverId: string,
+  documentId: string,
+  data: { category: string | null; expiryDate: Date | null },
+) {
+  const document = await getDocumentForDriver(driverId, documentId);
+
+  const updated = await prisma.driverDocument.update({
+    where: { id: document.id },
+    data: { category: data.category, expiryDate: data.expiryDate },
+  });
+
+  await touchOnboarding(driverId);
+  return updated;
 }
 
 export async function deleteDocument(driverId: string, documentId: string) {

@@ -90,6 +90,8 @@ export const sectionParamSchema = z.object({
     'drivingHistory',
     'policeVerification',
     'visa',
+    'passport',
+    'medicare',
     'medical',
     'drugTest',
   ]),

@@ -1,10 +1,16 @@
 import { useId, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, Camera, X, FileText, CheckCircle2 } from "lucide-react";
+import { UploadCloud, Camera, X, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/driver/camera/CameraCapture";
-import { ACCEPT_DOCUMENT, readAsDataUrl, formatBytes } from "@/utils/validation";
+import {
+  ACCEPT_DOCUMENT,
+  acceptLabel,
+  readAsDataUrl,
+  formatBytes,
+} from "@/utils/validation";
+import { heicToJpeg, isHeic } from "@/utils/heic";
 import type { UploadedFile } from "@/types/driver";
 
 interface FileUploadProps {
@@ -17,11 +23,16 @@ interface FileUploadProps {
   cameraTitle?: string;
   className?: string;
   error?: string;
+  /** Marks the box with a * so a missing file reads as missing, not optional. */
+  required?: boolean;
 }
 
 /**
  * Reusable upload surface: drag & drop, file picker, optional webcam capture,
  * instant preview thumbnail and a remove control.
+ *
+ * An iPhone HEIC is converted to JPEG on the way in, so the thumbnail here and
+ * every later view of the file render in any browser.
  */
 export function FileUpload({
   value,
@@ -32,14 +43,29 @@ export function FileUpload({
   cameraTitle = "Capture image",
   className,
   error,
+  required = false,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
   const [dragging, setDragging] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
 
-  const ingest = async (file?: File | null) => {
-    if (!file) return;
+  const formats = acceptLabel(accept);
+
+  const ingest = async (picked?: File | null) => {
+    if (!picked) return;
+
+    let file = picked;
+    if (isHeic(picked)) {
+      setConverting(true);
+      try {
+        file = await heicToJpeg(picked);
+      } finally {
+        setConverting(false);
+      }
+    }
+
     const dataUrl = await readAsDataUrl(file);
     onChange({ name: file.name, size: file.size, type: file.type, dataUrl });
   };
@@ -116,11 +142,21 @@ export function FileUpload({
             )}
           >
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-105">
-              <UploadCloud className="h-5 w-5" />
+              {converting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-5 w-5" />
+              )}
             </span>
-            <span className="text-sm font-medium text-foreground">{label}</span>
+            <span className="text-sm font-medium text-foreground">
+              {label}
+              {required && <span className="ml-0.5 text-primary">*</span>}
+            </span>
             <span className="text-xs text-muted-foreground">
-              Drag & drop or click to browse
+              {converting ? "Converting your iPhone photo…" : "Drag & drop or click to browse"}
+            </span>
+            <span className="text-[0.7rem] leading-relaxed text-muted-foreground">
+              Accepts {formats}
             </span>
             <input
               ref={inputRef}

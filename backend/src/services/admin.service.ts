@@ -160,6 +160,8 @@ export async function getDriver(driverId: string) {
       drivingHistory: true,
       policeVerification: true,
       visa: true,
+      passport: true,
+      medicare: true,
       medical: true,
       drugTest: true,
       documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
@@ -311,6 +313,8 @@ export type ReviewableSection =
   | 'drivingHistory'
   | 'policeVerification'
   | 'visa'
+  | 'passport'
+  | 'medicare'
   | 'medical'
   | 'drugTest';
 
@@ -319,6 +323,8 @@ const SECTION_MODEL: Record<ReviewableSection, keyof typeof prisma> = {
   drivingHistory: 'driverDrivingHistory',
   policeVerification: 'driverPoliceVerification',
   visa: 'driverVisa',
+  passport: 'driverPassport',
+  medicare: 'driverMedicare',
   medical: 'driverMedical',
   drugTest: 'driverDrugTest',
 };

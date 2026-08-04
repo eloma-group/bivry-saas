@@ -15,11 +15,14 @@ import { ApiError } from '../utils/apiError';
  * 15 MB by default and each request carries exactly one document.
  */
 
+// The browser converts an iPhone HEIC to JPEG before it is sent, but a client
+// that skipped that step is still accepted rather than rejected outright.
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/heic',
+  'image/heif',
   'application/pdf',
 ]);
 

@@ -15,6 +15,9 @@ export type DriverDocumentType =
   | "VISA"
   | "MEDICAL"
   | "DRUG_TEST"
+  | "PASSPORT_FRONT"
+  | "PASSPORT_BACK"
+  | "MEDICARE"
   | "ADDITIONAL";
 
 export type OnboardingStatus =
@@ -40,6 +43,8 @@ export interface DriverDocument {
   id: string;
   docType: DriverDocumentType;
   category: string | null;
+  /** Only additional documents carry one. */
+  expiryDate: string | null;
   fileName: string;
   storageUrl: string | null;
   mimeType: string;
@@ -89,13 +94,20 @@ export interface IssueExpiryPayload {
   expiryDate: string | null;
 }
 
-export interface DrugTestPayload {
-  issueDate: string | null;
-}
-
 export interface VisaPayload {
   visaStatus: string | null;
   visaType: string | null;
+  expiryDate: string | null;
+}
+
+/** Asked of Australian nationals, who hold no visa. */
+export interface PassportPayload {
+  passportNumber: string | null;
+  expiryDate: string | null;
+}
+
+export interface MedicarePayload {
+  cardNumber: string | null;
   expiryDate: string | null;
 }
 
@@ -124,8 +136,10 @@ export interface DriverOnboardingData {
   drivingHistory: Reviewed<IssueExpiryPayload> | null;
   policeVerification: Reviewed<IssueExpiryPayload> | null;
   visa: Reviewed<VisaPayload> | null;
+  passport: Reviewed<PassportPayload> | null;
+  medicare: Reviewed<MedicarePayload> | null;
   medical: Reviewed<IssueExpiryPayload> | null;
-  drugTest: Reviewed<DrugTestPayload> | null;
+  drugTest: Reviewed<IssueExpiryPayload> | null;
   documents: DriverDocument[];
 }
 
@@ -162,11 +176,19 @@ export const driverService = {
     return request({ url: "/driver/onboarding/visa", method: "PUT", data: values });
   },
 
+  savePassport(values: PassportPayload) {
+    return request({ url: "/driver/onboarding/passport", method: "PUT", data: values });
+  },
+
+  saveMedicare(values: MedicarePayload) {
+    return request({ url: "/driver/onboarding/medicare", method: "PUT", data: values });
+  },
+
   saveMedical(values: IssueExpiryPayload) {
     return request({ url: "/driver/onboarding/medical", method: "PUT", data: values });
   },
 
-  saveDrugTest(values: DrugTestPayload) {
+  saveDrugTest(values: IssueExpiryPayload) {
     return request({ url: "/driver/onboarding/drug-test", method: "PUT", data: values });
   },
 
@@ -190,12 +212,15 @@ export const driverService = {
     file: File;
     docType: DriverDocumentType;
     category?: string;
+    /** yyyy-MM-dd. Only additional documents carry one. */
+    expiryDate?: string;
     onProgress?: (percent: number) => void;
   }): Promise<DriverDocument> {
     const form = new FormData();
     form.append("file", input.file);
     form.append("docType", input.docType);
     if (input.category) form.append("category", input.category);
+    if (input.expiryDate) form.append("expiryDate", input.expiryDate);
 
     const response = await api.post<{ data: DriverDocument }>("/driver/documents", form, {
       // Let the browser set the multipart boundary.
@@ -207,6 +232,17 @@ export const driverService = {
     });
 
     return response.data.data;
+  },
+
+  /**
+   * Corrects the metadata of a file that is already stored. The bytes never
+   * change here: replacing those means uploading again.
+   */
+  updateDocument(
+    documentId: string,
+    values: { category: string | null; expiryDate: string | null },
+  ) {
+    return request({ url: `/driver/documents/${documentId}`, method: "PATCH", data: values });
   },
 
   deleteDocument(documentId: string) {

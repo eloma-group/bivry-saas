@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 import { motion } from "framer-motion";
+import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Stepper } from "./Stepper";
 import { SummaryCard } from "./summary/SummaryCard";
@@ -14,6 +15,7 @@ import { VisaSection } from "./forms/VisaSection";
 import { MedicalSection } from "./forms/MedicalSection";
 import { DrugTestSection } from "./forms/DrugTestSection";
 import { AdditionalDocsSection } from "./forms/AdditionalDocsSection";
+import { Button } from "@/components/ui/button";
 import { useDriverProgress } from "@/hooks/useDriverProgress";
 import { useAuth } from "@/context/AuthContext";
 import { driverService, type DriverOnboardingData } from "@/services/driverService";
@@ -55,19 +57,24 @@ function OnboardingBody({
   submitting,
   submitLabel,
   editing,
+  savingDraft,
+  onSaveDraft,
 }: {
   submitting: boolean;
   submitLabel: string;
   editing: boolean;
+  savingDraft: boolean;
+  onSaveDraft: () => void;
 }) {
   const { percent, steps, activeIndex } = useDriverProgress();
+  const busy = savingDraft || submitting;
 
   return (
     <>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex items-start justify-between gap-4"
+        className="mb-6 flex flex-wrap items-start justify-between gap-4"
       >
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -76,9 +83,21 @@ function OnboardingBody({
           <p className="mt-1 text-sm text-muted-foreground">
             {editing
               ? "Update any detail below and save. Your email stays as it is - it identifies your account."
-              : "Complete each section to reach 100%, then submit for review."}
+              : "Complete each section to reach 100%, then submit for review. You can save and come back at any time."}
           </p>
         </div>
+
+        <Button type="button" variant="outline" onClick={onSaveDraft} disabled={busy}>
+          {savingDraft ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Saving
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" /> Save
+            </>
+          )}
+        </Button>
       </motion.div>
 
       <div className="mb-6">
@@ -102,6 +121,8 @@ function OnboardingBody({
           percent={percent}
           submitting={submitting}
           submitLabel={submitLabel}
+          savingDraft={savingDraft}
+          onSaveDraft={onSaveDraft}
         />
       </div>
     </>
@@ -127,8 +148,15 @@ export function DriverOnboarding({ initial }: DriverOnboardingProps) {
     mode: "onTouched",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
-  const firstSubmission = needsSubmission(initial);
+  /**
+   * What the server currently holds. A draft save moves this on, so the next
+   * save knows which files are already stored and does not upload them twice.
+   */
+  const [saved, setSaved] = useState(initial);
+
+  const firstSubmission = needsSubmission(saved);
 
   // The signed in account is loaded before this page renders, so the values
   // above are normally already correct. This keeps them correct in the other
@@ -143,6 +171,49 @@ export function DriverOnboarding({ initial }: DriverOnboardingProps) {
       if (untouched && identity[field]) methods.setValue(field, identity[field]);
     }
   }, [identity, methods]);
+
+  /**
+   * Writes everything typed so far without asking the form to be complete.
+   *
+   * The onboarding form is long and the documents behind it are not always to
+   * hand, so a driver has to be able to stop half way and pick it up later. This
+   * runs no validation on purpose: a half filled section is exactly what a draft
+   * is. Only the submit at the end insists on the whole thing.
+   */
+  async function saveDraft() {
+    if (!user) {
+      toast.success("Nothing to save", {
+        description: "Sign in as a driver to save this to an account.",
+      });
+      return;
+    }
+
+    setSavingDraft(true);
+
+    try {
+      await saveOnboarding(methods.getValues(), saved);
+
+      // Reading it back gives the freshly uploaded files their stored ids, so a
+      // second save leaves them where they are instead of uploading again.
+      const fresh = await driverService.getOnboarding();
+      setSaved(fresh);
+      methods.reset(toFormValues(fresh), { keepErrors: true, keepIsSubmitted: true });
+      await refreshUser();
+
+      toast.success("Progress saved", {
+        description: "Come back whenever you are ready to finish the rest.",
+      });
+    } catch (error) {
+      toast.error("Could not save your progress", {
+        description:
+          error instanceof ApiRequestError
+            ? error.message
+            : "Please check your connection and try again.",
+      });
+    } finally {
+      setSavingDraft(false);
+    }
+  }
 
   const onSubmit = async (data: DriverFormValues) => {
     // With no session (the development auth bypass) there is nothing to save
@@ -160,7 +231,7 @@ export function DriverOnboarding({ initial }: DriverOnboardingProps) {
       // Name and phone are editable here, so this also updates the account they
       // came from. The email is never sent: it identifies the account and can
       // only change elsewhere.
-      await saveOnboarding(data, initial);
+      await saveOnboarding(data, saved);
       if (firstSubmission) await driverService.submit();
       // So the header name and initials follow the edit straight away.
       await refreshUser();
@@ -208,6 +279,8 @@ export function DriverOnboarding({ initial }: DriverOnboardingProps) {
           submitting={submitting}
           submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
           editing={!firstSubmission}
+          savingDraft={savingDraft}
+          onSaveDraft={() => void saveDraft()}
         />
       </form>
     </FormProvider>

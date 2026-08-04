@@ -13,7 +13,9 @@ const optionalText = (max = 150) =>
     .transform((value) => (value === '' || value === undefined ? null : value));
 
 export const personalSectionSchema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required').max(100),
+  // Optional so a half filled form can still be saved as a draft. An absent
+  // name leaves the stored one alone rather than clearing it.
+  firstName: optionalText(100),
   middleName: optionalText(100),
   lastName: optionalText(100),
   dateOfBirth: optionalDate,
@@ -53,13 +55,26 @@ export const issueExpirySchema = z.object({
   expiryDate: optionalDate,
 });
 
+/** The drug and alcohol test expires six months after it was taken. */
 export const drugTestSectionSchema = z.object({
   issueDate: optionalDate,
+  expiryDate: optionalDate,
 });
 
 export const visaSectionSchema = z.object({
   visaStatus: optionalText(100),
   visaType: optionalText(100),
+  expiryDate: optionalDate,
+});
+
+/** Asked of Australian nationals, who hold no visa. */
+export const passportSectionSchema = z.object({
+  passportNumber: optionalText(50),
+  expiryDate: optionalDate,
+});
+
+export const medicareSectionSchema = z.object({
+  cardNumber: optionalText(50),
   expiryDate: optionalDate,
 });
 
@@ -73,9 +88,21 @@ export const uploadDocumentSchema = z.object({
     'VISA',
     'MEDICAL',
     'DRUG_TEST',
+    'PASSPORT_FRONT',
+    'PASSPORT_BACK',
+    'MEDICARE',
     'ADDITIONAL',
   ]),
   category: optionalText(100),
+  // Only additional documents carry one: every other type has a section that
+  // holds its own expiry date.
+  expiryDate: optionalDate,
+});
+
+/** Metadata corrections on a file that is already stored. */
+export const updateDocumentSchema = z.object({
+  category: optionalText(100),
+  expiryDate: optionalDate,
 });
 
 export const onboardingStepSchema = z.object({

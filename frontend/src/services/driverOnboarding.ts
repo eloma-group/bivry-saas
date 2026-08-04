@@ -63,11 +63,19 @@ export function emptyFormValues(): DriverFormValues {
     visaType: "",
     visaFile: null,
     visaExpiry: "",
+    passportNumber: "",
+    passportExpiry: "",
+    passportFront: null,
+    passportBack: null,
+    medicareNumber: "",
+    medicareExpiry: "",
+    medicareFile: null,
     medicalFile: null,
     medicalIssue: "",
     medicalExpiry: "",
     drugTestFile: null,
     drugTestIssue: "",
+    drugTestExpiry: "",
     additionalDocs: [],
   };
 }
@@ -114,6 +122,9 @@ type FileField =
   | "drivingHistoryFile"
   | "policeFile"
   | "visaFile"
+  | "passportFront"
+  | "passportBack"
+  | "medicareFile"
   | "medicalFile"
   | "drugTestFile";
 
@@ -124,6 +135,9 @@ const FILE_SLOTS: Record<FileField, DriverDocumentType> = {
   drivingHistoryFile: "DRIVING_HISTORY",
   policeFile: "POLICE_VERIFICATION",
   visaFile: "VISA",
+  passportFront: "PASSPORT_FRONT",
+  passportBack: "PASSPORT_BACK",
+  medicareFile: "MEDICARE",
   medicalFile: "MEDICAL",
   drugTestFile: "DRUG_TEST",
 };
@@ -225,12 +239,22 @@ export function toFormValues(data: DriverOnboardingData): DriverFormValues {
     visaFile: storedFileOfType(documents, "VISA"),
     visaExpiry: dateInput(data.visa?.expiryDate),
 
+    passportNumber: data.passport?.passportNumber ?? "",
+    passportExpiry: dateInput(data.passport?.expiryDate),
+    passportFront: storedFileOfType(documents, "PASSPORT_FRONT"),
+    passportBack: storedFileOfType(documents, "PASSPORT_BACK"),
+
+    medicareNumber: data.medicare?.cardNumber ?? "",
+    medicareExpiry: dateInput(data.medicare?.expiryDate),
+    medicareFile: storedFileOfType(documents, "MEDICARE"),
+
     medicalFile: storedFileOfType(documents, "MEDICAL"),
     medicalIssue: dateInput(data.medical?.issueDate),
     medicalExpiry: dateInput(data.medical?.expiryDate),
 
     drugTestFile: storedFileOfType(documents, "DRUG_TEST"),
     drugTestIssue: dateInput(data.drugTest?.issueDate),
+    drugTestExpiry: dateInput(data.drugTest?.expiryDate),
 
     additionalDocs: documents
       .filter((doc) => doc.docType === "ADDITIONAL")
@@ -238,6 +262,7 @@ export function toFormValues(data: DriverOnboardingData): DriverFormValues {
         id: doc.id,
         category: doc.category ?? "Other",
         file: storedFile(doc),
+        expiry: dateInput(doc.expiryDate),
       })),
   };
 }
@@ -292,13 +317,25 @@ export async function saveOnboarding(
     expiryDate: values.policeExpiry || null,
   });
 
-  // An Australian national needs no visa, and the section is hidden for them,
-  // so anything held from before is cleared rather than left behind.
-  const needsVisa = values.nationality !== "Australia";
+  // An Australian national holds no visa but is asked for a passport and a
+  // Medicare card instead. Only one of the two sets is on screen at a time, so
+  // whichever is hidden is cleared rather than left behind.
+  const isAustralian = values.nationality === "Australia";
+
   await driverService.saveVisa({
-    visaStatus: needsVisa ? trimmedOrNull(values.visaStatus) : null,
-    visaType: needsVisa ? trimmedOrNull(values.visaType) : null,
-    expiryDate: needsVisa ? values.visaExpiry || null : null,
+    visaStatus: isAustralian ? null : trimmedOrNull(values.visaStatus),
+    visaType: isAustralian ? null : trimmedOrNull(values.visaType),
+    expiryDate: isAustralian ? null : values.visaExpiry || null,
+  });
+
+  await driverService.savePassport({
+    passportNumber: isAustralian ? trimmedOrNull(values.passportNumber) : null,
+    expiryDate: isAustralian ? values.passportExpiry || null : null,
+  });
+
+  await driverService.saveMedicare({
+    cardNumber: isAustralian ? trimmedOrNull(values.medicareNumber) : null,
+    expiryDate: isAustralian ? values.medicareExpiry || null : null,
   });
 
   await driverService.saveMedical({
@@ -306,9 +343,23 @@ export async function saveOnboarding(
     expiryDate: values.medicalExpiry || null,
   });
 
-  await driverService.saveDrugTest({ issueDate: values.drugTestIssue || null });
+  await driverService.saveDrugTest({
+    issueDate: values.drugTestIssue || null,
+    expiryDate: values.drugTestExpiry || null,
+  });
 
-  await syncDocuments(values, loaded?.documents ?? []);
+  // Same rule for the files: only the branch that was on screen is kept, so a
+  // driver who corrects their nationality does not leave the other one behind.
+  await syncDocuments(
+    {
+      ...values,
+      visaFile: isAustralian ? null : values.visaFile,
+      passportFront: isAustralian ? values.passportFront : null,
+      passportBack: isAustralian ? values.passportBack : null,
+      medicareFile: isAustralian ? values.medicareFile : null,
+    },
+    loaded?.documents ?? [],
+  );
 }
 
 /**
@@ -347,13 +398,31 @@ async function syncDocuments(
   }
 
   for (const row of values.additionalDocs) {
-    // Already stored, or an empty row the driver never attached a file to. The
-    // category of a stored file cannot be changed without replacing the file.
-    if (!row.file?.dataUrl) continue;
-    await driverService.uploadDocument({
-      file: dataUrlToFile(row.file),
-      docType: "ADDITIONAL",
-      category: row.category || undefined,
+    if (row.file?.dataUrl) {
+      await driverService.uploadDocument({
+        file: dataUrlToFile(row.file),
+        docType: "ADDITIONAL",
+        category: row.category || undefined,
+        expiryDate: row.expiry || undefined,
+      });
+      continue;
+    }
+
+    // Already stored. The file itself cannot be changed without replacing it,
+    // but the type and the expiry date can still be corrected in place.
+    const documentId = row.file?.documentId;
+    if (!documentId) continue;
+
+    const existing = stored.find((doc) => doc.id === documentId);
+    const unchanged =
+      existing &&
+      (existing.category ?? "") === row.category &&
+      (existing.expiryDate?.slice(0, 10) ?? "") === row.expiry;
+    if (unchanged) continue;
+
+    await driverService.updateDocument(documentId, {
+      category: row.category || null,
+      expiryDate: row.expiry || null,
     });
   }
 }

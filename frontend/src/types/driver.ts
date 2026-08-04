@@ -35,6 +35,8 @@ export interface AdditionalDoc {
   id: string;
   category: string;
   file: UploadedFile | null;
+  /** yyyy-MM-dd. Required once a document type has been chosen. */
+  expiry: string;
 }
 
 export interface DriverFormValues {
@@ -72,11 +74,18 @@ export interface DriverFormValues {
   policeIssue: string;
   policeExpiry: string;
 
-  /* Section 6 - Visa */
+  /* Section 6 - Visa, or passport + Medicare for an Australian national */
   visaStatus: string;
   visaType: string;
   visaFile: UploadedFile | null;
   visaExpiry: string;
+  passportNumber: string;
+  passportExpiry: string;
+  passportFront: UploadedFile | null;
+  passportBack: UploadedFile | null;
+  medicareNumber: string;
+  medicareExpiry: string;
+  medicareFile: UploadedFile | null;
 
   /* Section 7 - Medical */
   medicalFile: UploadedFile | null;
@@ -86,6 +95,7 @@ export interface DriverFormValues {
   /* Section 8 - Drug test */
   drugTestFile: UploadedFile | null;
   drugTestIssue: string;
+  drugTestExpiry: string;
 
   /* Section 9 - Additional docs */
   additionalDocs: AdditionalDoc[];

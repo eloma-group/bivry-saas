@@ -5,7 +5,13 @@ import { Camera, ImageUp, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/driver/camera/CameraCapture";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
-import { ACCEPT_IMAGE, readAsDataUrl } from "@/utils/validation";
+import {
+  ACCEPT_IMAGE,
+  ACCEPT_IMAGE_LABEL,
+  readAsDataUrl,
+  rules,
+} from "@/utils/validation";
+import { heicToJpeg, isHeic } from "@/utils/heic";
 import type { DriverFormValues, UploadedFile } from "@/types/driver";
 
 /** Large circular profile-photo control: upload from disk or capture live. */
@@ -21,11 +27,14 @@ export function AvatarUpload() {
     <Controller
       control={control}
       name="profilePhoto"
-      render={({ field }) => {
+      rules={rules.requiredFile("Profile photo")}
+      render={({ field, fieldState }) => {
         const value = field.value as UploadedFile | null;
         const preview = value ? value.dataUrl || storedUrl : null;
-        const onFile = async (file?: File | null) => {
-          if (!file) return;
+        const onFile = async (picked?: File | null) => {
+          if (!picked) return;
+          // An iPhone HEIC becomes a JPEG here, so the avatar draws everywhere.
+          const file = isHeic(picked) ? await heicToJpeg(picked) : picked;
           const dataUrl = await readAsDataUrl(file);
           field.onChange({
             name: file.name,
@@ -74,10 +83,17 @@ export function AvatarUpload() {
             </div>
 
             <div className="flex flex-col items-center gap-2 sm:items-start">
-              <p className="text-sm font-medium text-foreground">Profile Photo</p>
-              <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-left">
-                A clear headshot. JPG or PNG, up to 5&nbsp;MB.
+              <p className="text-sm font-medium text-foreground">
+                Profile Photo<span className="ml-0.5 text-primary">*</span>
               </p>
+              <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-left">
+                A clear headshot. Accepts {ACCEPT_IMAGE_LABEL}.
+              </p>
+              {fieldState.error && (
+                <p className="text-xs font-medium text-red-500">
+                  {fieldState.error.message}
+                </p>
+              )}
               <div className="mt-1 flex gap-2">
                 <Button
                   type="button"

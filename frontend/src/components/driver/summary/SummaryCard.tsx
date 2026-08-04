@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Loader2,
   ArrowRight,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
@@ -21,6 +22,9 @@ interface SummaryCardProps {
   submitting: boolean;
   /** "Submit Application" first time round, "Save Changes" when editing. */
   submitLabel?: string;
+  savingDraft: boolean;
+  /** Writes what is filled in so far, without insisting the form is complete. */
+  onSaveDraft: () => void;
 }
 
 interface StatusRow {
@@ -35,6 +39,8 @@ export function SummaryCard({
   percent,
   submitting,
   submitLabel = "Submit Driver",
+  savingDraft,
+  onSaveDraft,
 }: SummaryCardProps) {
   const { control } = useFormContext<DriverFormValues>();
   const v = useWatch({ control }) as DriverFormValues;
@@ -46,11 +52,22 @@ export function SummaryCard({
   const name =
     [v?.firstName, v?.lastName].filter(Boolean).join(" ") || "New Driver";
 
+  // An Australian national is asked for a passport and a Medicare card in place
+  // of a visa, so the checklist follows whichever half is on screen.
+  const isAustralian = v?.nationality === "Australia";
+
   const docs: { label: string; file: UploadedFile | null }[] = [
     { label: "Licence Front", file: v?.licenceFront ?? null },
     { label: "Licence Back", file: v?.licenceBack ?? null },
     { label: "Driving History", file: v?.drivingHistoryFile ?? null },
     { label: "Police Check", file: v?.policeFile ?? null },
+    ...(isAustralian
+      ? [
+          { label: "Passport Front", file: v?.passportFront ?? null },
+          { label: "Passport Back", file: v?.passportBack ?? null },
+          { label: "Medicare", file: v?.medicareFile ?? null },
+        ]
+      : [{ label: "Visa", file: v?.visaFile ?? null }]),
     { label: "Medical Certificate", file: v?.medicalFile ?? null },
     { label: "Drug Test", file: v?.drugTestFile ?? null },
   ];
@@ -60,11 +77,13 @@ export function SummaryCard({
     { label: "Licence", expiry: v?.licenceExpiry },
     { label: "Medical", issue: v?.medicalIssue, expiry: v?.medicalExpiry },
     { label: "Police Check", issue: v?.policeIssue, expiry: v?.policeExpiry },
-    {
-      label: "Visa",
-      expiry: v?.nationality === "Australia" ? null : v?.visaExpiry,
-      staticValid: v?.nationality === "Australia",
-    },
+    { label: "Drug Test", issue: v?.drugTestIssue, expiry: v?.drugTestExpiry },
+    ...(isAustralian
+      ? [
+          { label: "Passport", expiry: v?.passportExpiry },
+          { label: "Medicare", expiry: v?.medicareExpiry },
+        ]
+      : [{ label: "Visa", expiry: v?.visaExpiry }]),
   ];
 
   const alerts = statuses.filter((s) => {
@@ -172,22 +191,44 @@ export function SummaryCard({
             </div>
           )}
 
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            disabled={submitting}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Saving…
-              </>
-            ) : (
-              <>
-                {submitLabel} <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
+          <div className="space-y-2.5">
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={submitting || savingDraft}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  {submitLabel} <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+
+            {/* A long form nobody has every document for yet has to be leavable. */}
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={onSaveDraft}
+              disabled={submitting || savingDraft}
+            >
+              {savingDraft ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" /> Save and finish later
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </motion.div>
     </aside>

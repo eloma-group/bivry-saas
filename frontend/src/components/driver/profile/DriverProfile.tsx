@@ -73,6 +73,9 @@ const DOC_LABEL: Record<DriverDocumentType, string> = {
   VISA: "Visa document",
   MEDICAL: "Medical certificate",
   DRUG_TEST: "Drug test",
+  PASSPORT_FRONT: "Passport - front",
+  PASSPORT_BACK: "Passport - back",
+  MEDICARE: "Medicare card",
   ADDITIONAL: "Additional document",
 };
 
@@ -177,6 +180,8 @@ function DocumentRow({ doc, source }: { doc: DriverDocument; source: DocumentSou
         <p className="truncate text-xs text-muted-foreground">
           {doc.fileName} - {formatBytes(doc.sizeInBytes)} - uploaded{" "}
           {prettyDate(doc.createdAt)}
+          {/* Only additional documents carry their own expiry date. */}
+          {doc.expiryDate ? ` - expires ${prettyDate(doc.expiryDate)}` : ""}
         </p>
       </div>
       <Button
@@ -403,13 +408,32 @@ export function DriverProfile({
             />
           </Row>
           <Row label="Drug test">
-            {data.drugTest?.issueDate ? prettyDate(data.drugTest.issueDate) : EMPTY}
+            <ExpiryBadge
+              issue={data.drugTest?.issueDate}
+              expiry={data.drugTest?.expiryDate}
+            />
           </Row>
         </InfoCard>
 
-        <InfoCard icon={Plane} title="Visa">
+        <InfoCard icon={Plane} title={isAustralian ? "Passport & Medicare" : "Visa"}>
           {isAustralian ? (
-            <Row label="Status">Australian national - no visa required</Row>
+            <>
+              {/* An Australian national holds no visa, so these stand in for it. */}
+              <Row label="Passport number">{value(data.passport?.passportNumber)}</Row>
+              <Row label="Passport expiry">
+                <span className="inline-flex flex-wrap items-center justify-end gap-2">
+                  {prettyDate(data.passport?.expiryDate)}
+                  <ExpiryBadge expiry={data.passport?.expiryDate} />
+                </span>
+              </Row>
+              <Row label="Medicare card">{value(data.medicare?.cardNumber)}</Row>
+              <Row label="Medicare expiry">
+                <span className="inline-flex flex-wrap items-center justify-end gap-2">
+                  {prettyDate(data.medicare?.expiryDate)}
+                  <ExpiryBadge expiry={data.medicare?.expiryDate} />
+                </span>
+              </Row>
+            </>
           ) : (
             <>
               <Row label="Status">{value(data.visa?.visaStatus)}</Row>

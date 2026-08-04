@@ -52,6 +52,16 @@ export const driverController = {
     sendSuccess(res, data, 'Visa details saved');
   }),
 
+  updatePassport: asyncHandler(async (req, res) => {
+    const data = await driverService.upsertSection(driverId(req), 'passport', req.body);
+    sendSuccess(res, data, 'Passport details saved');
+  }),
+
+  updateMedicare: asyncHandler(async (req, res) => {
+    const data = await driverService.upsertSection(driverId(req), 'medicare', req.body);
+    sendSuccess(res, data, 'Medicare details saved');
+  }),
+
   updateMedical: asyncHandler(async (req, res) => {
     const data = await driverService.upsertSection(driverId(req), 'medical', req.body);
     sendSuccess(res, data, 'Medical details saved');
@@ -82,14 +92,16 @@ export const driverController = {
   uploadDocument: asyncHandler(async (req, res) => {
     if (!req.file) throw ApiError.badRequest('No file was uploaded');
 
-    const { docType, category } = req.body as {
+    const { docType, category, expiryDate } = req.body as {
       docType: DriverDocumentType;
       category: string | null;
+      expiryDate: Date | null;
     };
 
     const document = await driverService.addDocument(driverId(req), {
       docType,
       category: category ?? null,
+      expiryDate: expiryDate ?? null,
       fileName: req.file.originalname,
       mimeType: req.file.mimetype,
       sizeInBytes: req.file.size,
@@ -125,6 +137,18 @@ export const driverController = {
       res.destroy(error);
     });
     file.stream.pipe(res);
+  }),
+
+  updateDocument: asyncHandler(async (req, res) => {
+    const { category, expiryDate } = req.body as {
+      category: string | null;
+      expiryDate: Date | null;
+    };
+    const data = await driverService.updateDocument(driverId(req), req.params.id, {
+      category: category ?? null,
+      expiryDate: expiryDate ?? null,
+    });
+    sendSuccess(res, data, 'File details saved');
   }),
 
   deleteDocument: asyncHandler(async (req, res) => {

@@ -6,13 +6,50 @@ export const PHONE_RE = /^[+]?[\d\s()-]{7,17}$/;
 /**
  * What the document store actually accepts. Kept in step with the backend
  * upload filter, so a file is never picked here only to be refused on save.
+ *
+ * The extensions are listed alongside the MIME types because Windows reports no
+ * type at all for a .heic file, which would otherwise hide iPhone photos from
+ * the picker. A HEIC is converted to JPEG on the way in, see `utils/heic`.
  */
-export const ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/heic";
+export const ACCEPT_IMAGE =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 export const ACCEPT_DOCUMENT = `${ACCEPT_IMAGE},application/pdf`;
+
+/** The same lists in the words a driver reads under an upload box. */
+export const ACCEPT_IMAGE_LABEL = "JPG, PNG, WEBP or HEIC (iPhone)";
+export const ACCEPT_DOCUMENT_LABEL = "PDF, JPG, PNG, WEBP or HEIC (iPhone)";
+
+/** The wording that belongs under an upload box, picked from its accept list. */
+export function acceptLabel(accept?: string): string {
+  const list = accept ?? ACCEPT_DOCUMENT;
+  return list.includes("application/pdf") ? ACCEPT_DOCUMENT_LABEL : ACCEPT_IMAGE_LABEL;
+}
+
+/** Whether a form value counts as answered. Files are objects, dates strings. */
+export function isPresent(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  return true;
+}
 
 export const rules = {
   required: (label: string) => ({
     required: `${label} is required`,
+  }),
+  /** An upload that has to be there. `required` cannot see a file object. */
+  requiredFile: (label: string) => ({
+    validate: (value: unknown) => isPresent(value) || `${label} is required`,
+  }),
+  /**
+   * Required, but only while the field is actually being asked for.
+   *
+   * Sections that appear and disappear - the permanent address, the visa half of
+   * the identity section - keep their fields registered after they leave the
+   * screen, so a plain `required` there would block a submit over a question
+   * nobody was asked. The check is read at validation time, never captured.
+   */
+  requiredWhen: (label: string, asked: () => boolean) => ({
+    validate: (value: unknown) => !asked() || isPresent(value) || `${label} is required`,
   }),
   email: {
     required: "Email is required",

@@ -19,16 +19,38 @@ export const AU_STATES = [
   "Northern Territory",
 ];
 
+/** Australia first: it decides which documents the visa section asks for. */
 export const COUNTRIES = [
   "Australia",
   "New Zealand",
   "India",
   "United Kingdom",
+  "Ireland",
   "United States",
   "Canada",
+  "Germany",
+  "France",
+  "Italy",
+  "Spain",
+  "Netherlands",
+  "South Africa",
+  "Brazil",
+  "Argentina",
+  "Mexico",
+  "China",
+  "Japan",
+  "South Korea",
+  "Singapore",
+  "Malaysia",
+  "Indonesia",
+  "Thailand",
+  "Vietnam",
   "Philippines",
   "Nepal",
-  "Pakistan",
+  "Sri Lanka",
+  "Bangladesh",
+  "United Arab Emirates",
+  "Fiji",
   "Other",
 ];
 
@@ -63,7 +85,15 @@ export const STEPS: StepDef[] = [
   {
     id: "personal",
     label: "Personal Info",
-    requires: ["firstName", "lastName", "dob", "email", "phone", "nationality"],
+    requires: [
+      "firstName",
+      "lastName",
+      "dob",
+      "email",
+      "phone",
+      "nationality",
+      "profilePhoto",
+    ],
   },
   {
     id: "address",
@@ -73,17 +103,30 @@ export const STEPS: StepDef[] = [
   {
     id: "licence",
     label: "Licence",
-    requires: ["licenceNumber", "licenceType", "licenceState", "licenceExpiry"],
+    requires: [
+      "licenceNumber",
+      "licenceCardNumber",
+      "licenceType",
+      "licenceState",
+      "licenceExpiry",
+      "licenceFront",
+      "licenceBack",
+    ],
   },
   {
     id: "documents",
     label: "Documents",
-    requires: ["drivingHistoryFile", "policeFile"],
+    requires: [
+      "drivingHistoryFile",
+      "drivingHistoryIssue",
+      "policeFile",
+      "policeIssue",
+    ],
   },
   {
     id: "medical",
     label: "Medical",
-    requires: ["medicalFile"],
+    requires: ["medicalFile", "medicalIssue", "drugTestFile", "drugTestIssue"],
   },
   {
     id: "review",

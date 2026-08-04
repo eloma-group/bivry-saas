@@ -8,8 +8,11 @@ import {
   drugTestSectionSchema,
   issueExpirySchema,
   licenceSectionSchema,
+  medicareSectionSchema,
   onboardingStepSchema,
+  passportSectionSchema,
   personalSectionSchema,
+  updateDocumentSchema,
   uploadDocumentSchema,
   visaSectionSchema,
 } from '../validators/driver.validator';
@@ -39,6 +42,16 @@ router.put(
   driverController.updatePoliceVerification,
 );
 router.put('/onboarding/visa', validateBody(visaSectionSchema), driverController.updateVisa);
+router.put(
+  '/onboarding/passport',
+  validateBody(passportSectionSchema),
+  driverController.updatePassport,
+);
+router.put(
+  '/onboarding/medicare',
+  validateBody(medicareSectionSchema),
+  driverController.updateMedicare,
+);
 router.put('/onboarding/medical', validateBody(issueExpirySchema), driverController.updateMedical);
 router.put('/onboarding/drug-test', validateBody(drugTestSectionSchema), driverController.updateDrugTest);
 
@@ -53,6 +66,11 @@ router.post(
 // directly from Azure Blob Storage; `/file` streams it through the API instead.
 router.get('/documents/:id/url', driverController.documentLink);
 router.get('/documents/:id/file', driverController.downloadDocument);
+router.patch(
+  '/documents/:id',
+  validateBody(updateDocumentSchema),
+  driverController.updateDocument,
+);
 router.delete('/documents/:id', driverController.deleteDocument);
 
 export default router;
