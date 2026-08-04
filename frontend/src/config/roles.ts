@@ -20,8 +20,15 @@ export interface PortalConfig {
   changePasswordPath: string;
   /** Whether the login card offers a "Create account" link. */
   selfSignup: boolean;
-  /** Tailwind classes for the portal accent, used on the brand panel. */
+  /**
+   * Gradient stops for the portal accent. The brand panel is white now, so this
+   * paints the headline text rather than the panel behind it.
+   */
   accentClass: string;
+  /** Accent tint for the panel decoration, kept light enough to read on white. */
+  accentGlowClass: string;
+  /** Solid accent colour for small type on the white panel. */
+  accentTextClass: string;
 }
 
 /**
@@ -46,6 +53,8 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     // /admin/register is not mounted at all.
     selfSignup: false,
     accentClass: "from-brand-navy via-[#123256] to-[#1b4b7d]",
+    accentGlowClass: "bg-[#1b4b7d]",
+    accentTextClass: "text-[#1b4b7d]",
   },
   customer: {
     slug: "customer",
@@ -58,6 +67,8 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     changePasswordPath: "/customer/change-password",
     selfSignup: true,
     accentClass: "from-[#0d2440] via-[#134e4a] to-brand-green",
+    accentGlowClass: "bg-brand-green",
+    accentTextClass: "text-[#0f8f65]",
   },
   vendor: {
     slug: "vendor",
@@ -70,6 +81,8 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     changePasswordPath: "/vendor/change-password",
     selfSignup: true,
     accentClass: "from-[#0d2440] via-[#3b2f63] to-[#6d4aa8]",
+    accentGlowClass: "bg-[#6d4aa8]",
+    accentTextClass: "text-[#6d4aa8]",
   },
   employee: {
     slug: "employee",
@@ -82,6 +95,8 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     changePasswordPath: "/employee/change-password",
     selfSignup: false,
     accentClass: "from-[#0d2440] via-[#1f3d63] to-[#2f6f9e]",
+    accentGlowClass: "bg-[#2f6f9e]",
+    accentTextClass: "text-[#2f6f9e]",
   },
   driver: {
     slug: "driver",
@@ -95,6 +110,8 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     changePasswordPath: "/driver/change-password",
     selfSignup: true,
     accentClass: "from-[#0d2440] via-[#14503c] to-brand-green",
+    accentGlowClass: "bg-brand-green",
+    accentTextClass: "text-[#0f8f65]",
   },
 };
 

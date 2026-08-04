@@ -81,7 +81,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
   return (
     <AuthShell
       portal={portal}
-      title={`Create your ${portal.label.toLowerCase()} account`}
+      title="Create new account"
       subtitle="It takes less than a minute. You can complete the rest of your profile after signing in."
       footer={
         <>
