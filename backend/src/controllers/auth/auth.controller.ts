@@ -2,6 +2,7 @@ import type { Request, RequestHandler, Response } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendCreated, sendSuccess } from '../../utils/apiResponse';
 import { ApiError } from '../../utils/apiError';
+import { clientIp } from '../../utils/clientIp';
 import { env } from '../../config/env';
 import * as authService from '../../services/auth/auth.service';
 import type { IssuedTokens, SessionContext } from '../../services/auth/token.service';
@@ -29,7 +30,7 @@ function cookieName(role: RoleDefinition): string {
 }
 
 function sessionContext(req: Request): SessionContext {
-  return { ipAddress: req.ip ?? null, userAgent: req.get('user-agent') ?? null };
+  return { ipAddress: clientIp(req), userAgent: req.get('user-agent') ?? null };
 }
 
 /**
@@ -145,7 +146,7 @@ export function createAuthController(role: RoleDefinition): AuthController {
 
     forgotPassword: asyncHandler(async (req, res) => {
       const { email } = req.body as { email: string };
-      await authService.forgotPassword(role, email, req.ip ?? null);
+      await authService.forgotPassword(role, email, clientIp(req));
       // Deliberately identical whether or not the account exists.
       sendSuccess(
         res,

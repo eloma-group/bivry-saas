@@ -1,5 +1,6 @@
 import rateLimit, { type Options } from 'express-rate-limit';
 import { env } from '../config/env';
+import { rateLimitKey } from '../utils/clientIp';
 
 function limiter(windowMs: number, max: number, message: string): ReturnType<typeof rateLimit> {
   const options: Partial<Options> = {
@@ -9,6 +10,11 @@ function limiter(windowMs: number, max: number, message: string): ReturnType<typ
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { success: false, code: 'TOO_MANY_REQUESTS', message },
+    // The default generator keys on `req.ip`, which behind Azure App Service
+    // still carries the client's source port. That port changes on every
+    // connection, so every request would open a bucket of its own and no limit
+    // here would ever be reached. See utils/clientIp.
+    keyGenerator: rateLimitKey,
   };
   return rateLimit(options);
 }

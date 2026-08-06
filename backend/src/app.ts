@@ -13,7 +13,12 @@ import { ApiError } from './utils/apiError';
 const app = express();
 
 // Behind Azure App Service / Nginx the real client IP arrives in X-Forwarded-For,
-// which the rate limiter and the login audit both rely on.
+// which the rate limiter and the login audit both rely on. One hop, because only
+// the App Service front end sits in front of this process.
+//
+// Azure puts the client's source port in that header as well, so `req.ip` reads
+// "223.235.28.15:56907". Never use it directly - utils/clientIp normalises it,
+// and both the limiter and the audit go through there.
 app.set('trust proxy', 1);
 
 const allowedOrigins = new Set(
