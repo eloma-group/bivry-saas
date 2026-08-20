@@ -69,3 +69,14 @@ export const REVIEWABLE_SECTIONS = [
   { slug: "medical", label: "Medical" },
   { slug: "drugTest", label: "Drug test" },
 ] as const;
+
+/** The supplier equivalent: the accreditation and each policy on its own. */
+export const REVIEWABLE_VENDOR_SECTIONS = [
+  { slug: "accreditation", label: "Certificate of accreditation" },
+  { slug: "productLiability", label: "Product liability" },
+  { slug: "publicLiability", label: "Public liability" },
+  { slug: "workCover", label: "Work cover" },
+  { slug: "marineGeneral", label: "Marine (general & refrigerated)" },
+  { slug: "marineAlcohol", label: "Marine (alcohol)" },
+  { slug: "coc", label: "COC" },
+] as const;

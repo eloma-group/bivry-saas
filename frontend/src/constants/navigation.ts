@@ -22,12 +22,12 @@ import type { RoleSlug } from "@/types/auth";
  * renders realistically but stays disabled until its feature work lands.
  */
 
-/** The five records the Onboarding menu covers. Only Driver is built. */
+/** The five records the Onboarding menu covers. Driver and Supplier are built. */
 export const ONBOARDING_MODULES = [
   { slug: "vehicle", label: "Vehicle", ready: false },
   { slug: "customer", label: "Customer", ready: false },
   { slug: "user", label: "User", ready: false },
-  { slug: "supplier", label: "Supplier", ready: false },
+  { slug: "supplier", label: "Supplier", ready: true },
   { slug: "driver", label: "Driver", ready: true },
 ] as const;
 
@@ -89,8 +89,11 @@ function adminNav(): NavItem[] {
   ];
 }
 
-/** Menu for the Driver portal: their own form and nothing else. */
-function driverNav(): NavItem[] {
+/**
+ * Menu for a self-service portal: their own onboarding form and nothing else.
+ * `ownModule` is the one entry that goes anywhere.
+ */
+function selfServiceNav(ownModule: "Driver" | "Supplier", href: string): NavItem[] {
   return [
     { label: "Dashboard", icon: LayoutDashboard },
     {
@@ -126,23 +129,23 @@ function driverNav(): NavItem[] {
     {
       label: "Onboarding",
       icon: UserPlus,
-      children: [
-        { label: "Vehicle" },
-        { label: "Customer" },
-        { label: "User" },
-        { label: "Supplier" },
-        { label: "Driver", enabled: true, href: "/driver/onboarding" },
-      ],
+      children: ONBOARDING_MODULES.map((module) =>
+        module.label === ownModule
+          ? { label: module.label, enabled: true, href }
+          : { label: module.label },
+      ),
     },
   ];
 }
 
 export function navItemsFor(role: RoleSlug | null): NavItem[] {
-  return role === "admin" ? adminNav() : driverNav();
+  if (role === "admin") return adminNav();
+  if (role === "vendor") return selfServiceNav("Supplier", "/vendor/onboarding");
+  return selfServiceNav("Driver", "/driver/onboarding");
 }
 
 /** Kept for the shell's own default, which renders before a role is known. */
-export const NAV_ITEMS: NavItem[] = driverNav();
+export const NAV_ITEMS: NavItem[] = selfServiceNav("Driver", "/driver/onboarding");
 
 export const NAV_FOOTER: NavItem[] = [
   { label: "Settings", icon: Settings, footer: true },

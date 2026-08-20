@@ -16,19 +16,21 @@ import { PlaceholderDashboardPage } from "@/pages/PlaceholderDashboardPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { DriverOnboardingPage } from "@/pages/DriverOnboardingPage";
 import { DriverProfilePage } from "@/pages/DriverProfilePage";
+import { VendorOnboardingPage } from "@/pages/VendorOnboardingPage";
+import { VendorProfilePage } from "@/pages/VendorProfilePage";
 import { useAuth } from "@/context/AuthContext";
 
 /**
- * Where a driver lands when they open the portal. Somebody still filling the
- * form in goes back to it; once it has been handed in, their profile is the
+ * Where an onboarding portal lands when it is opened. Somebody still filling
+ * the form in goes back to it; once it has been handed in, their profile is the
  * more useful place to be.
  */
-function DriverHome() {
+function OnboardingHome() {
   const { user } = useAuth();
   const status = typeof user?.onboardingStatus === "string" ? user.onboardingStatus : "";
   const stillFilling = status === "" || status === "NOT_STARTED" || status === "IN_PROGRESS";
 
-  // The profile lives at the driver's own id, so there is nowhere to send
+  // The profile lives at the account's own id, so there is nowhere to send
   // someone who is not signed in (the development auth bypass).
   if (stillFilling || !user) return <Navigate to="onboarding" replace />;
 
@@ -87,13 +89,20 @@ export function AppRoutes() {
         </Route>
       ))}
 
-      {/* Driver portal - the module currently in active development. */}
+      {/* Driver portal. */}
       <Route path="/driver" element={<ProtectedRoute role="driver" />}>
-        <Route index element={<DriverHome />} />
+        <Route index element={<OnboardingHome />} />
         <Route path="onboarding" element={<DriverOnboardingPage />} />
         {/* The driver's own profile, addressed by their id. Static siblings such
             as `onboarding` rank above this, so they still win. */}
         <Route path=":driverId" element={<DriverProfilePage />} />
+      </Route>
+
+      {/* Supplier portal, the same shape as the driver one. */}
+      <Route path="/vendor" element={<ProtectedRoute role="vendor" />}>
+        <Route index element={<OnboardingHome />} />
+        <Route path="onboarding" element={<VendorOnboardingPage />} />
+        <Route path=":vendorId" element={<VendorProfilePage />} />
       </Route>
 
       {/* Admin portal: the dashboard and the onboarding modules it governs. */}
@@ -102,15 +111,12 @@ export function AppRoutes() {
         <Route path="profile" element={<AdminProfilePage />} />
         <Route path="onboarding" element={<Navigate to="driver" replace />} />
         <Route path="onboarding/:module" element={<AdminOnboardingPage />} />
-        <Route path="onboarding/:module/:driverId" element={<AdminOnboardingPage />} />
+        <Route path="onboarding/:module/:recordId" element={<AdminOnboardingPage />} />
       </Route>
 
       {/* Remaining portals, authenticated and waiting on their feature work. */}
       <Route path="/customer" element={<ProtectedRoute role="customer" />}>
         <Route index element={<PlaceholderDashboardPage role="customer" />} />
-      </Route>
-      <Route path="/vendor" element={<ProtectedRoute role="vendor" />}>
-        <Route index element={<PlaceholderDashboardPage role="vendor" />} />
       </Route>
       <Route path="/employee" element={<ProtectedRoute role="employee" />}>
         <Route index element={<PlaceholderDashboardPage role="employee" />} />

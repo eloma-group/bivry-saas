@@ -7,6 +7,7 @@ import type {
   VerificationStatus,
   ApiLicenceType,
 } from "./driverService";
+import type { VendorOnboardingData } from "./vendorService";
 
 /**
  * Admin module API. Every path lives under `/api/admin`, which the backend locks
@@ -70,19 +71,71 @@ export interface AdminModuleSummary {
   records: number;
 }
 
+/** A supplier as the list endpoint returns them: enough for a table row. */
+export interface AdminVendorRow {
+  id: string;
+  email: string;
+  phone: string | null;
+  companyName: string;
+  tradingName: string | null;
+  legalName: string | null;
+  abn: string | null;
+  supplierId: string | null;
+  websiteAddress: string | null;
+  contactPerson: string | null;
+  status: AccountStatus;
+  onboardingStatus: OnboardingStatus;
+  onboardingStep: number;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  accreditation: {
+    accreditationNumber: string | null;
+    nhvasExpiry: string | null;
+    verificationStatus: VerificationStatus;
+  } | null;
+  coverage: { areasCovered: string[]; businessOperations: string[] } | null;
+  warehouses: Array<{ suburb: string | null; state: string | null; country: string | null }>;
+  _count: { documents: number };
+}
+
+export interface VendorListResult {
+  rows: AdminVendorRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface VendorListParams {
+  search?: string;
+  onboardingStatus?: OnboardingStatus;
+  page?: number;
+  pageSize?: number;
+  sortBy?: "createdAt" | "submittedAt" | "companyName" | "email" | "onboardingStatus";
+  sortDir?: "asc" | "desc";
+}
+
+/** Headline numbers, one block per record type the dashboard tracks. */
+export interface OnboardingCounts {
+  total: number;
+  pendingReview: number;
+  notStarted: number;
+  inProgress: number;
+  submitted: number;
+  underReview: number;
+  approved: number;
+  rejected: number;
+}
+
 export interface AdminDashboard {
-  drivers: {
-    total: number;
-    pendingReview: number;
-    notStarted: number;
-    inProgress: number;
-    submitted: number;
-    underReview: number;
-    approved: number;
-    rejected: number;
-  };
+  drivers: OnboardingCounts;
+  vendors: OnboardingCounts;
   documents: { total: number; totalBytes: number };
   recentDrivers: AdminDriverRow[];
+  recentVendors: AdminVendorRow[];
   modules: AdminModuleSummary[];
 }
 
@@ -122,6 +175,31 @@ export type ReviewableSection =
   | "visa"
   | "medical"
   | "drugTest";
+
+export interface CreateVendorInput {
+  email: string;
+  password: string;
+  phone?: string | null;
+  companyName: string;
+  tradingName?: string | null;
+  legalName?: string | null;
+  contactPerson?: string | null;
+  abn?: string | null;
+  websiteAddress?: string | null;
+  status?: AccountStatus;
+}
+
+export type UpdateVendorInput = Partial<Omit<CreateVendorInput, "email" | "password">>;
+
+/** Supplier sections an admin can verify one at a time. */
+export type ReviewableVendorSection =
+  | "accreditation"
+  | "productLiability"
+  | "publicLiability"
+  | "workCover"
+  | "marineGeneral"
+  | "marineAlcohol"
+  | "coc";
 
 export const adminService = {
   dashboard(): Promise<AdminDashboard> {
@@ -195,6 +273,72 @@ export const adminService = {
   },
 
   // -------------------------------------------------------------------------
+  // Suppliers
+  // -------------------------------------------------------------------------
+
+  listVendors(params: VendorListParams = {}): Promise<VendorListResult> {
+    return request<VendorListResult>({ url: "/admin/vendors", method: "GET", params });
+  },
+
+  /** One supplier in full: the same shape the supplier sees of themselves. */
+  getVendor(vendorId: string): Promise<VendorOnboardingData> {
+    return request<VendorOnboardingData>({ url: `/admin/vendors/${vendorId}`, method: "GET" });
+  },
+
+  createVendor(values: CreateVendorInput): Promise<AdminVendorRow> {
+    return request<AdminVendorRow>({ url: "/admin/vendors", method: "POST", data: values });
+  },
+
+  updateVendor(vendorId: string, values: UpdateVendorInput): Promise<AdminVendorRow> {
+    return request<AdminVendorRow>({
+      url: `/admin/vendors/${vendorId}`,
+      method: "PUT",
+      data: values,
+    });
+  },
+
+  deleteVendor(vendorId: string) {
+    return request({ url: `/admin/vendors/${vendorId}`, method: "DELETE" });
+  },
+
+  reviewVendor(vendorId: string, decision: ReviewDecision, reason?: string | null) {
+    return request<AdminVendorRow>({
+      url: `/admin/vendors/${vendorId}/review`,
+      method: "POST",
+      data: { decision, reason: reason ?? null },
+    });
+  },
+
+  reviewVendorSection(
+    vendorId: string,
+    section: ReviewableVendorSection,
+    status: VerificationStatus,
+    remarks?: string | null,
+  ) {
+    return request({
+      url: `/admin/vendors/${vendorId}/sections/${section}/review`,
+      method: "POST",
+      data: { status, remarks: remarks ?? null },
+    });
+  },
+
+  /** Short lived blob storage link for one of a supplier's documents. */
+  vendorDocumentLink(vendorId: string, documentId: string) {
+    return request<{ url: string; expiresAt: string | null; fileName: string; mimeType: string }>({
+      url: `/admin/vendors/${vendorId}/documents/${documentId}/url`,
+      method: "GET",
+    });
+  },
+
+  async fetchVendorDocumentBlobUrl(vendorId: string, documentId: string): Promise<string> {
+    const response = await api.get<Blob>(
+      `/admin/vendors/${vendorId}/documents/${documentId}/file`,
+      { responseType: "blob" },
+    );
+    return URL.createObjectURL(response.data);
+  },
+
+  // -------------------------------------------------------------------------
   // The admin's own account
   // -------------------------------------------------------------------------
 
@@ -226,4 +370,4 @@ export const adminService = {
   },
 };
 
-export type { DriverDocument, DriverOnboardingData };
+export type { DriverDocument, DriverOnboardingData, VendorOnboardingData };

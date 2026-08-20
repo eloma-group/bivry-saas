@@ -4,9 +4,10 @@ import type { RoleSlug } from "@/types/auth";
 /**
  * Expiry notifications.
  *
- * The same feed from two angles: a driver sees their own documents, an admin sees
- * every driver's. Nothing is stored server side - the list is derived from the
- * expiry dates on each read, so it cannot go stale.
+ * The same feed from three angles: a driver sees their own documents, a supplier
+ * sees their own policies, and an admin sees everyone's. Nothing is stored server
+ * side - the list is derived from the expiry dates on each read, so it cannot go
+ * stale.
  */
 
 export type NotificationSection =
@@ -14,13 +15,22 @@ export type NotificationSection =
   | "DRIVING_HISTORY"
   | "POLICE_VERIFICATION"
   | "VISA"
-  | "MEDICAL";
+  | "MEDICAL"
+  | "ACCREDITATION_MASS_MANAGEMENT"
+  | "ACCREDITATION_BASIC_FATIGUE"
+  | "ACCREDITATION_DANGEROUS_GOODS"
+  | "ACCREDITATION_NHVAS"
+  | "ACCREDITATION_HACCP"
+  | "INSURANCE"
+  | "COMPLIANCE_DOCUMENT";
 
 export interface ExpiryNotification {
   id: string;
-  driverId: string;
-  driverName: string;
-  driverEmail: string;
+  /** Which portal the record belongs to, so a link can be built for it. */
+  subjectType: "driver" | "vendor";
+  subjectId: string;
+  subjectName: string;
+  subjectEmail: string;
   section: NotificationSection;
   label: string;
   /** yyyy-MM-dd */
@@ -47,14 +57,17 @@ export const EMPTY_FEED: NotificationFeed = {
   warningDays: 7,
 };
 
-/** Only the two portals that have documents to expire have a feed. */
+/** Only the portals that have documents to expire have a feed. */
 export function hasNotificationFeed(role: RoleSlug | null): boolean {
-  return role === "admin" || role === "driver";
+  return role === "admin" || role === "driver" || role === "vendor";
 }
 
+const FEED_PATH: Partial<Record<RoleSlug, string>> = {
+  admin: "/admin/notifications",
+  driver: "/driver/notifications",
+  vendor: "/vendor/notifications",
+};
+
 export function fetchNotifications(role: RoleSlug): Promise<NotificationFeed> {
-  return request<NotificationFeed>({
-    url: role === "admin" ? "/admin/notifications" : "/driver/notifications",
-    method: "GET",
-  });
+  return request<NotificationFeed>({ url: FEED_PATH[role] ?? "/driver/notifications", method: "GET" });
 }

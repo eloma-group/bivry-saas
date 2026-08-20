@@ -14,22 +14,34 @@ import type { ExpiryNotification, NotificationSection } from "@/services/notific
 import type { RoleSlug } from "@/types/auth";
 
 /**
- * Sections of the onboarding form that carry an anchor, so a driver can be sent
- * straight to the one that needs attention.
+ * Sections of the onboarding forms that carry an anchor, so an account can be
+ * sent straight to the part that needs attention.
  */
 const SECTION_ANCHOR: Partial<Record<NotificationSection, string>> = {
   LICENCE: "step-licence",
   DRIVING_HISTORY: "step-documents",
   POLICE_VERIFICATION: "step-documents",
   MEDICAL: "step-medical",
+  ACCREDITATION_MASS_MANAGEMENT: "step-accreditation",
+  ACCREDITATION_BASIC_FATIGUE: "step-accreditation",
+  ACCREDITATION_DANGEROUS_GOODS: "step-accreditation",
+  ACCREDITATION_NHVAS: "step-accreditation",
+  ACCREDITATION_HACCP: "step-accreditation",
+  INSURANCE: "step-insurance",
+  COMPLIANCE_DOCUMENT: "step-documents",
 };
 
 function targetFor(item: ExpiryNotification, role: RoleSlug | null): string {
-  // An admin goes to the driver whose document it is; the driver goes to the part
-  // of their own form that fixes it.
-  if (role === "admin") return `/admin/onboarding/driver/${item.driverId}`;
+  // An admin goes to the record whose document it is; everybody else goes to the
+  // part of their own form that fixes it.
+  if (role === "admin") {
+    const module = item.subjectType === "vendor" ? "supplier" : "driver";
+    return `/admin/onboarding/${module}/${item.subjectId}`;
+  }
+
+  const portal = item.subjectType === "vendor" ? "vendor" : "driver";
   const anchor = SECTION_ANCHOR[item.section];
-  return anchor ? `/driver/onboarding#${anchor}` : "/driver/onboarding";
+  return anchor ? `/${portal}/onboarding#${anchor}` : `/${portal}/onboarding`;
 }
 
 function timing(item: ExpiryNotification): string {
@@ -44,9 +56,9 @@ function timing(item: ExpiryNotification): string {
 /**
  * The notifications tab in the header.
  *
- * Both portals get the same panel: a driver sees their own documents, an admin
- * sees every driver's. The badge counts what is actually wrong, so an empty bell
- * genuinely means nothing needs doing.
+ * Every portal gets the same panel: a driver sees their own documents, a
+ * supplier their own policies, an admin sees everyone's. The badge counts what
+ * is actually wrong, so an empty bell genuinely means nothing needs doing.
  */
 export function NotificationBell({ role }: { role: RoleSlug | null }) {
   const [open, setOpen] = useState(false);
@@ -147,7 +159,7 @@ export function NotificationBell({ role }: { role: RoleSlug | null }) {
               <p className="text-sm font-medium text-foreground">All up to date</p>
               <p className="text-xs text-muted-foreground">
                 {role === "admin"
-                  ? "No driver document expires in the next week."
+                  ? "Nothing across the fleet expires in the next week."
                   : "None of your documents expire in the next week."}
               </p>
             </div>
@@ -184,7 +196,7 @@ export function NotificationBell({ role }: { role: RoleSlug | null }) {
                           {role === "admin" ? (
                             <span className="font-normal text-muted-foreground">
                               {" "}
-                              - {item.driverName}
+                              - {item.subjectName}
                             </span>
                           ) : null}
                         </p>
@@ -213,7 +225,7 @@ export function NotificationBell({ role }: { role: RoleSlug | null }) {
             <div className="h-px bg-border/70" />
             <p className="px-4 py-2.5 text-xs text-muted-foreground">
               {role === "admin"
-                ? "Open a driver to review or request new documents."
+                ? "Open a record to review or request new documents."
                 : "Upload a renewed document to clear these."}
             </p>
           </>

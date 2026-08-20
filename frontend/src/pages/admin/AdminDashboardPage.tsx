@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Building2,
   CheckCircle2,
   ClipboardList,
   FileCheck2,
@@ -119,30 +120,37 @@ export function AdminDashboardPage() {
               icon={Users2}
               label="Drivers"
               value={data.drivers.total}
-              hint="All accounts on the platform"
+              hint={`${data.drivers.pendingReview} waiting for review`}
               to="/admin/onboarding/driver"
+            />
+            <StatCard
+              icon={Building2}
+              label="Suppliers"
+              value={data.vendors.total}
+              hint={`${data.vendors.pendingReview} waiting for review`}
+              to="/admin/onboarding/supplier"
             />
             <StatCard
               icon={Hourglass}
               label="Waiting for review"
-              value={data.drivers.pendingReview}
-              hint="Submitted or under review"
+              value={data.drivers.pendingReview + data.vendors.pendingReview}
+              hint="Drivers and suppliers together"
               tone="warning"
               to="/admin/onboarding/driver?status=SUBMITTED"
             />
             <StatCard
               icon={CheckCircle2}
               label="Approved"
-              value={data.drivers.approved}
-              hint="Cleared to drive"
+              value={data.drivers.approved + data.vendors.approved}
+              hint="Cleared to work"
               tone="success"
               to="/admin/onboarding/driver?status=APPROVED"
             />
             <StatCard
               icon={XCircle}
               label="Changes requested"
-              value={data.drivers.rejected}
-              hint="Sent back to the driver"
+              value={data.drivers.rejected + data.vendors.rejected}
+              hint="Sent back to be corrected"
               tone="danger"
               to="/admin/onboarding/driver?status=REJECTED"
             />
@@ -205,8 +213,58 @@ export function AdminDashboardPage() {
               )}
             </section>
 
+            {/* Recent suppliers */}
+            <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-card xl:col-start-1">
+              <header className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-foreground">
+                    Latest supplier accounts
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    The six most recently created.
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/admin/onboarding/supplier">
+                    View all <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </header>
+
+              {data.recentVendors.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No suppliers yet.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {data.recentVendors.map((vendor) => {
+                    const status = ONBOARDING_STATUS[vendor.onboardingStatus];
+                    return (
+                      <li key={vendor.id}>
+                        <Link
+                          to={`/admin/onboarding/supplier/${vendor.id}`}
+                          className="flex items-center justify-between gap-4 py-3 transition-colors hover:bg-secondary/40"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {vendor.companyName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {vendor.supplierId ? `${vendor.supplierId} - ` : ""}
+                              {vendor.email} - joined {prettyDate(vendor.createdAt)}
+                            </p>
+                          </div>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
             {/* Modules */}
-            <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-card">
+            <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-card xl:col-start-2 xl:row-start-1 xl:row-span-2">
               <header className="mb-4">
                 <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
                   <ClipboardList className="h-[1.125rem] w-[1.125rem] text-primary" />

@@ -3,6 +3,8 @@ import { Construction } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdminDriversPage } from "./AdminDriversPage";
 import { AdminDriverDetailPage } from "./AdminDriverDetailPage";
+import { AdminVendorsPage } from "./AdminVendorsPage";
+import { AdminVendorDetailPage } from "./AdminVendorDetailPage";
 import { Button } from "@/components/ui/button";
 import {
   ONBOARDING_MODULES,
@@ -14,11 +16,11 @@ import {
  * The Onboarding section of the Admin portal.
  *
  * The menu offers five record types and this decides what the chosen one shows.
- * Only Driver has a table behind it so far; the rest say so plainly rather than
- * being unclickable in the menu, which leaves an admin guessing.
+ * Driver and Supplier have a register behind them; the rest say so plainly
+ * rather than being unclickable in the menu, which leaves an admin guessing.
  */
 export function AdminOnboardingPage() {
-  const { module = "", driverId } = useParams();
+  const { module = "", recordId } = useParams();
 
   if (!isOnboardingModule(module)) {
     return <Navigate to="/admin/onboarding/driver" replace />;
@@ -29,10 +31,16 @@ export function AdminOnboardingPage() {
   return (
     <DashboardLayout>
       {module === "driver" ? (
-        driverId ? (
-          <AdminDriverDetailPage />
+        recordId ? (
+          <AdminDriverDetailPage driverId={recordId} />
         ) : (
           <AdminDriversPage />
+        )
+      ) : module === "supplier" ? (
+        recordId ? (
+          <AdminVendorDetailPage vendorId={recordId} />
+        ) : (
+          <AdminVendorsPage />
         )
       ) : (
         <div className="grid min-h-[60vh] w-full place-items-center">
@@ -45,8 +53,8 @@ export function AdminOnboardingPage() {
                 {current?.label} onboarding is not built yet
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                This module has no records behind it so far. Driver onboarding is
-                live and complete, and the rest follow the same shape.
+                This module has no records behind it so far. Driver and Supplier
+                onboarding are live and complete, and the rest follow the same shape.
               </p>
             </div>
 

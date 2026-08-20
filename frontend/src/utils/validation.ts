@@ -40,6 +40,11 @@ export const rules = {
   requiredFile: (label: string) => ({
     validate: (value: unknown) => isPresent(value) || `${label} is required`,
   }),
+  /** A multi select that needs at least one tick. An empty array is not empty to `required`. */
+  requiredList: (label: string) => ({
+    validate: (value: unknown) =>
+      (Array.isArray(value) && value.length > 0) || `${label} is required`,
+  }),
   /**
    * Required, but only while the field is actually being asked for.
    *

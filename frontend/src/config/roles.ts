@@ -73,8 +73,9 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
   vendor: {
     slug: "vendor",
     label: "Vendor",
-    tagline: "Manage your fleet, drivers and assignments.",
+    tagline: "Complete your onboarding and keep documents current.",
     homePath: "/vendor",
+    profilePath: (accountId) => `/vendor/${accountId}`,
     loginPath: "/vendor/login",
     forgotPasswordPath: "/vendor/forgot-password",
     resetPasswordPath: "/vendor/reset-password",

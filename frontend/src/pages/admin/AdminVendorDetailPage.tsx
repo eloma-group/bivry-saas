@@ -11,8 +11,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
-import { DriverProfile } from "@/components/driver/profile/DriverProfile";
-import { DriverFormDialog } from "@/components/admin/DriverFormDialog";
+import { VendorProfile } from "@/components/vendor/profile/VendorProfile";
+import { VendorFormDialog } from "@/components/admin/VendorFormDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,33 +25,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { adminService } from "@/services/adminService";
+import { adminService, type ReviewableVendorSection } from "@/services/adminService";
 import { ApiRequestError } from "@/services/api";
-import type { DriverOnboardingData, VerificationStatus } from "@/services/driverService";
+import type { VerificationStatus } from "@/services/driverService";
+import type { VendorOnboardingData } from "@/services/vendorService";
 import {
   ONBOARDING_STATUS,
-  REVIEWABLE_SECTIONS,
+  REVIEWABLE_VENDOR_SECTIONS,
   VERIFICATION_STATUS,
 } from "@/constants/adminStatus";
-import type { ReviewableSection } from "@/services/adminService";
+import { INSURANCE_POLICIES } from "@/constants/vendorOptions";
 
-/** Whether a section has been filled in at all, and where its review stands. */
+/** Where a supplier section's review currently stands, or null if never filled in. */
 function sectionStatus(
-  data: DriverOnboardingData,
-  slug: ReviewableSection,
+  data: VendorOnboardingData,
+  slug: ReviewableVendorSection,
 ): VerificationStatus | null {
-  const section = data[slug];
-  return section ? section.verificationStatus : null;
+  if (slug === "accreditation") {
+    return data.accreditation ? data.accreditation.verificationStatus : null;
+  }
+
+  const policy = INSURANCE_POLICIES.find((entry) => entry.key === slug);
+  const stored = data.insurances.find((row) => row.type === policy?.apiType);
+  return stored ? stored.verificationStatus : null;
 }
 
-interface AdminDriverDetailPageProps {
-  driverId: string;
+interface AdminVendorDetailPageProps {
+  vendorId: string;
 }
 
-export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) {
+export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) {
   const navigate = useNavigate();
 
-  const [data, setData] = useState<DriverOnboardingData | null>(null);
+  const [data, setData] = useState<VendorOnboardingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,23 +66,23 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [reason, setReason] = useState("");
-  const [savingSection, setSavingSection] = useState<ReviewableSection | null>(null);
+  const [savingSection, setSavingSection] = useState<ReviewableVendorSection | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setData(await adminService.getDriver(driverId));
+      setData(await adminService.getVendor(vendorId));
     } catch (caught) {
       setError(
         caught instanceof ApiRequestError
           ? caught.message
-          : "Could not load that driver. Please try again.",
+          : "Could not load that supplier. Please try again.",
       );
     } finally {
       setLoading(false);
     }
-  }, [driverId]);
+  }, [vendorId]);
 
   useEffect(() => {
     void load();
@@ -89,17 +95,17 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
   async function decide(decision: "APPROVED" | "REJECTED" | "UNDER_REVIEW") {
     if (decision === "REJECTED" && reason.trim() === "") {
       toast.error("Say what needs fixing", {
-        description: "The driver sees this note on their profile.",
+        description: "The supplier sees this note on their profile.",
       });
       return;
     }
 
     setDeciding(true);
     try {
-      await adminService.reviewDriver(driverId, decision, reason.trim() || null);
+      await adminService.reviewVendor(vendorId, decision, reason.trim() || null);
       toast.success(
         decision === "APPROVED"
-          ? "Driver approved"
+          ? "Supplier approved"
           : decision === "REJECTED"
             ? "Changes requested"
             : "Marked as under review",
@@ -115,10 +121,10 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
     }
   }
 
-  async function decideSection(section: ReviewableSection, status: VerificationStatus) {
+  async function decideSection(section: ReviewableVendorSection, status: VerificationStatus) {
     setSavingSection(section);
     try {
-      await adminService.reviewSection(driverId, section, status);
+      await adminService.reviewVendorSection(vendorId, section, status);
       await load();
     } catch (caught) {
       toast.error("Could not update that section", {
@@ -133,11 +139,11 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
   async function confirmDelete() {
     setDeleting(true);
     try {
-      await adminService.deleteDriver(driverId);
-      toast.success("Driver removed");
-      navigate("/admin/onboarding/driver", { replace: true });
+      await adminService.deleteVendor(vendorId);
+      toast.success("Supplier removed");
+      navigate("/admin/onboarding/supplier", { replace: true });
     } catch (caught) {
-      toast.error("Could not remove that driver", {
+      toast.error("Could not remove that supplier", {
         description:
           caught instanceof ApiRequestError ? caught.message : "Please try again in a moment.",
       });
@@ -145,14 +151,12 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
     }
   }
 
-  if (loading) return <PanelLoader label="Loading driver" />;
+  if (loading) return <PanelLoader label="Loading supplier" />;
   if (error || !data) {
     return <PanelError message={error ?? "Not found"} onRetry={() => void load()} />;
   }
 
   const status = ONBOARDING_STATUS[data.onboardingStatus];
-  const awaitingDecision =
-    data.onboardingStatus === "SUBMITTED" || data.onboardingStatus === "UNDER_REVIEW";
   const notSubmitted =
     data.onboardingStatus === "NOT_STARTED" || data.onboardingStatus === "IN_PROGRESS";
 
@@ -160,8 +164,8 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/admin/onboarding/driver">
-            <ArrowLeft className="h-4 w-4" /> All drivers
+          <Link to="/admin/onboarding/supplier">
+            <ArrowLeft className="h-4 w-4" /> All suppliers
           </Link>
         </Button>
 
@@ -181,7 +185,9 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
       </div>
 
       {/* Verification panel. The decision an admin comes here to make sits above
-          the record itself. */}
+          the record itself. Unlike the driver flow it is never locked out: a
+          supplier's pack is long, and an admin who has seen the paperwork
+          elsewhere can sign it off without waiting for the last upload. */}
       <section className="mb-6 rounded-3xl border border-border/70 bg-card p-6 shadow-card">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -190,7 +196,7 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
             </h2>
             <p className="text-sm text-muted-foreground">
               {notSubmitted
-                ? "This driver has not submitted their application yet."
+                ? "This supplier has not submitted yet. You can still approve or send it back."
                 : "Approve the application, or send it back with a note."}
             </p>
           </div>
@@ -203,15 +209,15 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
               htmlFor="reason"
               className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground"
             >
-              Note to the driver (required when requesting changes)
+              Note to the supplier (required when requesting changes)
             </Label>
             <Input
               id="reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="e.g. The police check has expired, please upload a current one."
+              placeholder="e.g. The public liability certificate has expired, please upload a current one."
               className="mt-1.5"
-              disabled={notSubmitted || deciding}
+              disabled={deciding}
             />
           </div>
 
@@ -219,9 +225,13 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
             <Button
               type="button"
               onClick={() => void decide("APPROVED")}
-              disabled={notSubmitted || deciding || data.onboardingStatus === "APPROVED"}
+              disabled={deciding || data.onboardingStatus === "APPROVED"}
             >
-              {deciding ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              {deciding ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
               Approve
             </Button>
             <Button
@@ -229,11 +239,11 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
               variant="outline"
               className="text-destructive hover:bg-red-50 hover:text-destructive"
               onClick={() => void decide("REJECTED")}
-              disabled={notSubmitted || deciding}
+              disabled={deciding}
             >
               <XCircle className="h-4 w-4" /> Request changes
             </Button>
-            {awaitingDecision && data.onboardingStatus === "SUBMITTED" && (
+            {data.onboardingStatus !== "UNDER_REVIEW" && (
               <Button
                 type="button"
                 variant="secondary"
@@ -246,11 +256,11 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
           </div>
         </div>
 
-        {/* Per section decisions, for the cases where only one document is wrong. */}
+        {/* Per section decisions, for the cases where only one policy is wrong. */}
         <div className="mt-6 border-t border-border/60 pt-5">
           <p className="mb-3 text-sm font-semibold text-foreground">By section</p>
           <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-            {REVIEWABLE_SECTIONS.map((section) => {
+            {REVIEWABLE_VENDOR_SECTIONS.map((section) => {
               const current = sectionStatus(data, section.slug);
               const busy = savingSection === section.slug;
 
@@ -260,7 +270,9 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 px-4 py-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{section.label}</p>
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {section.label}
+                    </p>
                     {current ? (
                       <Badge variant={VERIFICATION_STATUS[current].variant} className="mt-1">
                         {VERIFICATION_STATUS[current].label}
@@ -301,13 +313,13 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
         </div>
       </section>
 
-      {/* The driver's own record, read only, with their documents. */}
-      <DriverProfile
+      {/* The supplier's own record, read only, with their documents. */}
+      <VendorProfile
         data={data}
         readOnly
-        documentUrl={(documentId) => adminService.driverDocumentLink(driverId, documentId)}
+        documentUrl={(documentId) => adminService.vendorDocumentLink(vendorId, documentId)}
         documentBlobUrl={(documentId) =>
-          adminService.fetchDriverDocumentBlobUrl(driverId, documentId)
+          adminService.fetchVendorDocumentBlobUrl(vendorId, documentId)
         }
       />
 
@@ -318,18 +330,19 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
         </span>
       </div>
 
-      <DriverFormDialog
+      <VendorFormDialog
         open={editing}
         onOpenChange={setEditing}
-        driver={{
+        vendor={{
           id: data.id,
           email: data.email,
-          firstName: data.firstName,
-          middleName: data.middleName,
-          lastName: data.lastName,
+          companyName: data.companyName,
+          tradingName: data.tradingName,
+          legalName: data.legalName,
+          contactPerson: data.contactPerson,
+          abn: data.abn,
+          websiteAddress: data.websiteAddress,
           phone: data.phone,
-          dateOfBirth: data.dateOfBirth,
-          nationality: data.nationality,
           status: data.status,
         }}
         onSaved={() => void load()}
@@ -338,9 +351,9 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
       <ConfirmDialog
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
-        title="Remove this driver?"
+        title="Remove this supplier?"
         description={`${data.email} will lose access immediately. The record and documents are kept for audit.`}
-        confirmLabel="Remove driver"
+        confirmLabel="Remove supplier"
         destructive
         busy={deleting}
         onConfirm={confirmDelete}
