@@ -3,7 +3,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { motion } from "framer-motion";
 import { Camera, ImageUp, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CameraCapture } from "@/components/driver/camera/CameraCapture";
+import { CameraCapture } from "@/components/upload/CameraCapture";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import {
   ACCEPT_IMAGE,

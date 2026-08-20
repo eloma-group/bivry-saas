@@ -1,9 +1,9 @@
 import { FilePlus2, Plus, Trash2 } from "lucide-react";
 import { useFormContext, useFieldArray } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
-import { SectionCard } from "./SectionCard";
-import { DateField, SelectField } from "./Fields";
-import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { SectionCard } from "@/components/form/SectionCard";
+import { DateField, SelectField } from "@/components/form/Fields";
+import { FormUpload } from "@/components/upload/FormUpload";
 import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
 import { Button } from "@/components/ui/button";
 import { ADDITIONAL_DOC_CATEGORIES } from "@/constants/options";

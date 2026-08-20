@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { UploadCloud, Camera, X, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CameraCapture } from "@/components/driver/camera/CameraCapture";
+import { CameraCapture } from "@/components/upload/CameraCapture";
 import {
   ACCEPT_DOCUMENT,
   acceptLabel,
@@ -25,6 +25,11 @@ interface FileUploadProps {
   error?: string;
   /** Marks the box with a * so a missing file reads as missing, not optional. */
   required?: boolean;
+  /**
+   * Single row instead of the full dropzone. Used where an upload sits in a
+   * table cell and a 6rem tall drop target would blow the row apart.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -44,6 +49,7 @@ export function FileUpload({
   className,
   error,
   required = false,
+  compact = false,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -73,6 +79,56 @@ export function FileUpload({
   // A file that is already stored keeps its bytes on the server, so there is
   // nothing local to draw a thumbnail from.
   const thumbnail = value?.type.startsWith("image/") ? value.dataUrl : "";
+
+  // Table cells get a single row: the same picker, none of the height.
+  if (compact) {
+    return (
+      <div className={cn("w-full", className)}>
+        {value ? (
+          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-white px-2.5 py-1.5">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+              {value.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500"
+              aria-label={`Remove ${value.name}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant={error ? "outline" : "secondary"}
+            size="sm"
+            className={cn("w-full", error && "border-red-300 text-red-600")}
+            onClick={() => inputRef.current?.click()}
+          >
+            {converting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <UploadCloud className="h-3.5 w-3.5" />
+            )}
+            {label}
+          </Button>
+        )}
+
+        <input
+          ref={inputRef}
+          id={id}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => void ingest(e.target.files?.[0])}
+        />
+
+        {error && <p className="mt-1 text-[0.7rem] font-medium text-red-500">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("w-full", className)}>

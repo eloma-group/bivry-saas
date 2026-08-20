@@ -1,6 +1,6 @@
 import { User } from "lucide-react";
-import { SectionCard } from "./SectionCard";
-import { TextField, DateField, SelectField } from "./Fields";
+import { SectionCard } from "@/components/form/SectionCard";
+import { TextField, DateField, SelectField } from "@/components/form/Fields";
 import { AvatarUpload } from "@/components/driver/AvatarUpload";
 import { COUNTRIES } from "@/constants/options";
 import { rules } from "@/utils/validation";

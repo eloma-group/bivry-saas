@@ -2,12 +2,19 @@ import {
   useFormContext,
   Controller,
   get,
+  type FieldValues,
   type RegisterOptions,
 } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -15,18 +22,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { DriverFormValues } from "@/types/driver";
+
+/**
+ * The shared field kit.
+ *
+ * Every input here is bound by field path rather than by a typed key, so the
+ * same components serve the driver wizard and the supplier wizard without
+ * either of them knowing about the other's value shape.
+ */
 
 type FieldName = string;
+
+/** Validators are written once and reused across every path, so the rules stay loose. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type FieldRules = RegisterOptions<FieldValues, any>;
 
 interface BaseFieldProps {
   name: FieldName;
   label: string;
   className?: string;
-  // `any` for the field-name generic keeps validators reusable across every
-  // path without RHF narrowing the value type per-field.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rules?: RegisterOptions<DriverFormValues, any>;
+  rules?: FieldRules;
   required?: boolean;
 }
 
@@ -100,7 +115,7 @@ export function TextField({
   const {
     register,
     formState: { errors },
-  } = useFormContext<DriverFormValues>();
+  } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
 
   return (
@@ -123,7 +138,7 @@ export function TextField({
           error && "border-red-300 focus-visible:ring-red-500/10",
           readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground"
         )}
-        {...register(name as keyof DriverFormValues, rules)}
+        {...register(name, rules)}
       />
     </FieldShell>
   );
@@ -133,6 +148,13 @@ interface DateFieldProps extends BaseFieldProps {
   readOnly?: boolean;
   min?: string;
   max?: string;
+  /**
+   * Drops the decorative leading calendar icon. In a narrow table column the
+   * icon's indent plus the browser's own picker button squeezes the date out of
+   * the box, and the native picker is the only one of the two that does
+   * anything.
+   */
+  compact?: boolean;
 }
 
 /** Reusable date picker (native, styled) wired to react-hook-form. */
@@ -144,12 +166,13 @@ export function DateField({
   readOnly,
   min,
   max,
+  compact,
   className,
 }: DateFieldProps) {
   const {
     register,
     formState: { errors },
-  } = useFormContext<DriverFormValues>();
+  } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
 
   return (
@@ -161,7 +184,9 @@ export function DateField({
       className={className}
     >
       <div className="relative">
-        <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        {!compact && (
+          <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        )}
         <Input
           id={name}
           type="date"
@@ -170,11 +195,11 @@ export function DateField({
           max={max}
           aria-invalid={!!error}
           className={cn(
-            "pl-10",
+            compact ? "px-3" : "pl-10",
             error && "border-red-300 focus-visible:ring-red-500/10",
             readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground"
           )}
-          {...register(name as keyof DriverFormValues, rules)}
+          {...register(name, rules)}
         />
       </div>
     </FieldShell>
@@ -199,7 +224,7 @@ export function SelectField({
   const {
     control,
     formState: { errors },
-  } = useFormContext<DriverFormValues>();
+  } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
 
   return (
@@ -211,7 +236,7 @@ export function SelectField({
     >
       <Controller
         control={control}
-        name={name as keyof DriverFormValues}
+        name={name}
         rules={rules}
         render={({ field }) => (
           <Select
@@ -232,6 +257,97 @@ export function SelectField({
             </SelectContent>
           </Select>
         )}
+      />
+    </FieldShell>
+  );
+}
+
+interface MultiSelectFieldProps extends BaseFieldProps {
+  options: readonly string[];
+  placeholder?: string;
+}
+
+/**
+ * Tick as many as apply. The value is a plain string array, which is what the
+ * API stores for the coverage and invoice preference questions.
+ */
+export function MultiSelectField({
+  name,
+  label,
+  options,
+  placeholder = "Select…",
+  rules,
+  required,
+  className,
+}: MultiSelectFieldProps) {
+  const {
+    control,
+    formState: { errors },
+  } = useFormContext();
+  const error = get(errors, name)?.message as string | undefined;
+
+  return (
+    <FieldShell label={label} required={required} error={error} className={className}>
+      <Controller
+        control={control}
+        name={name}
+        rules={rules}
+        render={({ field }) => {
+          const selected: string[] = Array.isArray(field.value) ? field.value : [];
+
+          const toggle = (option: string) => {
+            field.onChange(
+              selected.includes(option)
+                ? selected.filter((value) => value !== option)
+                : [...selected, option],
+            );
+          };
+
+          return (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-invalid={!!error}
+                  className={cn(
+                    "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-white px-3.5 text-left text-sm transition-colors hover:border-primary/50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/10",
+                    error && "border-red-300 focus-visible:ring-red-500/10",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "truncate",
+                      selected.length === 0 && "text-muted-foreground",
+                    )}
+                  >
+                    {selected.length === 0 ? placeholder : selected.join(", ")}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="max-h-72 w-[--radix-popover-trigger-width] overflow-y-auto p-1.5">
+                <ul className="space-y-0.5">
+                  {options.map((option) => {
+                    const checked = selected.includes(option);
+                    return (
+                      <li key={option}>
+                        <button
+                          type="button"
+                          onClick={() => toggle(option)}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-slate-600 transition-colors hover:bg-secondary hover:text-foreground"
+                        >
+                          <Checkbox checked={checked} className="pointer-events-none" />
+                          <span className="flex-1">{option}</span>
+                          {checked && <Check className="h-3.5 w-3.5 text-primary" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          );
+        }}
       />
     </FieldShell>
   );

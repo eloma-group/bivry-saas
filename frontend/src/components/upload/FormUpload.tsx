@@ -1,8 +1,7 @@
 import { Controller, useFormContext, get } from "react-hook-form";
 import { FileUpload } from "./FileUpload";
 import { rules as sharedRules } from "@/utils/validation";
-import type { RegisterOptions } from "react-hook-form";
-import type { DriverFormValues } from "@/types/driver";
+import type { FieldRules } from "@/components/form/Fields";
 
 interface FormUploadProps {
   name: string;
@@ -10,11 +9,12 @@ interface FormUploadProps {
   accept?: string;
   allowCamera?: boolean;
   cameraTitle?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rules?: RegisterOptions<DriverFormValues, any>;
+  rules?: FieldRules;
   className?: string;
   /** Marks the box with a * and refuses an empty submit. */
   required?: boolean;
+  /** Compact single row layout, used inside document tables. */
+  compact?: boolean;
 }
 
 /** Binds the reusable <FileUpload/> to react-hook-form state. */
@@ -27,17 +27,18 @@ export function FormUpload({
   rules,
   className,
   required,
+  compact,
 }: FormUploadProps) {
   const {
     control,
     formState: { errors },
-  } = useFormContext<DriverFormValues>();
+  } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
 
   return (
     <Controller
       control={control}
-      name={name as keyof DriverFormValues}
+      name={name}
       rules={rules ?? (required ? sharedRules.requiredFile(label ?? "This file") : undefined)}
       render={({ field }) => (
         <FileUpload
@@ -49,6 +50,7 @@ export function FormUpload({
           cameraTitle={cameraTitle}
           error={error}
           required={required}
+          compact={compact}
           className={className}
         />
       )}

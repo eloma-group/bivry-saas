@@ -1,8 +1,8 @@
 import { CreditCard } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { SectionCard } from "./SectionCard";
-import { TextField, DateField, SelectField } from "./Fields";
-import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { SectionCard } from "@/components/form/SectionCard";
+import { TextField, DateField, SelectField } from "@/components/form/Fields";
+import { FormUpload } from "@/components/upload/FormUpload";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { AU_STATES, LICENCE_TYPES } from "@/constants/options";
 import { ACCEPT_IMAGE, rules } from "@/utils/validation";

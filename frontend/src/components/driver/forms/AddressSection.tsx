@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, LocateFixed, MapPin } from "lucide-react";
-import { useFormContext, useWatch, type RegisterOptions } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { SectionCard } from "./SectionCard";
-import { TextField, SelectField } from "./Fields";
+import { SectionCard } from "@/components/form/SectionCard";
+import { TextField, SelectField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -12,6 +12,7 @@ import { COUNTRIES } from "@/constants/options";
 import { isStateOfCountry, statesFor } from "@/constants/regions";
 import { locateCurrentAddress } from "@/services/geocode";
 import { rules } from "@/utils/validation";
+import type { FieldRules } from "@/components/form/Fields";
 import type { AddressBlock as AddressBlockValues, DriverFormValues } from "@/types/driver";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -31,10 +32,7 @@ function StateField({
   rules: fieldRules,
 }: {
   prefix: AddressPrefix;
-  // `any` for the field-name generic keeps the shared validators reusable here,
-  // the same way `Fields.tsx` does it.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rules: RegisterOptions<DriverFormValues, any>;
+  rules: FieldRules;
 }) {
   const { control, setValue, getValues } = useFormContext<DriverFormValues>();
   const country = useWatch({ control, name: `${prefix}.country` });

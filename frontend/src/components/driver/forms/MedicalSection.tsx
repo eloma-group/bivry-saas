@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { Stethoscope } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { SectionCard } from "./SectionCard";
-import { DateField } from "./Fields";
-import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { SectionCard } from "@/components/form/SectionCard";
+import { DateField } from "@/components/form/Fields";
+import { FormUpload } from "@/components/upload/FormUpload";
 import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { addMonthsISO } from "@/utils/date";

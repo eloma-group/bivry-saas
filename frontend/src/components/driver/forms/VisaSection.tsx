@@ -1,9 +1,9 @@
 import { Plane } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
-import { SectionCard } from "./SectionCard";
-import { DateField, SelectField, TextField } from "./Fields";
-import { FormUpload } from "@/components/driver/upload/FormUpload";
+import { SectionCard } from "@/components/form/SectionCard";
+import { DateField, SelectField, TextField } from "@/components/form/Fields";
+import { FormUpload } from "@/components/upload/FormUpload";
 import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { COUNTRIES, VISA_STATUSES, VISA_TYPES } from "@/constants/options";
