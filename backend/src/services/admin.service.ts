@@ -3,7 +3,7 @@ import { ApiError } from '../utils/apiError';
 import { logger } from '../utils/logger';
 import { hashPassword } from './auth/password.service';
 import * as storage from './storage.service';
-import type { OnboardingStatus, Prisma } from '@prisma/client';
+import type { OnboardingStatus, Prisma, VendorInsuranceType } from '@prisma/client';
 
 /**
  * Everything the Admin portal can do to the records it governs.
@@ -35,13 +35,61 @@ const DRIVER_LIST_FIELDS = {
   updatedAt: true,
 } satisfies Prisma.DriverSelect;
 
+const VENDOR_LIST_FIELDS = {
+  id: true,
+  email: true,
+  phone: true,
+  companyName: true,
+  tradingName: true,
+  legalName: true,
+  abn: true,
+  supplierId: true,
+  websiteAddress: true,
+  contactPerson: true,
+  status: true,
+  onboardingStatus: true,
+  onboardingStep: true,
+  submittedAt: true,
+  approvedAt: true,
+  rejectionReason: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.VendorSelect;
+
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
 
+/** Turns a groupBy result into a count per onboarding status. */
+function statusCounts(rows: Array<{ onboardingStatus: OnboardingStatus; _count: { _all: number } }>) {
+  const counts = Object.fromEntries(
+    rows.map((row) => [row.onboardingStatus, row._count._all]),
+  ) as Partial<Record<OnboardingStatus, number>>;
+
+  return {
+    notStarted: counts.NOT_STARTED ?? 0,
+    inProgress: counts.IN_PROGRESS ?? 0,
+    submitted: counts.SUBMITTED ?? 0,
+    underReview: counts.UNDER_REVIEW ?? 0,
+    approved: counts.APPROVED ?? 0,
+    rejected: counts.REJECTED ?? 0,
+  };
+}
+
 /** Headline numbers for the admin dashboard. */
 export async function getDashboard() {
-  const [drivers, byStatus, documents, recent, pendingReview] = await Promise.all([
+  const [
+    drivers,
+    byStatus,
+    documents,
+    recent,
+    pendingReview,
+    vendors,
+    vendorsByStatus,
+    vendorDocuments,
+    recentVendors,
+    vendorsPendingReview,
+  ] = await Promise.all([
     prisma.driver.count({ where: { deletedAt: null } }),
     prisma.driver.groupBy({
       by: ['onboardingStatus'],
@@ -62,35 +110,53 @@ export async function getDashboard() {
     prisma.driver.count({
       where: { deletedAt: null, onboardingStatus: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
     }),
+    prisma.vendor.count({ where: { deletedAt: null } }),
+    prisma.vendor.groupBy({
+      by: ['onboardingStatus'],
+      where: { deletedAt: null },
+      _count: { _all: true },
+    }),
+    prisma.vendorDocument.aggregate({
+      where: { deletedAt: null },
+      _count: { _all: true },
+      _sum: { sizeInBytes: true },
+    }),
+    prisma.vendor.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+      select: VENDOR_LIST_FIELDS,
+    }),
+    prisma.vendor.count({
+      where: { deletedAt: null, onboardingStatus: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
+    }),
   ]);
-
-  const counts = Object.fromEntries(
-    byStatus.map((row) => [row.onboardingStatus, row._count._all]),
-  ) as Partial<Record<OnboardingStatus, number>>;
 
   return {
     drivers: {
       total: drivers,
       pendingReview,
-      notStarted: counts.NOT_STARTED ?? 0,
-      inProgress: counts.IN_PROGRESS ?? 0,
-      submitted: counts.SUBMITTED ?? 0,
-      underReview: counts.UNDER_REVIEW ?? 0,
-      approved: counts.APPROVED ?? 0,
-      rejected: counts.REJECTED ?? 0,
+      ...statusCounts(byStatus),
+    },
+    vendors: {
+      total: vendors,
+      pendingReview: vendorsPendingReview,
+      ...statusCounts(vendorsByStatus),
     },
     documents: {
-      total: documents._count._all,
-      totalBytes: documents._sum.sizeInBytes ?? 0,
+      // Both stores together: the dashboard tile counts every file held.
+      total: documents._count._all + vendorDocuments._count._all,
+      totalBytes: (documents._sum.sizeInBytes ?? 0) + (vendorDocuments._sum.sizeInBytes ?? 0),
     },
     recentDrivers: recent,
+    recentVendors,
     /** The modules the Onboarding menu offers. Only the built ones are usable. */
     modules: [
       { slug: 'driver', label: 'Driver', ready: true, records: drivers },
+      { slug: 'supplier', label: 'Supplier', ready: true, records: vendors },
       { slug: 'vehicle', label: 'Vehicle', ready: false, records: 0 },
       { slug: 'customer', label: 'Customer', ready: false, records: 0 },
       { slug: 'user', label: 'User', ready: false, records: 0 },
-      { slug: 'supplier', label: 'Supplier', ready: false, records: 0 },
     ],
   };
 }
@@ -405,6 +471,310 @@ export async function createDriverDocumentLink(driverId: string, documentId: str
 export async function openDriverDocument(driverId: string, documentId: string) {
   const document = await getDriverDocument(driverId, documentId);
   const file = await storage.openFile(document.storageKey, document.mimeType, 'driver');
+  return { document, file };
+}
+
+// ---------------------------------------------------------------------------
+// Suppliers (vendors) - read
+// ---------------------------------------------------------------------------
+
+export interface VendorListQuery {
+  search?: string;
+  onboardingStatus?: OnboardingStatus;
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt' | 'submittedAt' | 'companyName' | 'email' | 'onboardingStatus';
+  sortDir: 'asc' | 'desc';
+}
+
+export async function listVendors(query: VendorListQuery) {
+  const where: Prisma.VendorWhereInput = { deletedAt: null };
+
+  if (query.onboardingStatus) where.onboardingStatus = query.onboardingStatus;
+
+  if (query.search) {
+    const contains = { contains: query.search, mode: 'insensitive' } as const;
+    where.OR = [
+      { companyName: contains },
+      { tradingName: contains },
+      { legalName: contains },
+      { supplierId: contains },
+      { abn: contains },
+      { email: contains },
+      { phone: contains },
+    ];
+  }
+
+  const [total, rows] = await Promise.all([
+    prisma.vendor.count({ where }),
+    prisma.vendor.findMany({
+      where,
+      orderBy: { [query.sortBy]: query.sortDir },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      select: {
+        ...VENDOR_LIST_FIELDS,
+        accreditation: {
+          select: { accreditationNumber: true, nhvasExpiry: true, verificationStatus: true },
+        },
+        coverage: { select: { areasCovered: true, businessOperations: true } },
+        warehouses: { select: { suburb: true, state: true, country: true }, orderBy: { position: 'asc' } },
+        _count: { select: { documents: { where: { deletedAt: null } } } },
+      },
+    }),
+  ]);
+
+  return {
+    rows,
+    page: query.page,
+    pageSize: query.pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+  };
+}
+
+/** One supplier in full, including every onboarding section and document. */
+export async function getVendor(vendorId: string) {
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, deletedAt: null },
+    include: {
+      contacts: true,
+      directors: { orderBy: { position: 'asc' } },
+      bankDetail: true,
+      coverage: true,
+      warehouses: { orderBy: { position: 'asc' } },
+      accreditation: true,
+      insurances: true,
+      documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
+    },
+  });
+
+  if (!vendor) throw ApiError.notFound('Supplier not found');
+
+  const { passwordHash: _passwordHash, ...safeVendor } = vendor;
+  return safeVendor;
+}
+
+// ---------------------------------------------------------------------------
+// Suppliers - write
+// ---------------------------------------------------------------------------
+
+export interface CreateVendorInput {
+  email: string;
+  password: string;
+  phone: string | null;
+  companyName: string;
+  tradingName: string | null;
+  legalName: string | null;
+  contactPerson: string | null;
+  abn: string | null;
+  websiteAddress: string | null;
+  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+}
+
+export async function createVendor(input: CreateVendorInput) {
+  const email = input.email.trim().toLowerCase();
+
+  const existing = await prisma.vendor.findUnique({ where: { email } });
+  if (existing) throw ApiError.conflict('A supplier account with this email already exists.');
+
+  return prisma.vendor.create({
+    data: {
+      email,
+      passwordHash: await hashPassword(input.password),
+      phone: input.phone,
+      companyName: input.companyName,
+      tradingName: input.tradingName,
+      legalName: input.legalName,
+      contactPerson: input.contactPerson,
+      abn: input.abn,
+      websiteAddress: input.websiteAddress,
+      // An admin created account is usable straight away; the supplier still has
+      // to complete onboarding before it can be approved.
+      status: input.status ?? 'ACTIVE',
+    },
+    select: VENDOR_LIST_FIELDS,
+  });
+}
+
+export type UpdateVendorInput = Partial<Omit<CreateVendorInput, 'email' | 'password'>>;
+
+/**
+ * Updates a supplier's own details. The email is deliberately not updatable: it
+ * identifies the account everywhere, including in the supplier's own sign in.
+ */
+export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
+  await assertVendorExists(vendorId);
+
+  return prisma.vendor.update({
+    where: { id: vendorId },
+    data: input,
+    select: VENDOR_LIST_FIELDS,
+  });
+}
+
+/**
+ * Soft delete. The row stays for audit and the files stay in blob storage, but
+ * the account disappears from every query and can no longer sign in.
+ */
+export async function deleteVendor(vendorId: string) {
+  await assertVendorExists(vendorId);
+
+  const [vendor] = await prisma.$transaction([
+    prisma.vendor.update({
+      where: { id: vendorId },
+      data: { deletedAt: new Date(), status: 'DEACTIVATED' },
+      select: { id: true, email: true },
+    }),
+    // Any live session goes with it.
+    prisma.refreshToken.updateMany({
+      where: { actorType: 'VENDOR', actorId: vendorId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
+
+  return vendor;
+}
+
+/**
+ * Verification decision on a supplier's whole application.
+ *
+ * Unlike the driver flow this does not insist the application was submitted
+ * first: a supplier's compliance pack is long, and an admin who has seen the
+ * paperwork elsewhere is allowed to sign it off without waiting for the last
+ * upload to land.
+ */
+export async function reviewVendor(
+  vendorId: string,
+  input: { decision: 'APPROVED' | 'REJECTED' | 'UNDER_REVIEW'; reason: string | null },
+  adminId: string,
+) {
+  await assertVendorExists(vendorId);
+
+  const now = new Date();
+
+  const data: Prisma.VendorUpdateInput =
+    input.decision === 'APPROVED'
+      ? { onboardingStatus: 'APPROVED', approvedAt: now, rejectionReason: null, status: 'ACTIVE' }
+      : input.decision === 'REJECTED'
+        ? { onboardingStatus: 'REJECTED', approvedAt: null, rejectionReason: input.reason }
+        : { onboardingStatus: 'UNDER_REVIEW', approvedAt: null };
+
+  const updated = await prisma.vendor.update({
+    where: { id: vendorId },
+    data,
+    select: VENDOR_LIST_FIELDS,
+  });
+
+  // Approving the application accepts the paperwork behind it, so every section
+  // that was still waiting is marked verified in the same breath.
+  if (input.decision === 'APPROVED') {
+    const verified = { verificationStatus: 'VERIFIED' as const, verifiedAt: now, verifiedBy: adminId };
+    await prisma.$transaction([
+      prisma.vendorAccreditation.updateMany({ where: { vendorId }, data: verified }),
+      prisma.vendorInsurance.updateMany({ where: { vendorId }, data: verified }),
+    ]);
+  }
+
+  return updated;
+}
+
+/** The supplier sections an admin can verify one at a time. */
+export type ReviewableVendorSection =
+  | 'accreditation'
+  | 'productLiability'
+  | 'publicLiability'
+  | 'workCover'
+  | 'marineGeneral'
+  | 'marineAlcohol'
+  | 'coc';
+
+const VENDOR_INSURANCE_SECTION: Record<
+  Exclude<ReviewableVendorSection, 'accreditation'>,
+  VendorInsuranceType
+> = {
+  productLiability: 'PRODUCT_LIABILITY',
+  publicLiability: 'PUBLIC_LIABILITY',
+  workCover: 'WORK_COVER',
+  marineGeneral: 'MARINE_GENERAL',
+  marineAlcohol: 'MARINE_ALCOHOL',
+  coc: 'COC',
+};
+
+export async function reviewVendorSection(
+  vendorId: string,
+  section: ReviewableVendorSection,
+  input: { status: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED'; remarks: string | null },
+  adminId: string,
+) {
+  await assertVendorExists(vendorId);
+
+  const data = {
+    verificationStatus: input.status,
+    remarks: input.remarks,
+    verifiedAt: input.status === 'PENDING' ? null : new Date(),
+    verifiedBy: input.status === 'PENDING' ? null : adminId,
+  };
+
+  const result =
+    section === 'accreditation'
+      ? await prisma.vendorAccreditation.updateMany({ where: { vendorId }, data })
+      : await prisma.vendorInsurance.updateMany({
+          where: { vendorId, type: VENDOR_INSURANCE_SECTION[section] },
+          data,
+        });
+
+  if (result.count === 0) {
+    throw ApiError.notFound('This supplier has not filled in that section yet.');
+  }
+
+  return { vendorId, section, status: input.status };
+}
+
+async function assertVendorExists(vendorId: string) {
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, deletedAt: null },
+    select: { id: true, onboardingStatus: true },
+  });
+  if (!vendor) throw ApiError.notFound('Supplier not found');
+  return vendor;
+}
+
+// ---------------------------------------------------------------------------
+// Supplier documents, read only from here
+// ---------------------------------------------------------------------------
+
+async function getVendorDocument(vendorId: string, documentId: string) {
+  const document = await prisma.vendorDocument.findFirst({
+    where: { id: documentId, vendorId, deletedAt: null },
+  });
+  if (!document) throw ApiError.notFound('Document not found');
+  return document;
+}
+
+/** Signed link so an admin can open a supplier's file straight from blob storage. */
+export async function createVendorDocumentLink(vendorId: string, documentId: string) {
+  const document = await getVendorDocument(vendorId, documentId);
+  const link = await storage.createSignedLink({
+    storageKey: document.storageKey,
+    fileName: document.fileName,
+    fallbackPath: `/api/admin/vendors/${vendorId}/documents/${document.id}/file`,
+    // A supplier's documents stay in the supplier container whoever reads them.
+    area: 'vendor',
+  });
+
+  return {
+    documentId: document.id,
+    fileName: document.fileName,
+    mimeType: document.mimeType,
+    url: link.url,
+    expiresAt: link.expiresAt,
+  };
+}
+
+export async function openVendorDocument(vendorId: string, documentId: string) {
+  const document = await getVendorDocument(vendorId, documentId);
+  const file = await storage.openFile(document.storageKey, document.mimeType, 'vendor');
   return { document, file };
 }
 

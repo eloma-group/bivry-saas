@@ -6,13 +6,21 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**18 tables, 7 enum types.**
+**26 tables, 10 enum types.**
 
 ## Tables
 
 - [`admins`](#admins)
 - [`customers`](#customers)
 - [`vendors`](#vendors)
+- [`vendor_contacts`](#vendorcontacts)
+- [`vendor_directors`](#vendordirectors)
+- [`vendor_bank_details`](#vendorbankdetails)
+- [`vendor_coverages`](#vendorcoverages)
+- [`vendor_warehouses`](#vendorwarehouses)
+- [`vendor_accreditations`](#vendoraccreditations)
+- [`vendor_insurances`](#vendorinsurances)
+- [`vendor_documents`](#vendordocuments)
 - [`employees`](#employees)
 - [`drivers`](#drivers)
 - [`driver_addresses`](#driveraddresses)
@@ -40,6 +48,9 @@ look up a column. Every table, column, type, default and relation is below.
 | `address_type` | `CURRENT`, `PERMANENT` |
 | `licence_type` | `CAR`, `HEAVY_RIGID`, `HEAVY_COMBINATION`, `MULTI_COMBINATION`, `MOTORCYCLE` |
 | `driver_document_type` | `PROFILE_PHOTO`, `LICENCE_FRONT`, `LICENCE_BACK`, `DRIVING_HISTORY`, `POLICE_VERIFICATION`, `VISA`, `MEDICAL`, `DRUG_TEST`, `PASSPORT_FRONT`, `PASSPORT_BACK`, `MEDICARE`, `ADDITIONAL` |
+| `vendor_contact_type` | `OPERATIONS`, `COMPLIANCE`, `ADMIN`, `DISPATCH` |
+| `vendor_insurance_type` | `PRODUCT_LIABILITY`, `PUBLIC_LIABILITY`, `WORK_COVER`, `MARINE_GENERAL`, `MARINE_ALCOHOL`, `COC` |
+| `vendor_document_type` | `COMPANY_LOGO`, `ACCREDITATION`, `INSURANCE_PRODUCT_LIABILITY`, `INSURANCE_PUBLIC_LIABILITY`, `INSURANCE_WORK_COVER`, `INSURANCE_MARINE_GENERAL`, `INSURANCE_MARINE_ALCOHOL`, `INSURANCE_COC`, `COMPLIANCE_DRUG`, `COMPLIANCE_ALCOHOL_POLICY`, `COMPLIANCE_PROCEDURE`, `COMPLIANCE_RISK_MANAGEMENT`, `COMPLIANCE_SPEED_POLICY`, `COMPLIANCE_FATIGUE_POLICY`, `COMPLIANCE_GPS_SNAPSHOT`, `COMPLIANCE_WHS_POLICY`, `COMPLIANCE_ADDITIONAL` |
 
 ## Table detail
 
@@ -97,7 +108,19 @@ look up a column. Every table, column, type, default and relation is below.
 | `contact_person` | text | NULL |  |  |
 | `abn` | text | NULL |  |  |
 | `logo_url` | text | NULL |  |  |
+| `supplier_id` | text | NULL |  | unique; Human readable supplier reference (BVR-1001). Handed out by the server on\nthe first onboarding load, never typed in. |
+| `trading_name` | text | NULL |  |  |
+| `legal_name` | text | NULL |  |  |
+| `website_address` | text | NULL |  |  |
+| `invoice_preference` | text | NULL |  | How invoices reach this supplier: Mail, Email, Portal. |
+| `invoice_emails` | text | NOT NULL |  | Which of the contact emails invoices are copied to. |
+| `invoice_other` | text | NULL |  | Free text, used when the preference list above does not cover it. |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
+| `onboarding_status` | onboarding_status | NOT NULL | 'NOT_STARTED' |  |
+| `onboarding_step` | integer | NOT NULL | 0 | Index of the last completed onboarding step, used to resume the wizard. |
+| `submitted_at` | timestamp(3) | NULL |  |  |
+| `approved_at` | timestamp(3) | NULL |  |  |
+| `rejection_reason` | text | NULL |  |  |
 | `email_verified_at` | timestamp(3) | NULL |  |  |
 | `last_login_at` | timestamp(3) | NULL |  |  |
 | `failed_login_attempts` | integer | NOT NULL | 0 |  |
@@ -105,6 +128,196 @@ look up a column. Every table, column, type, default and relation is below.
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
 | `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
 | `deleted_at` | timestamp(3) | NULL |  |  |
+
+**Relations**
+
+- optional one `vendor_accreditations`
+- optional one `vendor_bank_details`
+- many `vendor_contacts`
+- optional one `vendor_coverages`
+- many `vendor_directors`
+- many `vendor_documents`
+- many `vendor_insurances`
+- many `vendor_warehouses`
+
+### `vendor_contacts`
+
+One contact block per department, as the supplier form asks for them.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `type` | vendor_contact_type | NOT NULL |  |  |
+| `contact_person` | text | NULL |  |  |
+| `designation` | text | NULL |  |  |
+| `contact_number` | text | NULL |  |  |
+| `email` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Constraints**
+
+- unique: (`vendorId`, `type`)
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_directors`
+
+Company C-suite. A supplier lists as many directors as it has.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `position` | integer | NOT NULL | 0 | Keeps the rows in the order the supplier entered them. |
+| `designation` | text | NULL |  |  |
+| `email` | text | NULL |  |  |
+| `contact_number` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_bank_details`
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | unique; FK to `vendors` (cascade delete) |
+| `account_name` | text | NULL |  |  |
+| `bank_name` | text | NULL |  |  |
+| `bsb` | text | NULL |  |  |
+| `account_number` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_coverages`
+
+Where the supplier operates. Both columns hold several selections.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | unique; FK to `vendors` (cascade delete) |
+| `areas_covered` | text | NOT NULL |  |  |
+| `business_operations` | text | NOT NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_warehouses`
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `position` | integer | NOT NULL | 0 | Keeps "Address 1", "Address 2" in the order they were entered. |
+| `street1` | text | NULL |  |  |
+| `street2` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_accreditations`
+
+Certificate of accreditation. One per supplier, several expiry dates on it.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | unique; FK to `vendors` (cascade delete) |
+| `accreditation_number` | text | NULL |  |  |
+| `mass_management_expiry` | date | NULL |  |  |
+| `basic_fatigue_expiry` | date | NULL |  |  |
+| `dangerous_goods_expiry` | date | NULL |  |  |
+| `nhvas_expiry` | date | NULL |  |  |
+| `haccp_expiry` | date | NULL |  |  |
+| `verification_status` | verification_status | NOT NULL | 'PENDING' |  |
+| `verified_at` | timestamp(3) | NULL |  |  |
+| `verified_by` | uuid | NULL |  | Admin id that verified this record (no FK - verifier may be admin or employee). |
+| `remarks` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_insurances`
+
+One row per policy the supplier holds. Work cover carries its own columns.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `type` | vendor_insurance_type | NOT NULL |  |  |
+| `policy_number` | text | NULL |  |  |
+| `insurer` | text | NULL |  |  |
+| `expiry_date` | date | NULL |  |  |
+| `sum_assured` | text | NULL |  |  |
+| `employer_number` | text | NULL |  | Work cover only: it is keyed by employer number and a validity window. |
+| `valid_from` | date | NULL |  |  |
+| `valid_till` | date | NULL |  |  |
+| `due_in_days` | integer | NULL |  |  |
+| `verification_status` | verification_status | NOT NULL | 'PENDING' |  |
+| `verified_at` | timestamp(3) | NULL |  |  |
+| `verified_by` | uuid | NULL |  |  |
+| `remarks` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Constraints**
+
+- unique: (`vendorId`, `type`)
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_documents`
+
+Every file a supplier uploads. `category` names the extra compliance rows\nthe supplier adds beyond the fixed list.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `doc_type` | vendor_document_type | NOT NULL |  |  |
+| `category` | text | NULL |  |  |
+| `issue_date` | date | NULL |  | Compliance documents carry both; the rest hold their dates on their section. |
+| `expiry_date` | date | NULL |  |  |
+| `file_name` | text | NOT NULL |  |  |
+| `storage_key` | text | NOT NULL |  |  |
+| `storage_url` | text | NULL |  |  |
+| `mime_type` | text | NOT NULL |  |  |
+| `size_in_bytes` | integer | NOT NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+| `deleted_at` | timestamp(3) | NULL |  |  |
+
+**Relations**
+
+- one `vendors`
 
 ### `employees`
 

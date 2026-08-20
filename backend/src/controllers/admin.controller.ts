@@ -2,9 +2,9 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { sendCreated, sendSuccess } from '../utils/apiResponse';
 import { ApiError } from '../utils/apiError';
 import * as adminService from '../services/admin.service';
-import { getExpiryNotifications } from '../services/notification.service';
-import { driverListQuerySchema } from '../validators/admin.validator';
-import type { ReviewableSection } from '../services/admin.service';
+import { getAllExpiryNotifications } from '../services/notification.service';
+import { driverListQuerySchema, vendorListQuerySchema } from '../validators/admin.validator';
+import type { ReviewableSection, ReviewableVendorSection } from '../services/admin.service';
 
 /** The signed in admin's id. `authenticate` guarantees it is present. */
 function adminId(req: { auth?: { id: string } }): string {
@@ -17,9 +17,9 @@ export const adminController = {
     sendSuccess(res, data, 'Dashboard loaded');
   }),
 
-  /** Expiring and expired documents across every driver on the fleet. */
+  /** Expiring and expired documents across every driver and supplier. */
   notifications: asyncHandler(async (_req, res) => {
-    const data = await getExpiryNotifications();
+    const data = await getAllExpiryNotifications();
     sendSuccess(res, data, 'Notifications loaded');
   }),
 
@@ -84,6 +84,86 @@ export const adminController = {
 
   downloadDriverDocument: asyncHandler(async (req, res) => {
     const { document, file } = await adminService.openDriverDocument(
+      req.params.id,
+      req.params.documentId,
+    );
+
+    res.type(file.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${document.fileName.replace(/"/g, '')}"`,
+    );
+    if (file.contentLength !== null) {
+      res.setHeader('Content-Length', String(file.contentLength));
+    }
+
+    file.stream.on('error', (error) => {
+      // Headers are already sent, so the only option left is to drop the
+      // connection and let the client retry.
+      res.destroy(error);
+    });
+    file.stream.pipe(res);
+  }),
+
+  // -------------------------------------------------------------------------
+  // Suppliers (vendors)
+  // -------------------------------------------------------------------------
+
+  listVendors: asyncHandler(async (req, res) => {
+    const query = vendorListQuerySchema.parse(req.query);
+    const data = await adminService.listVendors({
+      search: query.search ?? undefined,
+      onboardingStatus: query.onboardingStatus,
+      page: query.page,
+      pageSize: query.pageSize,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+    });
+    sendSuccess(res, data, 'Suppliers loaded');
+  }),
+
+  getVendor: asyncHandler(async (req, res) => {
+    const data = await adminService.getVendor(req.params.id);
+    sendSuccess(res, data, 'Supplier loaded');
+  }),
+
+  createVendor: asyncHandler(async (req, res) => {
+    const data = await adminService.createVendor(req.body);
+    sendCreated(res, data, 'Supplier created');
+  }),
+
+  updateVendor: asyncHandler(async (req, res) => {
+    const data = await adminService.updateVendor(req.params.id, req.body);
+    sendSuccess(res, data, 'Supplier updated');
+  }),
+
+  deleteVendor: asyncHandler(async (req, res) => {
+    const data = await adminService.deleteVendor(req.params.id);
+    sendSuccess(res, data, 'Supplier removed');
+  }),
+
+  reviewVendor: asyncHandler(async (req, res) => {
+    const data = await adminService.reviewVendor(req.params.id, req.body, adminId(req));
+    sendSuccess(res, data, 'Application reviewed');
+  }),
+
+  reviewVendorSection: asyncHandler(async (req, res) => {
+    const data = await adminService.reviewVendorSection(
+      req.params.id,
+      req.params.section as ReviewableVendorSection,
+      req.body,
+      adminId(req),
+    );
+    sendSuccess(res, data, 'Section reviewed');
+  }),
+
+  vendorDocumentLink: asyncHandler(async (req, res) => {
+    const data = await adminService.createVendorDocumentLink(req.params.id, req.params.documentId);
+    sendSuccess(res, data, 'Document link created');
+  }),
+
+  downloadVendorDocument: asyncHandler(async (req, res) => {
+    const { document, file } = await adminService.openVendorDocument(
       req.params.id,
       req.params.documentId,
     );

@@ -97,6 +97,72 @@ export const sectionParamSchema = z.object({
   ]),
 });
 
+// ---------------------------------------------------------------------------
+// Suppliers (vendors)
+// ---------------------------------------------------------------------------
+
+export const vendorListQuerySchema = z.object({
+  search: optionalText(120),
+  onboardingStatus: z.enum(ONBOARDING_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  // A whole-table export asks for every row at once, so the ceiling is high.
+  pageSize: z.coerce.number().int().min(1).max(1000).default(25),
+  sortBy: z
+    .enum(['createdAt', 'submittedAt', 'companyName', 'email', 'onboardingStatus'])
+    .default('createdAt'),
+  sortDir: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const createVendorSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address').toLowerCase(),
+  password,
+  phone: optionalText(20),
+  companyName: z.string().trim().min(1, 'Company name is required').max(150),
+  tradingName: optionalText(150),
+  legalName: optionalText(150),
+  contactPerson: optionalText(100),
+  abn: optionalText(30),
+  websiteAddress: optionalText(200),
+  status: z.enum(ACCOUNT_STATUSES).optional(),
+});
+
+export const updateVendorSchema = z
+  .object({
+    phone: optionalText(20),
+    companyName: z.string().trim().min(1, 'Company name is required').max(150).optional(),
+    tradingName: optionalText(150),
+    legalName: optionalText(150),
+    contactPerson: optionalText(100),
+    abn: optionalText(30),
+    websiteAddress: optionalText(200),
+    status: z.enum(ACCOUNT_STATUSES).optional(),
+  })
+  // Every field is optional on its own, but an empty body is a mistake, not an
+  // instruction to change nothing.
+  .refine((data) => Object.keys(data).length > 0, { message: 'Nothing to update' });
+
+export const reviewVendorSchema = z
+  .object({
+    decision: z.enum(['APPROVED', 'REJECTED', 'UNDER_REVIEW']),
+    reason: optionalText(500),
+  })
+  .refine((data) => data.decision !== 'REJECTED' || Boolean(data.reason), {
+    message: 'Tell the supplier what needs fixing',
+    path: ['reason'],
+  });
+
+export const vendorSectionParamSchema = z.object({
+  section: z.enum([
+    'accreditation',
+    'productLiability',
+    'publicLiability',
+    'workCover',
+    'marineGeneral',
+    'marineAlcohol',
+    'coc',
+  ]),
+});
+
 export const updateAdminSchema = z
   .object({
     firstName: z.string().trim().min(1, 'First name is required').max(100).optional(),

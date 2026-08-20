@@ -119,9 +119,15 @@ export const ROLES: Record<RoleSlug, RoleDefinition> = {
         ...baseProfile(account, 'vendor'),
         displayName: text(account.companyName) ?? account.email,
         companyName: account.companyName,
+        tradingName: account.tradingName,
+        legalName: account.legalName,
         contactPerson: account.contactPerson,
         abn: account.abn,
+        supplierId: account.supplierId,
+        websiteAddress: account.websiteAddress,
         logoUrl: account.logoUrl,
+        onboardingStatus: account.onboardingStatus,
+        onboardingStep: account.onboardingStep,
       };
     },
     buildCreateData(input, passwordHash) {

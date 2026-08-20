@@ -234,23 +234,29 @@ az storage blob service-properties delete-policy update \
 ```
 </details>
 
-### 3.2 Create the container
+### 3.2 Create the containers
 
-Storage account -> **Data storage > Containers** -> **+ Container**
+Storage account -> **Data storage > Containers** -> **+ Container**, once per row:
 
-| Field | Value |
-| --- | --- |
-| Name | `driver-documents` |
-| Anonymous access level | **Private (no anonymous access)** |
+| Name | Holds | Setting it comes from |
+| --- | --- | --- |
+| `driver-documents` | driver licences, medicals, police checks | `AZURE_STORAGE_CONTAINER` |
+| `vendor` | supplier accreditations, policies, compliance pack | `AZURE_STORAGE_CONTAINER_VENDOR` |
+| `admin` | an admin's own profile photo | `AZURE_STORAGE_CONTAINER_ADMIN` |
 
-Private is the whole point. Driver licences, medicals and police checks must
-never be reachable by guessing a URL. The API hands out a signature that expires
-after 15 minutes instead.
+Set every one to **Private (no anonymous access)**.
 
-The name must match `AZURE_STORAGE_CONTAINER`. If you skip this step the app
-creates the container itself on first use, privately, so it is safe either way -
-but creating it now means you find a wrong key immediately rather than on a
-driver's first upload.
+Private is the whole point. Driver licences, medicals and a supplier's bank and
+insurance paperwork must never be reachable by guessing a URL. The API hands out
+a signature that expires after 15 minutes instead.
+
+One container per area so each can be governed on its own terms - retention,
+access reviews, deletion on request - without touching the others.
+
+The names must match the settings above. If you skip this step the app creates
+each container itself on first use, privately, so it is safe either way - but
+creating them now means you find a wrong key immediately rather than on somebody's
+first upload.
 
 ### 3.3 Copy the connection string
 
@@ -278,6 +284,8 @@ Paste the connection string into `backend/.env`:
 ```
 AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=..."
 AZURE_STORAGE_CONTAINER=driver-documents
+AZURE_STORAGE_CONTAINER_VENDOR=vendor
+AZURE_STORAGE_CONTAINER_ADMIN=admin
 ```
 
 Then:
@@ -399,8 +407,10 @@ which is why there is no `.env` file in production.
 | `JWT_REFRESH_SECRET` | a *different* 96 hex chars | |
 | `JWT_ACCESS_EXPIRES_IN` | `15m` | |
 | `JWT_REFRESH_EXPIRES_IN` | `7d` | |
-| `AZURE_STORAGE_CONNECTION_STRING` | from step 3.2 | |
+| `AZURE_STORAGE_CONNECTION_STRING` | from step 3.3 | |
 | `AZURE_STORAGE_CONTAINER` | `driver-documents` | |
+| `AZURE_STORAGE_CONTAINER_VENDOR` | `vendor` | supplier documents, kept apart from driver files |
+| `AZURE_STORAGE_CONTAINER_ADMIN` | `admin` | an admin's own profile photo |
 | `AZURE_STORAGE_SAS_TTL_MINUTES` | `15` | |
 | `MAX_UPLOAD_SIZE_MB` | `15` | |
 | `SMTP_HOST` | `smtp-relay.brevo.com` | see the Brevo notes below |

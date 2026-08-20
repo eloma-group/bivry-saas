@@ -5,11 +5,15 @@ import { validateBody, validateParams } from '../middleware/validate.middleware'
 import { upload } from '../middleware/upload.middleware';
 import {
   createDriverSchema,
+  createVendorSchema,
   reviewDriverSchema,
   reviewSectionSchema,
+  reviewVendorSchema,
   sectionParamSchema,
   updateAdminSchema,
   updateDriverSchema,
+  updateVendorSchema,
+  vendorSectionParamSchema,
 } from '../validators/admin.validator';
 
 const router = Router();
@@ -52,5 +56,23 @@ router.post(
 // storage link, `/file` streams it through the API instead.
 router.get('/drivers/:id/documents/:documentId/url', adminController.driverDocumentLink);
 router.get('/drivers/:id/documents/:documentId/file', adminController.downloadDriverDocument);
+
+// Suppliers: the same shape as drivers, backed by the vendor tables.
+router.get('/vendors', adminController.listVendors);
+router.post('/vendors', validateBody(createVendorSchema), adminController.createVendor);
+router.get('/vendors/:id', adminController.getVendor);
+router.put('/vendors/:id', validateBody(updateVendorSchema), adminController.updateVendor);
+router.delete('/vendors/:id', adminController.deleteVendor);
+
+router.post('/vendors/:id/review', validateBody(reviewVendorSchema), adminController.reviewVendor);
+router.post(
+  '/vendors/:id/sections/:section/review',
+  validateParams(vendorSectionParamSchema),
+  validateBody(reviewSectionSchema),
+  adminController.reviewVendorSection,
+);
+
+router.get('/vendors/:id/documents/:documentId/url', adminController.vendorDocumentLink);
+router.get('/vendors/:id/documents/:documentId/file', adminController.downloadVendorDocument);
 
 export default router;

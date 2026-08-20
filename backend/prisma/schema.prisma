@@ -54,25 +54,204 @@ model Customer {
 }
 
 model Vendor {
-  id                  String        @id @default(uuid()) @db.Uuid
-  email               String        @unique
-  phone               String?       @unique
-  passwordHash        String        @map("password_hash")
-  companyName         String        @map("company_name")
-  contactPerson       String?       @map("contact_person")
-  abn                 String?       @map("abn")
-  logoUrl             String?       @map("logo_url")
-  status              AccountStatus @default(PENDING)
-  emailVerifiedAt     DateTime?     @map("email_verified_at")
-  lastLoginAt         DateTime?     @map("last_login_at")
-  failedLoginAttempts Int           @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime?     @map("locked_until")
-  createdAt           DateTime      @default(now()) @map("created_at")
-  updatedAt           DateTime      @updatedAt @map("updated_at")
-  deletedAt           DateTime?     @map("deleted_at")
+  id                  String               @id @default(uuid()) @db.Uuid
+  email               String               @unique
+  phone               String?              @unique
+  passwordHash        String               @map("password_hash")
+  companyName         String               @map("company_name")
+  contactPerson       String?              @map("contact_person")
+  abn                 String?              @map("abn")
+  logoUrl             String?              @map("logo_url")
+  /// Human readable supplier reference (BVR-1001). Handed out by the server on
+  /// the first onboarding load, never typed in.
+  supplierId          String?              @unique @map("supplier_id")
+  tradingName         String?              @map("trading_name")
+  legalName           String?              @map("legal_name")
+  websiteAddress      String?              @map("website_address")
+  /// How invoices reach this supplier: Mail, Email, Portal.
+  invoicePreference   String?              @map("invoice_preference")
+  /// Which of the contact emails invoices are copied to.
+  invoiceEmails       String[]             @map("invoice_emails")
+  /// Free text, used when the preference list above does not cover it.
+  invoiceOther        String?              @map("invoice_other")
+  status              AccountStatus        @default(PENDING)
+  onboardingStatus    OnboardingStatus     @default(NOT_STARTED) @map("onboarding_status")
+  /// Index of the last completed onboarding step, used to resume the wizard.
+  onboardingStep      Int                  @default(0) @map("onboarding_step")
+  submittedAt         DateTime?            @map("submitted_at")
+  approvedAt          DateTime?            @map("approved_at")
+  rejectionReason     String?              @map("rejection_reason")
+  emailVerifiedAt     DateTime?            @map("email_verified_at")
+  lastLoginAt         DateTime?            @map("last_login_at")
+  failedLoginAttempts Int                  @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?            @map("locked_until")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  deletedAt           DateTime?            @map("deleted_at")
+  accreditation       VendorAccreditation?
+  bankDetail          VendorBankDetail?
+  contacts            VendorContact[]
+  coverage            VendorCoverage?
+  directors           VendorDirector[]
+  documents           VendorDocument[]
+  insurances          VendorInsurance[]
+  warehouses          VendorWarehouse[]
 
   @@index([status])
+  @@index([onboardingStatus])
   @@map("vendors")
+}
+
+/// One contact block per department, as the supplier form asks for them.
+model VendorContact {
+  id            String            @id @default(uuid()) @db.Uuid
+  vendorId      String            @map("vendor_id") @db.Uuid
+  type          VendorContactType
+  contactPerson String?           @map("contact_person")
+  designation   String?
+  contactNumber String?           @map("contact_number")
+  email         String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  vendor        Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, type])
+  @@map("vendor_contacts")
+}
+
+/// Company C-suite. A supplier lists as many directors as it has.
+model VendorDirector {
+  id            String   @id @default(uuid()) @db.Uuid
+  vendorId      String   @map("vendor_id") @db.Uuid
+  /// Keeps the rows in the order the supplier entered them.
+  position      Int      @default(0)
+  designation   String?
+  email         String?
+  contactNumber String?  @map("contact_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("vendor_directors")
+}
+
+model VendorBankDetail {
+  id            String   @id @default(uuid()) @db.Uuid
+  vendorId      String   @unique @map("vendor_id") @db.Uuid
+  accountName   String?  @map("account_name")
+  bankName      String?  @map("bank_name")
+  bsb           String?
+  accountNumber String?  @map("account_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_bank_details")
+}
+
+/// Where the supplier operates. Both columns hold several selections.
+model VendorCoverage {
+  id                 String   @id @default(uuid()) @db.Uuid
+  vendorId           String   @unique @map("vendor_id") @db.Uuid
+  areasCovered       String[] @map("areas_covered")
+  businessOperations String[] @map("business_operations")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  vendor             Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_coverages")
+}
+
+model VendorWarehouse {
+  id        String   @id @default(uuid()) @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  /// Keeps "Address 1", "Address 2" in the order they were entered.
+  position  Int      @default(0)
+  street1   String?
+  street2   String?
+  suburb    String?
+  state     String?
+  country   String?
+  postCode  String?  @map("post_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("vendor_warehouses")
+}
+
+/// Certificate of accreditation. One per supplier, several expiry dates on it.
+model VendorAccreditation {
+  id                   String             @id @default(uuid()) @db.Uuid
+  vendorId             String             @unique @map("vendor_id") @db.Uuid
+  accreditationNumber  String?            @map("accreditation_number")
+  massManagementExpiry DateTime?          @map("mass_management_expiry") @db.Date
+  basicFatigueExpiry   DateTime?          @map("basic_fatigue_expiry") @db.Date
+  dangerousGoodsExpiry DateTime?          @map("dangerous_goods_expiry") @db.Date
+  nhvasExpiry          DateTime?          @map("nhvas_expiry") @db.Date
+  haccpExpiry          DateTime?          @map("haccp_expiry") @db.Date
+  verificationStatus   VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedAt           DateTime?          @map("verified_at")
+  /// Admin id that verified this record (no FK - verifier may be admin or employee).
+  verifiedBy           String?            @map("verified_by") @db.Uuid
+  remarks              String?
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  vendor               Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_accreditations")
+}
+
+/// One row per policy the supplier holds. Work cover carries its own columns.
+model VendorInsurance {
+  id                 String              @id @default(uuid()) @db.Uuid
+  vendorId           String              @map("vendor_id") @db.Uuid
+  type               VendorInsuranceType
+  policyNumber       String?             @map("policy_number")
+  insurer            String?
+  expiryDate         DateTime?           @map("expiry_date") @db.Date
+  sumAssured         String?             @map("sum_assured")
+  /// Work cover only: it is keyed by employer number and a validity window.
+  employerNumber     String?             @map("employer_number")
+  validFrom          DateTime?           @map("valid_from") @db.Date
+  validTill          DateTime?           @map("valid_till") @db.Date
+  dueInDays          Int?                @map("due_in_days")
+  verificationStatus VerificationStatus  @default(PENDING) @map("verification_status")
+  verifiedAt         DateTime?           @map("verified_at")
+  verifiedBy         String?             @map("verified_by") @db.Uuid
+  remarks            String?
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  vendor             Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, type])
+  @@map("vendor_insurances")
+}
+
+/// Every file a supplier uploads. `category` names the extra compliance rows
+/// the supplier adds beyond the fixed list.
+model VendorDocument {
+  id          String             @id @default(uuid()) @db.Uuid
+  vendorId    String             @map("vendor_id") @db.Uuid
+  docType     VendorDocumentType @map("doc_type")
+  category    String?
+  /// Compliance documents carry both; the rest hold their dates on their section.
+  issueDate   DateTime?          @map("issue_date") @db.Date
+  expiryDate  DateTime?          @map("expiry_date") @db.Date
+  fileName    String             @map("file_name")
+  storageKey  String             @map("storage_key")
+  storageUrl  String?            @map("storage_url")
+  mimeType    String             @map("mime_type")
+  sizeInBytes Int                @map("size_in_bytes")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  deletedAt   DateTime?          @map("deleted_at")
+  vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, docType])
+  @@map("vendor_documents")
 }
 
 model Employee {
@@ -437,4 +616,49 @@ enum DriverDocumentType {
   ADDITIONAL
 
   @@map("driver_document_type")
+}
+
+/// The departments a supplier gives a contact for.
+enum VendorContactType {
+  OPERATIONS
+  COMPLIANCE
+  ADMIN
+  DISPATCH
+
+  @@map("vendor_contact_type")
+}
+
+enum VendorInsuranceType {
+  PRODUCT_LIABILITY
+  PUBLIC_LIABILITY
+  WORK_COVER
+  MARINE_GENERAL
+  MARINE_ALCOHOL
+  COC
+
+  @@map("vendor_insurance_type")
+}
+
+/// Every slot holds a single file, except COMPLIANCE_ADDITIONAL, which is the
+/// supplier's own extra rows and holds as many as they add.
+enum VendorDocumentType {
+  COMPANY_LOGO
+  ACCREDITATION
+  INSURANCE_PRODUCT_LIABILITY
+  INSURANCE_PUBLIC_LIABILITY
+  INSURANCE_WORK_COVER
+  INSURANCE_MARINE_GENERAL
+  INSURANCE_MARINE_ALCOHOL
+  INSURANCE_COC
+  COMPLIANCE_DRUG
+  COMPLIANCE_ALCOHOL_POLICY
+  COMPLIANCE_PROCEDURE
+  COMPLIANCE_RISK_MANAGEMENT
+  COMPLIANCE_SPEED_POLICY
+  COMPLIANCE_FATIGUE_POLICY
+  COMPLIANCE_GPS_SNAPSHOT
+  COMPLIANCE_WHS_POLICY
+  COMPLIANCE_ADDITIONAL
+
+  @@map("vendor_document_type")
 }
