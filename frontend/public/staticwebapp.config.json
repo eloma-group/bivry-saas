@@ -20,12 +20,13 @@
     "production: with that override present, /assets/does-not-exist.js returned",
     "200 text/html; with it removed it returns 404.",
     "",
-    "The '/' redirect sends the bare domain to the marketing site. Route rules",
-    "are matched before any file is served, so the pattern matters: '/' matches",
-    "the homepage and nothing else. A wildcard such as '/*' would also match",
-    "/assets/index-*.js and redirect the app's own bundle away from the browser.",
-    "302 and not 301 on purpose, because a 301 is cached by the browser forever",
-    "and cannot be taken back if this turns out to be wrong."
+    "There is deliberately no route rule for '/'. The bare domain serves the",
+    "app, which renders the portal picker there, so a visitor can choose which",
+    "portal to sign in to. If a redirect is ever put back, match the exact path",
+    "'/' and never a wildcard: route rules are matched before any file is",
+    "served, so a '/*' would also match /assets/index-*.js and redirect the",
+    "app's own bundle away from the browser mid load. Use 302, not 301, because",
+    "a 301 is cached by the browser forever and cannot be taken back."
   ],
 
   "navigationFallback": {
@@ -34,11 +35,6 @@
   },
 
   "routes": [
-    {
-      "route": "/",
-      "redirect": "https://bivry.com.au",
-      "statusCode": 302
-    },
     {
       "route": "/assets/*",
       "headers": {
