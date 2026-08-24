@@ -245,7 +245,7 @@ export function AdminDriversPage() {
     try {
       await adminService.deleteDriver(pendingDelete.id);
       toast.success("Driver removed", {
-        description: `${pendingDelete.email} can no longer sign in.`,
+        description: `${pendingDelete.email} is deleted permanently and can sign up again.`,
       });
       setSelected((current) => {
         const next = new Set(current);
@@ -422,7 +422,7 @@ export function AdminDriversPage() {
         title="Remove this driver?"
         description={
           pendingDelete
-            ? `${pendingDelete.email} will lose access immediately. Their record and documents are kept for audit, and can be restored by support.`
+            ? `${pendingDelete.email} will be deleted permanently, along with their documents. This cannot be undone. The email address becomes free to sign up with again.`
             : ""
         }
         confirmLabel="Remove driver"

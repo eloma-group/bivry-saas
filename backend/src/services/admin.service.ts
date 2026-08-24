@@ -16,6 +16,24 @@ import type { OnboardingStatus, Prisma, VendorInsuranceType } from '@prisma/clie
 /** Admins upload their own files to their own container. */
 const ADMIN_AREA = 'admin' as const;
 
+/**
+ * Drops the blobs behind a set of document rows. Best effort by design: the
+ * database delete has already committed by the time this runs, so a storage
+ * outage is logged and swallowed. An orphaned blob is the cheaper failure.
+ */
+async function removeStoredFiles(
+  documents: { id: string; storageKey: string }[],
+  area: storage.StorageArea,
+): Promise<void> {
+  for (const document of documents) {
+    try {
+      await storage.deleteFile(document.storageKey, area);
+    } catch (error) {
+      logger.warn(`Could not remove stored file for document ${document.id}`, error);
+    }
+  }
+}
+
 const DRIVER_LIST_FIELDS = {
   id: true,
   email: true,
@@ -307,26 +325,39 @@ export async function updateDriver(driverId: string, input: UpdateDriverInput) {
 }
 
 /**
- * Soft delete. The row stays for audit and the files stay in blob storage, but
- * the account disappears from every query and can no longer sign in.
+ * Permanent delete. The row goes, and with it every driver_* record hanging off
+ * it, every session, every reset link and every file in blob storage. Nothing
+ * is left behind a flag, so the email and phone are free again and the same
+ * person can sign up with them later.
+ *
+ * There is no undo, and the confirmation in the Admin portal says so.
  */
 export async function deleteDriver(driverId: string) {
   await assertDriverExists(driverId);
 
-  const [driver] = await prisma.$transaction([
-    prisma.driver.update({
-      where: { id: driverId },
-      data: { deletedAt: new Date(), status: 'DEACTIVATED' },
-      select: { id: true, email: true },
-    }),
-    // Any live session goes with it.
-    prisma.refreshToken.updateMany({
-      where: { actorType: 'DRIVER', actorId: driverId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    }),
+  // Read the blob keys while the rows still exist. Soft deleted documents are
+  // included too: their blob may already be gone, and deleting a missing blob
+  // is a no-op.
+  const driver = await prisma.driver.findUniqueOrThrow({
+    where: { id: driverId },
+    select: {
+      id: true,
+      email: true,
+      documents: { select: { id: true, storageKey: true } },
+    },
+  });
+
+  await prisma.$transaction([
+    // actorType/actorId is not a foreign key, so these do not cascade.
+    prisma.refreshToken.deleteMany({ where: { actorType: 'DRIVER', actorId: driverId } }),
+    prisma.passwordResetToken.deleteMany({ where: { actorType: 'DRIVER', actorId: driverId } }),
+    // Every driver_* child row cascades from this one.
+    prisma.driver.delete({ where: { id: driverId } }),
   ]);
 
-  return driver;
+  await removeStoredFiles(driver.documents, 'driver');
+
+  return { id: driver.id, email: driver.email };
 }
 
 /** Verification decision on a driver's whole application. */
@@ -614,26 +645,39 @@ export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
 }
 
 /**
- * Soft delete. The row stays for audit and the files stay in blob storage, but
- * the account disappears from every query and can no longer sign in.
+ * Permanent delete. The row goes, and with it every vendor_* record hanging off
+ * it, every session, every reset link and every file in blob storage. Nothing
+ * is left behind a flag, so the email and phone are free again and the same
+ * supplier can sign up with them later.
+ *
+ * There is no undo, and the confirmation in the Admin portal says so.
  */
 export async function deleteVendor(vendorId: string) {
   await assertVendorExists(vendorId);
 
-  const [vendor] = await prisma.$transaction([
-    prisma.vendor.update({
-      where: { id: vendorId },
-      data: { deletedAt: new Date(), status: 'DEACTIVATED' },
-      select: { id: true, email: true },
-    }),
-    // Any live session goes with it.
-    prisma.refreshToken.updateMany({
-      where: { actorType: 'VENDOR', actorId: vendorId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    }),
+  // Read the blob keys while the rows still exist. Soft deleted documents are
+  // included too: their blob may already be gone, and deleting a missing blob
+  // is a no-op.
+  const vendor = await prisma.vendor.findUniqueOrThrow({
+    where: { id: vendorId },
+    select: {
+      id: true,
+      email: true,
+      documents: { select: { id: true, storageKey: true } },
+    },
+  });
+
+  await prisma.$transaction([
+    // actorType/actorId is not a foreign key, so these do not cascade.
+    prisma.refreshToken.deleteMany({ where: { actorType: 'VENDOR', actorId: vendorId } }),
+    prisma.passwordResetToken.deleteMany({ where: { actorType: 'VENDOR', actorId: vendorId } }),
+    // Every vendor_* child row cascades from this one.
+    prisma.vendor.delete({ where: { id: vendorId } }),
   ]);
 
-  return vendor;
+  await removeStoredFiles(vendor.documents, 'vendor');
+
+  return { id: vendor.id, email: vendor.email };
 }
 
 /**

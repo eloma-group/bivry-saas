@@ -339,7 +339,7 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
         title="Remove this driver?"
-        description={`${data.email} will lose access immediately. The record and documents are kept for audit.`}
+        description={`${data.email} will be deleted permanently, along with their documents. This cannot be undone. The email address becomes free to sign up with again.`}
         confirmLabel="Remove driver"
         destructive
         busy={deleting}
