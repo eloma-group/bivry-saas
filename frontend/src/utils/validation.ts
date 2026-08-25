@@ -1,7 +1,63 @@
 /** Shared, reusable field validators used across the driver form. */
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const PHONE_RE = /^[+]?[\d\s()-]{7,17}$/;
+
+/**
+ * The three rules that hold everywhere in the product: a person's name, a phone
+ * number, and a date of birth. The backend states the same three in
+ * `validators/fields.ts`; keep the two in step, so a form refuses what the API
+ * would refuse instead of only finding out on submit.
+ */
+
+export const NAME_MAX = 50;
+
+/**
+ * Letters and single spaces between words. No digits and no punctuation.
+ *
+ * Deliberately narrow, and it does reject some real names: O'Brien and
+ * Anne-Marie both fail. Widening it is one character class here and one in
+ * `validators/fields.ts`.
+ */
+export const NAME_RE = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
+
+export const PHONE_MAX = 15;
+
+/**
+ * Digits, an optional leading `+`, and at most one space. Fifteen characters in
+ * total, which is what E.164 allows for the longest international number.
+ * Brackets, dashes and dots are all out.
+ */
+export const PHONE_RE = /^\+?\d+(?: \d+)?$/;
+
+export const MIN_AGE = 18;
+
+/**
+ * Whole years between a date of birth and today, counted by calendar date.
+ *
+ * Both sides in UTC, matching the backend: a date of birth is a calendar date
+ * with no time in it, and "yyyy-MM-dd" parses as midnight UTC. Local getters
+ * would shift it a day and disagree with the API about who is eighteen.
+ */
+export function ageInYears(birth: Date, on: Date = new Date()): number {
+  let age = on.getUTCFullYear() - birth.getUTCFullYear();
+  const monthDiff = on.getUTCMonth() - birth.getUTCMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && on.getUTCDate() < birth.getUTCDate())) age -= 1;
+  return age;
+}
+
+/**
+ * The latest date of birth that still counts as an adult, as yyyy-MM-dd.
+ *
+ * Handed to a date input's `max` so the calendar itself will not offer a date
+ * that the rule below would reject.
+ */
+export function latestAdultBirthDate(on: Date = new Date()): string {
+  const date = new Date(
+    Date.UTC(on.getUTCFullYear() - MIN_AGE, on.getUTCMonth(), on.getUTCDate()),
+  );
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
 
 /**
  * What the document store actually accepts. Kept in step with the backend
@@ -60,10 +116,44 @@ export const rules = {
     required: "Email is required",
     pattern: { value: EMAIL_RE, message: "Enter a valid email address" },
   },
+  /** A person's name. Pass the label so the required message reads properly. */
+  name: (label: string, required = true) => ({
+    ...(required ? { required: `${label} is required` } : {}),
+    maxLength: { value: NAME_MAX, message: `${label} must be ${NAME_MAX} characters or fewer` },
+    pattern: { value: NAME_RE, message: "Use letters only, no numbers or symbols" },
+  }),
   phone: {
     required: "Phone number is required",
-    pattern: { value: PHONE_RE, message: "Enter a valid phone number" },
+    maxLength: {
+      value: PHONE_MAX,
+      message: `Phone number must be ${PHONE_MAX} characters or fewer`,
+    },
+    pattern: {
+      value: PHONE_RE,
+      message: "Digits only, with an optional leading + and at most one space",
+    },
   },
+  /** The same rule without the required half, for a number that may be left out. */
+  optionalPhone: {
+    maxLength: {
+      value: PHONE_MAX,
+      message: `Phone number must be ${PHONE_MAX} characters or fewer`,
+    },
+    pattern: {
+      value: PHONE_RE,
+      message: "Digits only, with an optional leading + and at most one space",
+    },
+  },
+  /** A date of birth. Everyone this system holds a record for is an adult. */
+  dateOfBirth: (required = true) => ({
+    ...(required ? { required: "Date of birth is required" } : {}),
+    validate: (value: unknown) => {
+      if (typeof value !== "string" || value.trim() === "") return true;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return "Enter a valid date";
+      return ageInYears(parsed) >= MIN_AGE || `Must be at least ${MIN_AGE} years old`;
+    },
+  }),
   licenceNumber: {
     required: "Licence number is required",
     minLength: { value: 5, message: "Licence number looks too short" },

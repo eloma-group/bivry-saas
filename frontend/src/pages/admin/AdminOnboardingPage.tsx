@@ -3,8 +3,13 @@ import { Construction } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdminDriversPage } from "./AdminDriversPage";
 import { AdminDriverDetailPage } from "./AdminDriverDetailPage";
+import { AdminDriverEditPage } from "./AdminDriverEditPage";
 import { AdminVendorsPage } from "./AdminVendorsPage";
 import { AdminVendorDetailPage } from "./AdminVendorDetailPage";
+import { AdminVendorEditPage } from "./AdminVendorEditPage";
+import { AdminSimpleAccountsPage } from "./AdminSimpleAccountsPage";
+import { AdminSimpleAccountEditPage } from "./AdminSimpleAccountEditPage";
+import { simpleAccountModule } from "./simpleAccountModules";
 import { Button } from "@/components/ui/button";
 import {
   ONBOARDING_MODULES,
@@ -20,7 +25,7 @@ import {
  * rather than being unclickable in the menu, which leaves an admin guessing.
  */
 export function AdminOnboardingPage() {
-  const { module = "", recordId } = useParams();
+  const { module = "", recordId, action } = useParams();
 
   if (!isOnboardingModule(module)) {
     return <Navigate to="/admin/onboarding/driver" replace />;
@@ -28,17 +33,49 @@ export function AdminOnboardingPage() {
 
   const current = onboardingModule(module);
 
+  // Customers and employees are plain accounts. They share one pair of pages
+  // driven by a field config, so they are handled before the per module tree
+  // below rather than repeating it twice.
+  const simple = simpleAccountModule(module);
+  if (simple) {
+    return (
+      <DashboardLayout>
+        {recordId === "new" ? (
+          <AdminSimpleAccountEditPage module={simple} />
+        ) : recordId ? (
+          <AdminSimpleAccountEditPage module={simple} id={recordId} />
+        ) : (
+          <AdminSimpleAccountsPage module={simple} />
+        )}
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       {module === "driver" ? (
-        recordId ? (
-          <AdminDriverDetailPage driverId={recordId} />
+        // A record id is a uuid, so "new" can never be one. It opens the same
+        // form an edit does, with nothing in it.
+        recordId === "new" ? (
+          <AdminDriverEditPage />
+        ) : recordId ? (
+          action === "edit" ? (
+            <AdminDriverEditPage driverId={recordId} />
+          ) : (
+            <AdminDriverDetailPage driverId={recordId} />
+          )
         ) : (
           <AdminDriversPage />
         )
       ) : module === "supplier" ? (
-        recordId ? (
-          <AdminVendorDetailPage vendorId={recordId} />
+        recordId === "new" ? (
+          <AdminVendorEditPage />
+        ) : recordId ? (
+          action === "edit" ? (
+            <AdminVendorEditPage vendorId={recordId} />
+          ) : (
+            <AdminVendorDetailPage vendorId={recordId} />
+          )
         ) : (
           <AdminVendorsPage />
         )

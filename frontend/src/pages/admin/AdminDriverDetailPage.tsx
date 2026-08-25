@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { DriverProfile } from "@/components/driver/profile/DriverProfile";
-import { DriverFormDialog } from "@/components/admin/DriverFormDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +54,6 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deciding, setDeciding] = useState(false);
@@ -166,8 +164,10 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
         </Button>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={() => setEditing(true)}>
-            <Pencil className="h-4 w-4" /> Edit details
+          <Button asChild>
+            <Link to={`/admin/onboarding/driver/${driverId}/edit`}>
+              <Pencil className="h-4 w-4" /> Edit details
+            </Link>
           </Button>
           <Button
             type="button"
@@ -317,23 +317,6 @@ export function AdminDriverDetailPage({ driverId }: AdminDriverDetailPageProps) 
           Documents open from blob storage with a short lived link.
         </span>
       </div>
-
-      <DriverFormDialog
-        open={editing}
-        onOpenChange={setEditing}
-        driver={{
-          id: data.id,
-          email: data.email,
-          firstName: data.firstName,
-          middleName: data.middleName,
-          lastName: data.lastName,
-          phone: data.phone,
-          dateOfBirth: data.dateOfBirth,
-          nationality: data.nationality,
-          status: data.status,
-        }}
-        onSaved={() => void load()}
-      />
 
       <ConfirmDialog
         open={confirmingDelete}

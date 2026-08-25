@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ChevronLeft,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { DriverTable } from "@/components/admin/DriverTable";
-import { DriverFormDialog } from "@/components/admin/DriverFormDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +105,6 @@ export function AdminDriversPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<AdminDriverRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -298,8 +296,10 @@ export function AdminDriversPage() {
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export all
           </Button>
-          <Button type="button" onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> New driver
+          <Button asChild>
+            <Link to="/admin/onboarding/driver/new">
+              <Plus className="h-4 w-4" /> New driver
+            </Link>
           </Button>
         </div>
       </div>
@@ -358,8 +358,10 @@ export function AdminDriversPage() {
                 Create one here, or wait for a driver to register themselves.
               </p>
             </div>
-            <Button type="button" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" /> New driver
+            <Button asChild>
+              <Link to="/admin/onboarding/driver/new">
+                <Plus className="h-4 w-4" /> New driver
+              </Link>
             </Button>
           </div>
         </div>
@@ -409,12 +411,6 @@ export function AdminDriversPage() {
           </div>
         </>
       )}
-
-      <DriverFormDialog
-        open={creating}
-        onOpenChange={setCreating}
-        onSaved={() => void load()}
-      />
 
       <ConfirmDialog
         open={pendingDelete !== null}

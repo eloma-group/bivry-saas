@@ -278,11 +278,37 @@ export function toFormValues(data: DriverOnboardingData): DriverFormValues {
  * Sequential on purpose: a failure part way through leaves the earlier sections
  * saved, which is what the driver expects from a form that saves as a whole.
  */
+/**
+ * The set of calls saving an onboarding record needs. The driver portal passes
+ * `driverService`, which writes the signed in driver's own record; the Admin
+ * portal passes a gateway bound to whichever driver is being edited. Deriving
+ * it from `driverService` rather than restating the payload types keeps the
+ * two ends from drifting: a change to a payload breaks the admin gateway at
+ * compile time instead of at runtime.
+ */
+export type DriverOnboardingGateway = Pick<
+  typeof driverService,
+  | "savePersonal"
+  | "saveAddress"
+  | "saveLicence"
+  | "saveDrivingHistory"
+  | "savePoliceVerification"
+  | "saveVisa"
+  | "savePassport"
+  | "saveMedicare"
+  | "saveMedical"
+  | "saveDrugTest"
+  | "uploadDocument"
+  | "updateDocument"
+  | "deleteDocument"
+>;
+
 export async function saveOnboarding(
   values: DriverFormValues,
   loaded: DriverOnboardingData | null,
+  gateway: DriverOnboardingGateway = driverService,
 ): Promise<void> {
-  await driverService.savePersonal({
+  await gateway.savePersonal({
     firstName: values.firstName.trim(),
     middleName: trimmedOrNull(values.middleName),
     lastName: trimmedOrNull(values.lastName),
@@ -291,7 +317,7 @@ export async function saveOnboarding(
     phone: trimmedOrNull(values.phone),
   });
 
-  await driverService.saveAddress({
+  await gateway.saveAddress({
     currentAddress: addressPayload(values.currentAddress),
     sameAsCurrent: values.sameAsCurrent,
     permanentAddress: addressPayload(
@@ -299,7 +325,7 @@ export async function saveOnboarding(
     ),
   });
 
-  await driverService.saveLicence({
+  await gateway.saveLicence({
     licenceNumber: trimmedOrNull(values.licenceNumber),
     licenceCardNumber: trimmedOrNull(values.licenceCardNumber),
     licenceType: values.licenceType ? LICENCE_TYPE_TO_API[values.licenceType] : null,
@@ -307,12 +333,12 @@ export async function saveOnboarding(
     expiryDate: values.licenceExpiry || null,
   });
 
-  await driverService.saveDrivingHistory({
+  await gateway.saveDrivingHistory({
     issueDate: values.drivingHistoryIssue || null,
     expiryDate: values.drivingHistoryExpiry || null,
   });
 
-  await driverService.savePoliceVerification({
+  await gateway.savePoliceVerification({
     issueDate: values.policeIssue || null,
     expiryDate: values.policeExpiry || null,
   });
@@ -322,28 +348,28 @@ export async function saveOnboarding(
   // whichever is hidden is cleared rather than left behind.
   const isAustralian = values.nationality === "Australia";
 
-  await driverService.saveVisa({
+  await gateway.saveVisa({
     visaStatus: isAustralian ? null : trimmedOrNull(values.visaStatus),
     visaType: isAustralian ? null : trimmedOrNull(values.visaType),
     expiryDate: isAustralian ? null : values.visaExpiry || null,
   });
 
-  await driverService.savePassport({
+  await gateway.savePassport({
     passportNumber: isAustralian ? trimmedOrNull(values.passportNumber) : null,
     expiryDate: isAustralian ? values.passportExpiry || null : null,
   });
 
-  await driverService.saveMedicare({
+  await gateway.saveMedicare({
     cardNumber: isAustralian ? trimmedOrNull(values.medicareNumber) : null,
     expiryDate: isAustralian ? values.medicareExpiry || null : null,
   });
 
-  await driverService.saveMedical({
+  await gateway.saveMedical({
     issueDate: values.medicalIssue || null,
     expiryDate: values.medicalExpiry || null,
   });
 
-  await driverService.saveDrugTest({
+  await gateway.saveDrugTest({
     issueDate: values.drugTestIssue || null,
     expiryDate: values.drugTestExpiry || null,
   });
@@ -359,6 +385,7 @@ export async function saveOnboarding(
       medicareFile: isAustralian ? values.medicareFile : null,
     },
     loaded?.documents ?? [],
+    gateway,
   );
 }
 
@@ -370,6 +397,7 @@ export async function saveOnboarding(
 async function syncDocuments(
   values: DriverFormValues,
   stored: DriverDocument[],
+  gateway: DriverOnboardingGateway,
 ): Promise<void> {
   for (const field of FILE_FIELDS) {
     const docType = FILE_SLOTS[field];
@@ -379,11 +407,11 @@ async function syncDocuments(
     if (value?.documentId) continue;
 
     if (value?.dataUrl) {
-      await driverService.uploadDocument({ file: dataUrlToFile(value), docType });
+      await gateway.uploadDocument({ file: dataUrlToFile(value), docType });
       continue;
     }
 
-    if (!value && existing) await driverService.deleteDocument(existing.id);
+    if (!value && existing) await gateway.deleteDocument(existing.id);
   }
 
   const keptIds = new Set(
@@ -394,12 +422,12 @@ async function syncDocuments(
 
   for (const doc of stored) {
     if (doc.docType !== "ADDITIONAL") continue;
-    if (!keptIds.has(doc.id)) await driverService.deleteDocument(doc.id);
+    if (!keptIds.has(doc.id)) await gateway.deleteDocument(doc.id);
   }
 
   for (const row of values.additionalDocs) {
     if (row.file?.dataUrl) {
-      await driverService.uploadDocument({
+      await gateway.uploadDocument({
         file: dataUrlToFile(row.file),
         docType: "ADDITIONAL",
         category: row.category || undefined,
@@ -420,7 +448,7 @@ async function syncDocuments(
       (existing.expiryDate?.slice(0, 10) ?? "") === row.expiry;
     if (unchanged) continue;
 
-    await driverService.updateDocument(documentId, {
+    await gateway.updateDocument(documentId, {
       category: row.category || null,
       expiryDate: row.expiry || null,
     });

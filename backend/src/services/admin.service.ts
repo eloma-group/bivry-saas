@@ -3,6 +3,8 @@ import { ApiError } from '../utils/apiError';
 import { logger } from '../utils/logger';
 import { hashPassword } from './auth/password.service';
 import * as storage from './storage.service';
+import * as driverService from './driver.service';
+import * as vendorService from './vendor.service';
 import type { OnboardingStatus, Prisma, VendorInsuranceType } from '@prisma/client';
 
 /**
@@ -301,6 +303,7 @@ export async function createDriver(input: CreateDriverInput) {
 }
 
 export interface UpdateDriverInput {
+  email?: string;
   phone?: string | null;
   firstName?: string;
   middleName?: string | null;
@@ -311,17 +314,123 @@ export interface UpdateDriverInput {
 }
 
 /**
- * Updates a driver's own details. The email is deliberately not updatable: it
- * identifies the account everywhere, including in the driver's own sign in.
+ * Updates a driver's account details.
+ *
+ * The email is editable from here, unlike in the driver's own profile, because
+ * correcting an address somebody mistyped at signup is exactly the kind of fix
+ * only an admin can make. It identifies the account, so it is normalised the
+ * same way sign in normalises it and checked against the other drivers first.
  */
 export async function updateDriver(driverId: string, input: UpdateDriverInput) {
   await assertDriverExists(driverId);
 
+  const { email, ...rest } = input;
+  const data: Prisma.DriverUpdateInput = { ...rest };
+
+  if (email !== undefined) {
+    const normalised = email.trim().toLowerCase();
+    const clash = await prisma.driver.findFirst({
+      where: { email: normalised, id: { not: driverId } },
+      select: { id: true },
+    });
+    if (clash) throw ApiError.conflict('Another driver account already uses this email.');
+    data.email = normalised;
+  }
+
   return prisma.driver.update({
     where: { id: driverId },
-    data: input,
+    data,
     select: DRIVER_LIST_FIELDS,
   });
+}
+
+/**
+ * Replaces a driver's password.
+ *
+ * The driver is never told the new one by this route, so an admin using it has
+ * to pass it on themselves. Every existing session is dropped: if the reason
+ * for the reset is that somebody else had the old password, leaving their
+ * refresh token alive would defeat the whole point.
+ */
+export async function setDriverPassword(driverId: string, password: string) {
+  await assertDriverExists(driverId);
+
+  const [driver] = await prisma.$transaction([
+    prisma.driver.update({
+      where: { id: driverId },
+      data: { passwordHash: await hashPassword(password), failedLoginAttempts: 0, lockedUntil: null },
+      select: { id: true, email: true },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { actorType: 'DRIVER', actorId: driverId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+    // A reset link that was already on its way out is no longer wanted either.
+    prisma.passwordResetToken.updateMany({
+      where: { actorType: 'DRIVER', actorId: driverId, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+
+  return driver;
+}
+
+// ---------------------------------------------------------------------------
+// Drivers - the onboarding record
+//
+// The driver portal already knows how to write every one of these sections, and
+// none of that logic changes just because an admin is the one typing. So these
+// delegate to the driver service rather than restating it, and add the two
+// things the admin side needs: a 404 that says "Driver not found" before
+// anything is written, and verification decisions that survive an admin's own
+// correction.
+// ---------------------------------------------------------------------------
+
+export async function updateDriverPersonal(
+  driverId: string,
+  input: Parameters<typeof driverService.updatePersonal>[1],
+) {
+  await assertDriverExists(driverId);
+  return driverService.updatePersonal(driverId, input);
+}
+
+export async function updateDriverAddresses(
+  driverId: string,
+  input: Parameters<typeof driverService.updateAddresses>[1],
+) {
+  await assertDriverExists(driverId);
+  return driverService.updateAddresses(driverId, input);
+}
+
+export async function updateDriverSection(
+  driverId: string,
+  section: Parameters<typeof driverService.upsertSection>[1],
+  data: Record<string, unknown>,
+) {
+  await assertDriverExists(driverId);
+  return driverService.upsertSection(driverId, section, data, { resetVerification: false });
+}
+
+export async function addDriverDocument(
+  driverId: string,
+  input: Parameters<typeof driverService.addDocument>[1],
+) {
+  await assertDriverExists(driverId);
+  return driverService.addDocument(driverId, input);
+}
+
+export async function updateDriverDocument(
+  driverId: string,
+  documentId: string,
+  data: { category: string | null; expiryDate: Date | null },
+) {
+  await assertDriverExists(driverId);
+  return driverService.updateDocument(driverId, documentId, data);
+}
+
+export async function deleteDriverDocument(driverId: string, documentId: string) {
+  await assertDriverExists(driverId);
+  return driverService.deleteDocument(driverId, documentId);
 }
 
 /**
@@ -628,20 +737,153 @@ export async function createVendor(input: CreateVendorInput) {
   });
 }
 
-export type UpdateVendorInput = Partial<Omit<CreateVendorInput, 'email' | 'password'>>;
+export type UpdateVendorInput = Partial<Omit<CreateVendorInput, 'password'>>;
 
 /**
- * Updates a supplier's own details. The email is deliberately not updatable: it
- * identifies the account everywhere, including in the supplier's own sign in.
+ * Updates a supplier's account details.
+ *
+ * The email is editable from here, unlike in the supplier's own profile, for
+ * the same reason it is on a driver: correcting an address somebody mistyped at
+ * signup is a fix only an admin can make.
  */
 export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
   await assertVendorExists(vendorId);
 
+  const { email, ...rest } = input;
+  const data: Prisma.VendorUpdateInput = { ...rest };
+
+  if (email !== undefined) {
+    const normalised = email.trim().toLowerCase();
+    const clash = await prisma.vendor.findFirst({
+      where: { email: normalised, id: { not: vendorId } },
+      select: { id: true },
+    });
+    if (clash) throw ApiError.conflict('Another supplier account already uses this email.');
+    data.email = normalised;
+  }
+
   return prisma.vendor.update({
     where: { id: vendorId },
-    data: input,
+    data,
     select: VENDOR_LIST_FIELDS,
   });
+}
+
+/** Replaces a supplier's password. See setDriverPassword: same rules. */
+export async function setVendorPassword(vendorId: string, password: string) {
+  await assertVendorExists(vendorId);
+
+  const [vendor] = await prisma.$transaction([
+    prisma.vendor.update({
+      where: { id: vendorId },
+      data: { passwordHash: await hashPassword(password), failedLoginAttempts: 0, lockedUntil: null },
+      select: { id: true, email: true },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { actorType: 'VENDOR', actorId: vendorId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { actorType: 'VENDOR', actorId: vendorId, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+
+  return vendor;
+}
+
+// ---------------------------------------------------------------------------
+// Suppliers - the onboarding record
+//
+// The same arrangement as the driver equivalents above: the supplier portal
+// already knows how to write every one of these sections, so these delegate to
+// it and add the admin 404 and the surviving verification decision.
+// ---------------------------------------------------------------------------
+
+export async function updateVendorCompany(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateCompany>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateCompany(vendorId, input);
+}
+
+export async function updateVendorContacts(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateContacts>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateContacts(vendorId, input);
+}
+
+export async function updateVendorDirectors(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateDirectors>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateDirectors(vendorId, input);
+}
+
+export async function updateVendorWarehouses(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateWarehouses>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateWarehouses(vendorId, input);
+}
+
+export async function updateVendorBank(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateBank>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateBank(vendorId, input);
+}
+
+export async function updateVendorCoverage(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateCoverage>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateCoverage(vendorId, input);
+}
+
+export async function updateVendorAccreditation(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateAccreditation>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateAccreditation(vendorId, input, { resetVerification: false });
+}
+
+export async function updateVendorInsurances(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateInsurances>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateInsurances(vendorId, input, { resetVerification: false });
+}
+
+export async function addVendorDocument(
+  vendorId: string,
+  input: Parameters<typeof vendorService.addDocument>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.addDocument(vendorId, input);
+}
+
+export async function updateVendorDocument(
+  vendorId: string,
+  documentId: string,
+  data: { category: string | null; issueDate: Date | null; expiryDate: Date | null },
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateDocument(vendorId, documentId, data);
+}
+
+export async function deleteVendorDocument(vendorId: string, documentId: string) {
+  await assertVendorExists(vendorId);
+  return vendorService.deleteDocument(vendorId, documentId);
 }
 
 /**

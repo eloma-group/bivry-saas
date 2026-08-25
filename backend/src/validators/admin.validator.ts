@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import {
+  optionalDateOfBirth,
+  optionalPersonName,
+  optionalPhoneNumber,
+  patchDateOfBirth,
+  patchPersonName,
+  patchPhoneNumber,
+  personName,
+} from './fields';
 
 /** Empty strings from a form mean "not provided". */
 const optionalText = (max = 150) =>
@@ -7,10 +16,21 @@ const optionalText = (max = 150) =>
     .optional()
     .transform((value) => (value === '' || value === undefined ? null : value));
 
-const optionalDate = z
-  .union([z.coerce.date(), z.literal(''), z.null()])
-  .optional()
-  .transform((value) => (value === '' || value === undefined ? null : value));
+/**
+ * The same idea for a partial update, where the two empty cases have to stay
+ * apart. A key that is absent means "leave this column alone" and must survive
+ * as `undefined`, which Prisma skips. An empty string is a cleared form field
+ * and means "set this column to null".
+ *
+ * `optionalText` above folds both into null, which is right for a create and
+ * wrong here: an update that sends only a status would blank every other
+ * column on the row.
+ */
+const patchText = (max = 150) =>
+  z
+    .union([z.string().trim().max(max), z.null()])
+    .optional()
+    .transform((value) => (value === '' ? null : value));
 
 const password = z
   .string({ required_error: 'Password is required' })
@@ -46,28 +66,45 @@ export const driverListQuerySchema = z.object({
 export const createDriverSchema = z.object({
   email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address').toLowerCase(),
   password,
-  phone: optionalText(20),
-  firstName: z.string().trim().min(1, 'First name is required').max(100),
-  middleName: optionalText(100),
-  lastName: optionalText(100),
-  dateOfBirth: optionalDate,
+  phone: optionalPhoneNumber(),
+  firstName: personName('First name'),
+  middleName: optionalPersonName('Middle name'),
+  lastName: optionalPersonName('Last name'),
+  dateOfBirth: optionalDateOfBirth,
   nationality: optionalText(100),
   status: z.enum(ACCOUNT_STATUSES).optional(),
 });
 
 export const updateDriverSchema = z
   .object({
-    phone: optionalText(20),
-    firstName: z.string().trim().min(1, 'First name is required').max(100).optional(),
-    middleName: optionalText(100),
-    lastName: optionalText(100),
-    dateOfBirth: optionalDate,
-    nationality: optionalText(100),
+    // Editable here and nowhere else. See updateDriver in the admin service.
+    email: z
+      .string()
+      .trim()
+      .min(1, 'Email is required')
+      .email('Enter a valid email address')
+      .toLowerCase()
+      .optional(),
+    phone: patchPhoneNumber(),
+    firstName: personName('First name').optional(),
+    middleName: patchPersonName('Middle name'),
+    lastName: patchPersonName('Last name'),
+    dateOfBirth: patchDateOfBirth,
+    nationality: patchText(100),
     status: z.enum(ACCOUNT_STATUSES).optional(),
   })
   // Every field is optional on its own, but an empty body is a mistake, not an
   // instruction to change nothing.
-  .refine((data) => Object.keys(data).length > 0, { message: 'Nothing to update' });
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: 'Nothing to update',
+  });
+
+/**
+ * An admin setting somebody else's password. Same strength rules the driver
+ * would face doing it themselves, so an admin cannot quietly hand out a weaker
+ * one than the portal accepts.
+ */
+export const setPasswordSchema = z.object({ password });
 
 export const reviewDriverSchema = z
   .object({
@@ -116,11 +153,13 @@ export const vendorListQuerySchema = z.object({
 export const createVendorSchema = z.object({
   email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address').toLowerCase(),
   password,
-  phone: optionalText(20),
+  phone: optionalPhoneNumber(),
+  // Business names are not people's names: "A1 Logistics Pty. Ltd." is a real
+  // one, so only contactPerson takes the letters-only rule.
   companyName: z.string().trim().min(1, 'Company name is required').max(150),
   tradingName: optionalText(150),
   legalName: optionalText(150),
-  contactPerson: optionalText(100),
+  contactPerson: optionalPersonName('Contact person'),
   abn: optionalText(30),
   websiteAddress: optionalText(200),
   status: z.enum(ACCOUNT_STATUSES).optional(),
@@ -128,18 +167,28 @@ export const createVendorSchema = z.object({
 
 export const updateVendorSchema = z
   .object({
-    phone: optionalText(20),
+    // Editable here and nowhere else. See updateVendor in the admin service.
+    email: z
+      .string()
+      .trim()
+      .min(1, 'Email is required')
+      .email('Enter a valid email address')
+      .toLowerCase()
+      .optional(),
+    phone: patchPhoneNumber(),
     companyName: z.string().trim().min(1, 'Company name is required').max(150).optional(),
-    tradingName: optionalText(150),
-    legalName: optionalText(150),
-    contactPerson: optionalText(100),
-    abn: optionalText(30),
-    websiteAddress: optionalText(200),
+    tradingName: patchText(150),
+    legalName: patchText(150),
+    contactPerson: patchPersonName('Contact person'),
+    abn: patchText(30),
+    websiteAddress: patchText(200),
     status: z.enum(ACCOUNT_STATUSES).optional(),
   })
   // Every field is optional on its own, but an empty body is a mistake, not an
   // instruction to change nothing.
-  .refine((data) => Object.keys(data).length > 0, { message: 'Nothing to update' });
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: 'Nothing to update',
+  });
 
 export const reviewVendorSchema = z
   .object({
@@ -165,8 +214,8 @@ export const vendorSectionParamSchema = z.object({
 
 export const updateAdminSchema = z
   .object({
-    firstName: z.string().trim().min(1, 'First name is required').max(100).optional(),
-    lastName: optionalText(100),
-    phone: optionalText(20),
+    firstName: personName('First name').optional(),
+    lastName: optionalPersonName('Last name'),
+    phone: optionalPhoneNumber(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'Nothing to update' });

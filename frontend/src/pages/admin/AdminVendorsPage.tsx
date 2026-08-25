@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Building2,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { VendorTable } from "@/components/admin/VendorTable";
-import { VendorFormDialog } from "@/components/admin/VendorFormDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,7 +109,6 @@ export function AdminVendorsPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<AdminVendorRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -311,8 +309,10 @@ export function AdminVendorsPage() {
             )}
             Export all
           </Button>
-          <Button type="button" onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> New supplier
+          <Button asChild>
+            <Link to="/admin/onboarding/supplier/new">
+              <Plus className="h-4 w-4" /> New supplier
+            </Link>
           </Button>
         </div>
       </div>
@@ -377,8 +377,10 @@ export function AdminVendorsPage() {
                 Create one here, or wait for a supplier to register themselves.
               </p>
             </div>
-            <Button type="button" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" /> New supplier
+            <Button asChild>
+              <Link to="/admin/onboarding/supplier/new">
+                <Plus className="h-4 w-4" /> New supplier
+              </Link>
             </Button>
           </div>
         </div>
@@ -428,12 +430,6 @@ export function AdminVendorsPage() {
           </div>
         </>
       )}
-
-      <VendorFormDialog
-        open={creating}
-        onOpenChange={setCreating}
-        onSaved={() => void load()}
-      />
 
       <ConfirmDialog
         open={pendingDelete !== null}

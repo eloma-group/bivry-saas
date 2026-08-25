@@ -5,6 +5,7 @@ import { Camera, ImageUp, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/upload/CameraCapture";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
+import { useDocumentSource } from "@/context/DocumentSourceContext";
 import {
   ACCEPT_IMAGE,
   ACCEPT_IMAGE_LABEL,
@@ -21,7 +22,7 @@ export function AvatarUpload() {
   const [camOpen, setCamOpen] = useState(false);
   const stored = useWatch({ control, name: "profilePhoto" }) as UploadedFile | null;
   // A photo saved earlier has no local bytes, so it is fetched for the preview.
-  const storedUrl = useDocumentUrl(stored?.dataUrl ? null : stored?.documentId);
+  const storedUrl = useDocumentUrl(stored?.dataUrl ? null : stored?.documentId, useDocumentSource());
 
   return (
     <Controller

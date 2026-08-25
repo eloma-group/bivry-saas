@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import { vendorDocuments } from "@/services/vendorDocuments";
+import { useDocumentSource } from "@/context/DocumentSourceContext";
 import { submissionBlockers } from "@/services/vendorOnboarding";
 import { INSURANCE_POLICIES } from "@/constants/vendorOptions";
 import { daysUntil, expiryLevel } from "@/utils/date";
@@ -54,7 +55,7 @@ export function VendorSummaryCard({
   // A logo saved on an earlier visit has no local bytes to draw from.
   const storedLogoUrl = useDocumentUrl(
     logo?.dataUrl ? null : logo?.documentId,
-    vendorDocuments,
+    useDocumentSource(vendorDocuments),
   );
   const logoUrl = logo ? logo.dataUrl || storedLogoUrl : null;
   const name = v?.companyName || "New Supplier";

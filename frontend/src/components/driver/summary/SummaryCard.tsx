@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
+import { useDocumentSource } from "@/context/DocumentSourceContext";
 import { daysUntil, expiryLevel } from "@/utils/date";
 import type { DriverFormValues, UploadedFile } from "@/types/driver";
 
@@ -47,7 +48,7 @@ export function SummaryCard({
 
   const photo = v?.profilePhoto as UploadedFile | null;
   // A photo saved on an earlier visit has no local bytes to draw from.
-  const storedPhotoUrl = useDocumentUrl(photo?.dataUrl ? null : photo?.documentId);
+  const storedPhotoUrl = useDocumentUrl(photo?.dataUrl ? null : photo?.documentId, useDocumentSource());
   const photoUrl = photo ? photo.dataUrl || storedPhotoUrl : null;
   const name =
     [v?.firstName, v?.lastName].filter(Boolean).join(" ") || "New Driver";

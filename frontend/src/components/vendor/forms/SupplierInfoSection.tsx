@@ -2,18 +2,26 @@ import { Building2 } from "lucide-react";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField } from "@/components/form/Fields";
 import { LogoUpload } from "@/components/vendor/LogoUpload";
-import { rules } from "@/utils/validation";
+import { PHONE_MAX, rules } from "@/utils/validation";
 import { useAuth } from "@/context/AuthContext";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
-export function SupplierInfoSection() {
+export function SupplierInfoSection({
+  emailEditable = false,
+}: {
+  /**
+   * Admins correct addresses that were mistyped at signup, so the Admin portal
+   * opens this field. A supplier editing their own profile never can: the email
+   * is what identifies the account they are signed in to.
+   */
+  emailEditable?: boolean;
+} = {}) {
   const { user } = useAuth();
 
-  // The email is what identifies this supplier's account, so it is shown as
-  // read only and can never be edited from here. Without a session (the
-  // development auth bypass) there is no account email to lock to.
-  const emailLocked = Boolean(user?.email);
+  // Without a session (the development auth bypass) there is no account email
+  // to lock to, so the field stays open there as well.
+  const emailLocked = !emailEditable && Boolean(user?.email);
 
   return (
     <SectionCard
@@ -74,8 +82,9 @@ export function SupplierInfoSection() {
           name="phone"
           label="Company Phone"
           type="tel"
-          placeholder="+61 9584586482"
+          placeholder="+61 400000000"
           required
+          maxLength={PHONE_MAX}
           rules={rules.phone}
         />
         <TextField

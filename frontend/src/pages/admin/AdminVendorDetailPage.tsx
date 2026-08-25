@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { VendorProfile } from "@/components/vendor/profile/VendorProfile";
-import { VendorFormDialog } from "@/components/admin/VendorFormDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,7 +60,6 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deciding, setDeciding] = useState(false);
@@ -170,8 +168,10 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
         </Button>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={() => setEditing(true)}>
-            <Pencil className="h-4 w-4" /> Edit details
+          <Button asChild>
+            <Link to={`/admin/onboarding/supplier/${vendorId}/edit`}>
+              <Pencil className="h-4 w-4" /> Edit details
+            </Link>
           </Button>
           <Button
             type="button"
@@ -329,24 +329,6 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
           Documents open from blob storage with a short lived link.
         </span>
       </div>
-
-      <VendorFormDialog
-        open={editing}
-        onOpenChange={setEditing}
-        vendor={{
-          id: data.id,
-          email: data.email,
-          companyName: data.companyName,
-          tradingName: data.tradingName,
-          legalName: data.legalName,
-          contactPerson: data.contactPerson,
-          abn: data.abn,
-          websiteAddress: data.websiteAddress,
-          phone: data.phone,
-          status: data.status,
-        }}
-        onSaved={() => void load()}
-      />
 
       <ConfirmDialog
         open={confirmingDelete}

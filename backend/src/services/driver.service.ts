@@ -129,7 +129,14 @@ export async function upsertSection(
   driverId: string,
   section: OneToOneSection,
   data: Record<string, unknown>,
+  options: { resetVerification?: boolean } = {},
 ) {
+  // A driver editing their own section invalidates whatever decision was made
+  // on it, so it goes back in the queue. An admin editing it is the person who
+  // makes that decision, so their correction leaves the verification alone;
+  // otherwise fixing a typo would bounce a section the admin had just approved.
+  const resetVerification = options.resetVerification ?? true;
+
   const modelName = SECTION_MODEL[section];
   const delegate = prisma[modelName] as unknown as {
     upsert(args: {
@@ -142,8 +149,7 @@ export async function upsertSection(
   const result = await delegate.upsert({
     where: { driverId },
     create: { driverId, ...data },
-    // Editing a section sends it back for review.
-    update: { ...data, verificationStatus: 'PENDING' },
+    update: resetVerification ? { ...data, verificationStatus: 'PENDING' } : { ...data },
   });
 
   await touchOnboarding(driverId);

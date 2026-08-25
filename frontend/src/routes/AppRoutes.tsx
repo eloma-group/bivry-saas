@@ -112,6 +112,7 @@ export function AppRoutes() {
         <Route path="onboarding" element={<Navigate to="driver" replace />} />
         <Route path="onboarding/:module" element={<AdminOnboardingPage />} />
         <Route path="onboarding/:module/:recordId" element={<AdminOnboardingPage />} />
+        <Route path="onboarding/:module/:recordId/:action" element={<AdminOnboardingPage />} />
       </Route>
 
       {/* Remaining portals, authenticated and waiting on their feature work. */}

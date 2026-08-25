@@ -98,6 +98,14 @@ interface TextFieldProps extends BaseFieldProps {
   placeholder?: string;
   readOnly?: boolean;
   hint?: string;
+  /**
+   * A hard cap on what can be typed, on top of whatever `rules` checks.
+   *
+   * Stopping the keystroke is kinder than accepting fifty more characters and
+   * then refusing them on submit, and it also stops a value the API would
+   * reject ever reaching it.
+   */
+  maxLength?: number;
 }
 
 /** Reusable text/email/number input wired to react-hook-form. */
@@ -110,6 +118,7 @@ export function TextField({
   required,
   readOnly,
   hint,
+  maxLength,
   className,
 }: TextFieldProps) {
   const {
@@ -132,6 +141,7 @@ export function TextField({
         type={type}
         placeholder={placeholder}
         readOnly={readOnly}
+        maxLength={maxLength}
         aria-readonly={readOnly || undefined}
         aria-invalid={!!error}
         className={cn(
@@ -148,6 +158,7 @@ interface DateFieldProps extends BaseFieldProps {
   readOnly?: boolean;
   min?: string;
   max?: string;
+  hint?: string;
   /**
    * Drops the decorative leading calendar icon. In a narrow table column the
    * icon's indent plus the browser's own picker button squeezes the date out of
@@ -166,6 +177,7 @@ export function DateField({
   readOnly,
   min,
   max,
+  hint,
   compact,
   className,
 }: DateFieldProps) {
@@ -181,6 +193,7 @@ export function DateField({
       htmlFor={name}
       required={required}
       error={error}
+      hint={hint}
       className={className}
     >
       <div className="relative">

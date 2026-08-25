@@ -7,7 +7,9 @@ import type {
   VerificationStatus,
   ApiLicenceType,
 } from "./driverService";
-import type { VendorOnboardingData } from "./vendorService";
+import type { VendorDocument, VendorOnboardingData } from "./vendorService";
+import type { DriverOnboardingGateway } from "./driverOnboarding";
+import type { VendorOnboardingGateway } from "./vendorOnboarding";
 
 /**
  * Admin module API. Every path lives under `/api/admin`, which the backend locks
@@ -164,9 +166,54 @@ export interface CreateDriverInput {
   status?: AccountStatus;
 }
 
-export type UpdateDriverInput = Partial<Omit<CreateDriverInput, "email" | "password">>;
+/**
+ * The email is here but the password is not: an admin can correct the address
+ * somebody mistyped at signup, but replacing a password goes through
+ * `setDriverPassword`, which also signs the existing sessions out.
+ */
+export type UpdateDriverInput = Partial<Omit<CreateDriverInput, "password">>;
 
 export type ReviewDecision = "APPROVED" | "REJECTED" | "UNDER_REVIEW";
+
+/** Where a plain account module lives under /admin. */
+export type SimpleAccountPath = "customers" | "employees";
+
+/**
+ * One customer or employee row. The columns the two share are typed; the ones
+ * only one of them has are read through the index signature, because the pages
+ * that render them are driven by a field config rather than by this type.
+ */
+export interface SimpleAccount {
+  id: string;
+  email: string;
+  phone: string | null;
+  firstName: string;
+  lastName: string | null;
+  avatarUrl: string | null;
+  status: AccountStatus;
+  emailVerifiedAt: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  [column: string]: unknown;
+}
+
+export interface SimpleAccountListParams {
+  search?: string;
+  status?: AccountStatus;
+  page?: number;
+  pageSize?: number;
+  sortBy?: "createdAt" | "email" | "firstName";
+  sortDir?: "asc" | "desc";
+}
+
+export interface SimpleAccountListResult {
+  rows: SimpleAccount[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
 
 export type ReviewableSection =
   | "licence"
@@ -189,7 +236,12 @@ export interface CreateVendorInput {
   status?: AccountStatus;
 }
 
-export type UpdateVendorInput = Partial<Omit<CreateVendorInput, "email" | "password">>;
+/**
+ * The email is here but the password is not: an admin can correct the address
+ * somebody mistyped at signup, but replacing a password goes through
+ * `setVendorPassword`, which also signs the existing sessions out.
+ */
+export type UpdateVendorInput = Partial<Omit<CreateVendorInput, "password">>;
 
 /** Supplier sections an admin can verify one at a time. */
 export type ReviewableVendorSection =
@@ -235,6 +287,69 @@ export const adminService = {
     return request({ url: `/admin/drivers/${driverId}`, method: "DELETE" });
   },
 
+  /** Replaces a driver's password and signs every one of their sessions out. */
+  setDriverPassword(driverId: string, password: string) {
+    return request<{ id: string; email: string }>({
+      url: `/admin/drivers/${driverId}/password`,
+      method: "PUT",
+      data: { password },
+    });
+  },
+
+  /**
+   * The onboarding record of one driver, written by an admin.
+   *
+   * Shaped to match `driverService` method for method so it satisfies
+   * `DriverOnboardingGateway`. That is what lets the Admin portal reuse the
+   * driver's own onboarding form and its save pipeline rather than growing a
+   * second one that would have to be kept in step by hand.
+   */
+  driverOnboarding(driverId: string): DriverOnboardingGateway {
+    const base = `/admin/drivers/${driverId}`;
+    const section = <T,>(path: string) => (values: T) =>
+      request({ url: `${base}/onboarding/${path}`, method: "PUT", data: values });
+
+    return {
+      savePersonal: section("personal"),
+      saveAddress: section("address"),
+      saveLicence: section("licence"),
+      saveDrivingHistory: section("driving-history"),
+      savePoliceVerification: section("police-verification"),
+      saveVisa: section("visa"),
+      savePassport: section("passport"),
+      saveMedicare: section("medicare"),
+      saveMedical: section("medical"),
+      saveDrugTest: section("drug-test"),
+
+      async uploadDocument(input) {
+        const form = new FormData();
+        form.append("file", input.file);
+        form.append("docType", input.docType);
+        if (input.category) form.append("category", input.category);
+        if (input.expiryDate) form.append("expiryDate", input.expiryDate);
+
+        const response = await api.post<{ data: DriverDocument }>(`${base}/documents`, form, {
+          // Let the browser set the multipart boundary.
+          headers: { "Content-Type": undefined },
+          onUploadProgress(event) {
+            if (!input.onProgress || !event.total) return;
+            input.onProgress(Math.round((event.loaded / event.total) * 100));
+          },
+        });
+
+        return response.data.data;
+      },
+
+      updateDocument(documentId, values) {
+        return request({ url: `${base}/documents/${documentId}`, method: "PATCH", data: values });
+      },
+
+      deleteDocument(documentId) {
+        return request({ url: `${base}/documents/${documentId}`, method: "DELETE" });
+      },
+    };
+  },
+
   reviewDriver(driverId: string, decision: ReviewDecision, reason?: string | null) {
     return request<AdminDriverRow>({
       url: `/admin/drivers/${driverId}/review`,
@@ -273,6 +388,42 @@ export const adminService = {
   },
 
   // -------------------------------------------------------------------------
+  // Customers and employees
+  //
+  // Plain accounts with no onboarding record behind them, so the whole module
+  // is these six calls and the only thing that differs between the two kinds is
+  // the path and which extra columns the row carries.
+  // -------------------------------------------------------------------------
+
+  simpleAccounts(path: SimpleAccountPath) {
+    const base = `/admin/${path}`;
+    return {
+      list(params: SimpleAccountListParams = {}): Promise<SimpleAccountListResult> {
+        return request<SimpleAccountListResult>({ url: base, method: "GET", params });
+      },
+      get(id: string): Promise<SimpleAccount> {
+        return request<SimpleAccount>({ url: `${base}/${id}`, method: "GET" });
+      },
+      create(values: Record<string, unknown>): Promise<SimpleAccount> {
+        return request<SimpleAccount>({ url: base, method: "POST", data: values });
+      },
+      update(id: string, values: Record<string, unknown>): Promise<SimpleAccount> {
+        return request<SimpleAccount>({ url: `${base}/${id}`, method: "PUT", data: values });
+      },
+      remove(id: string) {
+        return request<{ id: string; email: string }>({ url: `${base}/${id}`, method: "DELETE" });
+      },
+      setPassword(id: string, password: string) {
+        return request<{ id: string; email: string }>({
+          url: `${base}/${id}/password`,
+          method: "PUT",
+          data: { password },
+        });
+      },
+    };
+  },
+
+  // -------------------------------------------------------------------------
   // Suppliers
   // -------------------------------------------------------------------------
 
@@ -299,6 +450,68 @@ export const adminService = {
 
   deleteVendor(vendorId: string) {
     return request({ url: `/admin/vendors/${vendorId}`, method: "DELETE" });
+  },
+
+  /** Replaces a supplier's password and signs every one of their sessions out. */
+  setVendorPassword(vendorId: string, password: string) {
+    return request<{ id: string; email: string }>({
+      url: `/admin/vendors/${vendorId}/password`,
+      method: "PUT",
+      data: { password },
+    });
+  },
+
+  /**
+   * The onboarding record of one supplier, written by an admin. Shaped to match
+   * `vendorService` method for method so it satisfies `VendorOnboardingGateway`,
+   * which is what lets the Admin portal reuse the supplier's own form.
+   */
+  vendorOnboarding(vendorId: string): VendorOnboardingGateway {
+    const base = `/admin/vendors/${vendorId}`;
+    const section = <T,>(path: string) => (values: T) =>
+      request({ url: `${base}/onboarding/${path}`, method: "PUT", data: values });
+
+    return {
+      saveCompany: section("company"),
+      saveContacts: section("contacts"),
+      saveDirectors: (directors) =>
+        request({ url: `${base}/onboarding/directors`, method: "PUT", data: { directors } }),
+      saveBank: section("bank"),
+      saveCoverage: section("coverage"),
+      saveWarehouses: (warehouses) =>
+        request({ url: `${base}/onboarding/warehouses`, method: "PUT", data: { warehouses } }),
+      saveAccreditation: section("accreditation"),
+      saveInsurances: (insurances) =>
+        request({ url: `${base}/onboarding/insurances`, method: "PUT", data: { insurances } }),
+
+      async uploadDocument(input) {
+        const form = new FormData();
+        form.append("file", input.file);
+        form.append("docType", input.docType);
+        if (input.category) form.append("category", input.category);
+        if (input.issueDate) form.append("issueDate", input.issueDate);
+        if (input.expiryDate) form.append("expiryDate", input.expiryDate);
+
+        const response = await api.post<{ data: VendorDocument }>(`${base}/documents`, form, {
+          // Let the browser set the multipart boundary.
+          headers: { "Content-Type": undefined },
+          onUploadProgress(event) {
+            if (!input.onProgress || !event.total) return;
+            input.onProgress(Math.round((event.loaded / event.total) * 100));
+          },
+        });
+
+        return response.data.data;
+      },
+
+      updateDocument(documentId, values) {
+        return request({ url: `${base}/documents/${documentId}`, method: "PATCH", data: values });
+      },
+
+      deleteDocument(documentId) {
+        return request({ url: `${base}/documents/${documentId}`, method: "DELETE" });
+      },
+    };
   },
 
   reviewVendor(vendorId: string, decision: ReviewDecision, reason?: string | null) {

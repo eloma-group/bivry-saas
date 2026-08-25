@@ -280,11 +280,34 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
  * Sequential on purpose: a failure part way through leaves the earlier sections
  * saved, which is what the supplier expects from a form that saves as a whole.
  */
+/**
+ * The set of calls saving a supplier onboarding record needs. The supplier
+ * portal passes `vendorService`, which writes the signed in supplier's own
+ * record; the Admin portal passes a gateway bound to whichever supplier is
+ * being edited. Derived from `vendorService` rather than restated, so a change
+ * to a payload breaks the admin gateway at compile time.
+ */
+export type VendorOnboardingGateway = Pick<
+  typeof vendorService,
+  | "saveCompany"
+  | "saveContacts"
+  | "saveDirectors"
+  | "saveBank"
+  | "saveCoverage"
+  | "saveWarehouses"
+  | "saveAccreditation"
+  | "saveInsurances"
+  | "uploadDocument"
+  | "updateDocument"
+  | "deleteDocument"
+>;
+
 export async function saveOnboarding(
   values: VendorFormValues,
   loaded: VendorOnboardingData | null,
+  gateway: VendorOnboardingGateway = vendorService,
 ): Promise<void> {
-  await vendorService.saveCompany({
+  await gateway.saveCompany({
     companyName: values.companyName.trim(),
     tradingName: trimmedOrNull(values.tradingName),
     legalName: trimmedOrNull(values.legalName),
@@ -307,14 +330,14 @@ export async function saveOnboarding(
     };
   });
 
-  await vendorService.saveContacts({
+  await gateway.saveContacts({
     contacts,
     invoicePreference: trimmedOrNull(values.invoicePreference),
     invoiceEmails: values.invoiceEmails,
     invoiceOther: trimmedOrNull(values.invoiceOther),
   });
 
-  await vendorService.saveDirectors(
+  await gateway.saveDirectors(
     values.directors.map((director) => ({
       designation: trimmedOrNull(director.designation),
       email: trimmedOrNull(director.email),
@@ -322,19 +345,19 @@ export async function saveOnboarding(
     })),
   );
 
-  await vendorService.saveBank({
+  await gateway.saveBank({
     accountName: trimmedOrNull(values.accountName),
     bankName: trimmedOrNull(values.bankName),
     bsb: trimmedOrNull(values.bsb),
     accountNumber: trimmedOrNull(values.accountNumber),
   });
 
-  await vendorService.saveCoverage({
+  await gateway.saveCoverage({
     areasCovered: values.areasCovered,
     businessOperations: values.businessOperations,
   });
 
-  await vendorService.saveWarehouses(
+  await gateway.saveWarehouses(
     values.warehouses.map((warehouse) => ({
       street1: trimmedOrNull(warehouse.street1),
       street2: trimmedOrNull(warehouse.street2),
@@ -345,7 +368,7 @@ export async function saveOnboarding(
     })),
   );
 
-  await vendorService.saveAccreditation({
+  await gateway.saveAccreditation({
     accreditationNumber: trimmedOrNull(values.accreditationNumber),
     massManagementExpiry: values.massManagementExpiry || null,
     basicFatigueExpiry: values.basicFatigueExpiry || null,
@@ -370,9 +393,9 @@ export async function saveOnboarding(
     };
   });
 
-  await vendorService.saveInsurances(insurances);
+  await gateway.saveInsurances(insurances);
 
-  await syncDocuments(values, loaded?.documents ?? []);
+  await syncDocuments(values, loaded?.documents ?? [], gateway);
 }
 
 /**
@@ -383,6 +406,7 @@ export async function saveOnboarding(
 async function syncDocuments(
   values: VendorFormValues,
   stored: VendorDocument[],
+  gateway: VendorOnboardingGateway,
 ): Promise<void> {
   /** The single slot uploads: the logo, the accreditation, the six policies. */
   const slots: Array<{ docType: VendorDocumentType; value: UploadedFile | null }> = [
@@ -400,14 +424,14 @@ async function syncDocuments(
     if (slot.value?.documentId) continue;
 
     if (slot.value?.dataUrl) {
-      await vendorService.uploadDocument({
+      await gateway.uploadDocument({
         file: dataUrlToFile(slot.value),
         docType: slot.docType,
       });
       continue;
     }
 
-    if (!slot.value && existing) await vendorService.deleteDocument(existing.id);
+    if (!slot.value && existing) await gateway.deleteDocument(existing.id);
   }
 
   // Compliance rows. The eight fixed ones are single slot too; the extras the
@@ -421,7 +445,7 @@ async function syncDocuments(
 
   for (const doc of stored) {
     if (doc.docType !== "COMPLIANCE_ADDITIONAL") continue;
-    if (!keptAdditionalIds.has(doc.id)) await vendorService.deleteDocument(doc.id);
+    if (!keptAdditionalIds.has(doc.id)) await gateway.deleteDocument(doc.id);
   }
 
   for (const row of values.complianceDocs) {
@@ -431,7 +455,7 @@ async function syncDocuments(
       : stored.find((doc) => doc.id === row.file?.documentId);
 
     if (row.file?.dataUrl) {
-      await vendorService.uploadDocument({
+      await gateway.uploadDocument({
         file: dataUrlToFile(row.file),
         docType,
         category: row.fixed ? undefined : row.label || "Other",
@@ -442,7 +466,7 @@ async function syncDocuments(
     }
 
     if (!row.file) {
-      if (row.fixed && existing) await vendorService.deleteDocument(existing.id);
+      if (row.fixed && existing) await gateway.deleteDocument(existing.id);
       continue;
     }
 
@@ -457,7 +481,7 @@ async function syncDocuments(
       (row.fixed || (existing.category ?? "") === row.label);
     if (unchanged) continue;
 
-    await vendorService.updateDocument(documentId, {
+    await gateway.updateDocument(documentId, {
       category: row.fixed ? existing.category : row.label || null,
       issueDate: row.issue || null,
       expiryDate: row.expiry || null,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/upload/CameraCapture";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import { vendorDocuments } from "@/services/vendorDocuments";
+import { useDocumentSource } from "@/context/DocumentSourceContext";
 import {
   ACCEPT_IMAGE,
   ACCEPT_IMAGE_LABEL,
@@ -24,7 +25,7 @@ export function LogoUpload() {
   // A logo saved earlier has no local bytes, so it is fetched for the preview.
   const storedUrl = useDocumentUrl(
     stored?.dataUrl ? null : stored?.documentId,
-    vendorDocuments,
+    useDocumentSource(vendorDocuments),
   );
 
   return (

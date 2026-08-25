@@ -248,12 +248,20 @@ export interface AccreditationInput {
   haccpExpiry: Date | null;
 }
 
-export async function updateAccreditation(vendorId: string, data: AccreditationInput) {
+export async function updateAccreditation(
+  vendorId: string,
+  data: AccreditationInput,
+  options: { resetVerification?: boolean } = {},
+) {
+  // A supplier editing their own section invalidates whatever decision was made
+  // on it, so it goes back in the queue. An admin editing it is the person who
+  // makes that decision, so their correction leaves the verification alone.
+  const resetVerification = options.resetVerification ?? true;
+
   const result = await prisma.vendorAccreditation.upsert({
     where: { vendorId },
     create: { vendorId, ...data },
-    // Editing a section sends it back for review.
-    update: { ...data, verificationStatus: 'PENDING' },
+    update: resetVerification ? { ...data, verificationStatus: 'PENDING' } : { ...data },
   });
 
   await touchOnboarding(vendorId);
@@ -272,13 +280,19 @@ export interface InsuranceInput {
   dueInDays: number | null;
 }
 
-export async function updateInsurances(vendorId: string, insurances: InsuranceInput[]) {
+export async function updateInsurances(
+  vendorId: string,
+  insurances: InsuranceInput[],
+  options: { resetVerification?: boolean } = {},
+) {
+  const resetVerification = options.resetVerification ?? true;
+
   for (const insurance of insurances) {
     const { type, ...values } = insurance;
     await prisma.vendorInsurance.upsert({
       where: { vendorId_type: { vendorId, type } },
       create: { vendorId, type, ...values },
-      update: { ...values, verificationStatus: 'PENDING' },
+      update: resetVerification ? { ...values, verificationStatus: 'PENDING' } : { ...values },
     });
   }
 

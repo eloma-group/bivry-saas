@@ -25,8 +25,8 @@ import type { RoleSlug } from "@/types/auth";
 /** The five records the Onboarding menu covers. Driver and Supplier are built. */
 export const ONBOARDING_MODULES = [
   { slug: "vehicle", label: "Vehicle", ready: false },
-  { slug: "customer", label: "Customer", ready: false },
-  { slug: "user", label: "User", ready: false },
+  { slug: "customer", label: "Customer", ready: true },
+  { slug: "user", label: "User", ready: true },
   { slug: "supplier", label: "Supplier", ready: true },
   { slug: "driver", label: "Driver", ready: true },
 ] as const;
