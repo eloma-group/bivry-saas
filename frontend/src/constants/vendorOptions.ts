@@ -135,7 +135,7 @@ export const VENDOR_STEPS: VendorStepDef[] = [
   {
     id: "supplier",
     label: "Company Info",
-    requires: ["abn", "companyName", "tradingName", "legalName"],
+    requires: ["abn", "companyName", "tradingNames", "legalName"],
   },
   {
     id: "contacts",

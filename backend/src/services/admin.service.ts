@@ -60,10 +60,12 @@ const VENDOR_LIST_FIELDS = {
   email: true,
   phone: true,
   companyName: true,
-  tradingName: true,
+  tradingNames: true,
   legalName: true,
   abn: true,
   acn: true,
+  abnStatus: true,
+  entityType: true,
   supplierId: true,
   websiteAddress: true,
   contactPerson: true,
@@ -637,8 +639,10 @@ export async function listVendors(query: VendorListQuery) {
     const contains = { contains: query.search, mode: 'insensitive' } as const;
     where.OR = [
       { companyName: contains },
-      { tradingName: contains },
       { legalName: contains },
+      // A scalar list has no substring filter, so a trading name matches only
+      // in full. Company and legal name still answer a partial search.
+      { tradingNames: { has: query.search } },
       { supplierId: contains },
       { abn: contains },
       { email: contains },
@@ -705,11 +709,13 @@ export interface CreateVendorInput {
   password: string;
   phone: string | null;
   companyName: string;
-  tradingName: string | null;
+  tradingNames: string[];
   legalName: string | null;
   contactPerson: string | null;
   abn: string | null;
   acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
   websiteAddress: string | null;
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 }
@@ -726,11 +732,14 @@ export async function createVendor(input: CreateVendorInput) {
       passwordHash: await hashPassword(input.password),
       phone: input.phone,
       companyName: input.companyName,
-      tradingName: input.tradingName,
+      tradingNames: input.tradingNames,
+      tradingName: vendorService.legacyTradingName(input.tradingNames),
       legalName: input.legalName,
       contactPerson: input.contactPerson,
       abn: input.abn,
       acn: input.acn,
+      abnStatus: input.abnStatus,
+      entityType: input.entityType,
       websiteAddress: input.websiteAddress,
       // An admin created account is usable straight away; the supplier still has
       // to complete onboarding before it can be approved.
@@ -754,6 +763,12 @@ export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
 
   const { email, ...rest } = input;
   const data: Prisma.VendorUpdateInput = { ...rest };
+
+  // See legacyTradingName: the superseded column is kept in step for as long as
+  // a deployed build might still be reading it.
+  if (rest.tradingNames !== undefined) {
+    data.tradingName = vendorService.legacyTradingName(rest.tradingNames);
+  }
 
   if (email !== undefined) {
     const normalised = email.trim().toLowerCase();

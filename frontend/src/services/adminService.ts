@@ -79,10 +79,12 @@ export interface AdminVendorRow {
   email: string;
   phone: string | null;
   companyName: string;
-  tradingName: string | null;
+  tradingNames: string[];
   legalName: string | null;
   abn: string | null;
   acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
   supplierId: string | null;
   websiteAddress: string | null;
   contactPerson: string | null;
@@ -229,11 +231,13 @@ export interface CreateVendorInput {
   password: string;
   phone?: string | null;
   companyName: string;
-  tradingName?: string | null;
+  tradingNames?: string[];
   legalName?: string | null;
   contactPerson?: string | null;
   abn?: string | null;
   acn?: string | null;
+  abnStatus?: string | null;
+  entityType?: string | null;
   websiteAddress?: string | null;
   status?: AccountStatus;
 }

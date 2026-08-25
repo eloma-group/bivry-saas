@@ -12,9 +12,16 @@ import type {
 /** Supplier documents live in their own container, away from driver files. */
 const VENDOR_AREA = 'vendor' as const;
 
-/** Where the generated supplier reference starts counting from. */
-const SUPPLIER_ID_PREFIX = 'BVR-';
-const SUPPLIER_ID_BASE = 1000;
+/**
+ * Where the generated supplier reference starts counting from. The first
+ * supplier is BIVRY-5000 and it runs on from there, one per supplier.
+ *
+ * Changing either of these renumbers nothing on its own: the references already
+ * handed out are rewritten by a migration, and this only decides what the next
+ * one looks like. Keep the two in step.
+ */
+const SUPPLIER_ID_PREFIX = 'BIVRY-';
+const SUPPLIER_ID_BASE = 5000;
 
 /** Everything the onboarding wizard needs to render and resume. */
 export async function getOnboarding(vendorId: string) {
@@ -59,7 +66,7 @@ async function ensureSupplierId(vendorId: string): Promise<void> {
   const taken = await prisma.vendor.count({ where: { supplierId: { not: null } } });
 
   for (let attempt = 0; attempt < 25; attempt += 1) {
-    const candidate = `${SUPPLIER_ID_PREFIX}${SUPPLIER_ID_BASE + taken + attempt + 1}`;
+    const candidate = `${SUPPLIER_ID_PREFIX}${SUPPLIER_ID_BASE + taken + attempt}`;
     try {
       await prisma.vendor.update({
         where: { id: vendorId },
@@ -81,12 +88,25 @@ async function ensureSupplierId(vendorId: string): Promise<void> {
 // Company and contacts
 // ---------------------------------------------------------------------------
 
+/**
+ * The value the superseded `tradingName` column should hold.
+ *
+ * Nothing reads that column here any more, but a deployed build from before
+ * trading names became a list still does, so it is kept correct rather than
+ * left to rot. It goes when the column goes.
+ */
+export function legacyTradingName(tradingNames: string[]): string | null {
+  return tradingNames[0] ?? null;
+}
+
 export interface CompanyInput {
   companyName: string | null;
-  tradingName: string | null;
+  tradingNames: string[];
   legalName: string | null;
   abn: string | null;
   acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
   websiteAddress: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -101,10 +121,13 @@ export async function updateCompany(vendorId: string, data: CompanyInput) {
       // The account always has a company name, so a draft that left the field
       // empty keeps the one already stored rather than blanking it.
       ...(data.companyName ? { companyName: data.companyName } : {}),
-      tradingName: data.tradingName,
+      tradingNames: data.tradingNames,
+      tradingName: legacyTradingName(data.tradingNames),
       legalName: data.legalName,
       abn: data.abn,
       acn: data.acn,
+      abnStatus: data.abnStatus,
+      entityType: data.entityType,
       websiteAddress: data.websiteAddress,
       phone: data.phone,
       contactPerson: data.contactPerson,

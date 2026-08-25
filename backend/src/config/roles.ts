@@ -119,7 +119,7 @@ export const ROLES: Record<RoleSlug, RoleDefinition> = {
         ...baseProfile(account, 'vendor'),
         displayName: text(account.companyName) ?? account.email,
         companyName: account.companyName,
-        tradingName: account.tradingName,
+        tradingNames: account.tradingNames,
         legalName: account.legalName,
         contactPerson: account.contactPerson,
         abn: account.abn,

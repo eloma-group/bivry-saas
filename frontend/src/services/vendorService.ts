@@ -108,10 +108,12 @@ export interface VendorInsurancePayload {
 /** Company details. The email is absent on purpose: it identifies the account. */
 export interface VendorCompanyPayload {
   companyName: string;
-  tradingName: string | null;
+  tradingNames: string[];
   legalName: string | null;
   abn: string | null;
   acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
   websiteAddress: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -125,10 +127,12 @@ export interface VendorOnboardingData {
   email: string;
   phone: string | null;
   companyName: string;
-  tradingName: string | null;
+  tradingNames: string[];
   legalName: string | null;
   abn: string | null;
   acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
   supplierId: string | null;
   websiteAddress: string | null;
   contactPerson: string | null;

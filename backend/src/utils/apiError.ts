@@ -37,6 +37,11 @@ export class ApiError extends Error {
     return new ApiError(429, message, 'TOO_MANY_REQUESTS');
   }
 
+  /** An upstream service this API depends on answered badly or not at all. */
+  static badGateway(message = 'An upstream service is unavailable'): ApiError {
+    return new ApiError(502, message, 'BAD_GATEWAY');
+  }
+
   static internal(message = 'Something went wrong'): ApiError {
     return new ApiError(500, message, 'INTERNAL_ERROR');
   }

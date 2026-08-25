@@ -1,27 +1,89 @@
-import { Building2 } from "lucide-react";
+import { useState } from "react";
+import { useFieldArray, useFormContext } from "react-hook-form";
+import { AnimatePresence, motion } from "framer-motion";
+import { Building2, Loader2, Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField } from "@/components/form/Fields";
+import { Button } from "@/components/ui/button";
 import { LogoUpload } from "@/components/vendor/LogoUpload";
 import { ABN_LENGTH, ACN_LENGTH, rules } from "@/utils/validation";
+import { abnStatusLine, lookupAbn } from "@/services/abnLookup";
+import { ApiRequestError } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
+import type { VendorFormValues } from "@/types/vendor";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
-export function SupplierInfoSection({
-  emailEditable = false,
-}: {
-  /**
-   * Admins correct addresses that were mistyped at signup, so the Admin portal
-   * opens this field. A supplier editing their own profile never can: the email
-   * is what identifies the account they are signed in to.
-   */
-  emailEditable?: boolean;
-} = {}) {
-  const { user } = useAuth();
+/** The fields the Business Register can answer for. All plain strings. */
+type RegisterFilled = "companyName" | "legalName" | "acn" | "abnStatus" | "entityType";
 
-  // Without a session (the development auth bypass) there is no account email
-  // to lock to, so the field stays open there as well.
-  const emailLocked = !emailEditable && Boolean(user?.email);
+export function SupplierInfoSection() {
+  const { user } = useAuth();
+  const { control, getValues, setValue, trigger } = useFormContext<VendorFormValues>();
+  const tradingNames = useFieldArray({ control, name: "tradingNames" });
+  const [looking, setLooking] = useState(false);
+
+  /**
+   * Fills the section from the Australian Business Register.
+   *
+   * Everything it writes stays editable. The register holds the registered
+   * truth about a company, so a supplier who asked for it gets it in full
+   * rather than only in the gaps, but the last word is still theirs.
+   */
+  async function fillFromRegister() {
+    const abn = (getValues("abn") ?? "").replace(/\D/g, "");
+
+    // The rule on the field says the same thing, but it has nothing to say
+    // until the field has been touched, and this button can be pressed first.
+    if (abn.length !== ABN_LENGTH) {
+      await trigger("abn");
+      toast.error("Enter the ABN first", {
+        description: `The register needs all ${ABN_LENGTH} digits before it can find the business.`,
+      });
+      return;
+    }
+
+    setLooking(true);
+
+    try {
+      const found = await lookupAbn(abn, user?.role);
+      const fill = (field: RegisterFilled, value: string) => {
+        if (!value) return;
+        setValue(field, value, { shouldDirty: true, shouldValidate: true });
+      };
+
+      // The entity name is the company's registered name, so it lands in both
+      // the account's name and the legal one.
+      fill("companyName", found.entityName);
+      fill("legalName", found.entityName);
+      fill("acn", found.acn);
+
+      // A company can trade under several names and the register lists every
+      // one of them. All of them come back, newest first as it orders them, and
+      // the supplier drops the ones that do not apply. This is the only way the
+      // list ever grows past one: a second trading name is a matter of public
+      // record, not something anyone should be typing in by hand.
+      if (found.businessNames.length > 0) {
+        tradingNames.replace(found.businessNames.map((name) => ({ name })));
+      }
+      fill("abnStatus", abnStatusLine(found));
+      fill("entityType", found.entityTypeName);
+
+      toast.success("Filled from the Business Register", {
+        description: found.entityName,
+      });
+    } catch (error) {
+      toast.error("Could not look up that ABN", {
+        description:
+          error instanceof ApiRequestError
+            ? error.message
+            : "Please check your connection, or enter the details manually.",
+      });
+    } finally {
+      setLooking(false);
+    }
+  }
 
   return (
     <SectionCard
@@ -44,6 +106,41 @@ export function SupplierInfoSection({
           digitsOnly
           maxLength={ABN_LENGTH}
           rules={rules.abn}
+          hint="Eleven digits. Look it up and the register fills in the rest."
+          action={
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-8"
+              onClick={() => void fillFromRegister()}
+              disabled={looking}
+            >
+              {looking ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Looking
+                </>
+              ) : (
+                <>
+                  <Search className="h-3.5 w-3.5" /> Lookup
+                </>
+              )}
+            </Button>
+          }
+        />
+        <TextField
+          name="abnStatus"
+          label="ABN Status"
+          placeholder="Look up the ABN to fill this"
+          readOnly
+          hint="What the Business Register holds. It cannot be typed in."
+        />
+        <TextField
+          name="entityType"
+          label="Entity Type"
+          placeholder="Look up the ABN to fill this"
+          readOnly
+          hint="What the register calls this business. Only a company has an ACN."
         />
         <TextField
           name="acn"
@@ -61,13 +158,46 @@ export function SupplierInfoSection({
           required
           rules={rules.required("Company name")}
         />
-        <TextField
-          name="tradingName"
-          label="Trading Name"
-          placeholder="Sanket Logistics"
-          required
-          rules={rules.required("Trading name")}
-        />
+
+        <AnimatePresence initial={false}>
+          {tradingNames.fields.map((row, index) => (
+            <motion.div
+              key={row.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <TextField
+                name={`tradingNames.${index}.name`}
+                label={
+                  tradingNames.fields.length > 1 ? `Trading Name ${index + 1}` : "Trading Name"
+                }
+                placeholder="Sanket Logistics"
+                required={index === 0}
+                rules={index === 0 ? rules.required("Trading name") : undefined}
+                actionSize="icon"
+                // Extra rows only ever arrive from the lookup, so the cross is
+                // the one way back out of them: drop the names that do not
+                // apply. The last one standing keeps no cross, because a
+                // business always trades under something.
+                action={
+                  tradingNames.fields.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => tradingNames.remove(index)}
+                      className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500"
+                      aria-label={`Remove trading name ${index + 1}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : undefined
+                }
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
         <TextField
           name="legalName"
           label="Legal Name"
@@ -86,21 +216,6 @@ export function SupplierInfoSection({
           placeholder="Assigned automatically"
           readOnly
           hint="Assigned by BIVRY. It cannot be changed."
-        />
-        <TextField
-          name="email"
-          label="Login Email"
-          type="email"
-          placeholder="accounts@company.com"
-          required
-          readOnly={emailLocked}
-          hint={
-            emailLocked
-              ? "The email this account was created with. You sign in with it, and it cannot be changed here."
-              : "The email this account signs in with. Department mailboxes are asked for further down."
-          }
-          rules={rules.email}
-          className="sm:col-span-2 lg:col-span-2"
         />
       </div>
     </SectionCard>

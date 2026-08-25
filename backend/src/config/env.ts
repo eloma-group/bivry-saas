@@ -131,6 +131,24 @@ export const env = {
     },
   },
 
+  /**
+   * The Australian Business Register, which a supplier's ABN is looked up
+   * against so the register fills in the company details it already holds.
+   *
+   * No credential is needed to run: without ABR_GUID the service reads the
+   * public ABN Lookup page instead of the JSON web service. A GUID is issued
+   * per registered party and cannot be provisioned from here, so the feature
+   * would otherwise sit dead on arrival. Set one and the JSON service takes
+   * over on its own.
+   */
+  abr: {
+    enabled: bool('ABN_LOOKUP_ENABLED', true),
+    url: optional('ABR_URL', 'https://abr.business.gov.au'),
+    guid: optional('ABR_GUID', ''),
+    /** The register asks callers to identify themselves. */
+    userAgent: optional('ABR_USER_AGENT', 'BIVRY-SaaS (+https://bivry.com)'),
+  },
+
   mail: {
     host: optional('SMTP_HOST', ''),
     port: num('SMTP_PORT', 587),

@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { SupplierInfoSection } from "@/components/vendor/forms/SupplierInfoSection";
+import { TextField } from "@/components/form/Fields";
+import { rules } from "@/utils/validation";
 import { ContactInfoSection } from "@/components/vendor/forms/ContactInfoSection";
 import { DirectorsSection } from "@/components/vendor/forms/DirectorsSection";
 import { BankDetailsSection } from "@/components/vendor/forms/BankDetailsSection";
@@ -141,13 +143,17 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
               email,
               password,
               companyName: values.companyName.trim(),
-              tradingName: values.tradingName.trim() || null,
+              tradingNames: values.tradingNames
+                .map((row) => row.name.trim())
+                .filter((name) => name !== ""),
               legalName: values.legalName.trim() || null,
               // The account's contact person mirrors the operations contact, which
               // saveOnboarding writes a moment later. See saveCompany.
               contactPerson: values.operations.contactPerson.trim() || null,
               abn: values.abn.trim() || null,
               acn: values.acn.trim() || null,
+              abnStatus: values.abnStatus.trim() || null,
+              entityType: values.entityType.trim() || null,
               websiteAddress: values.websiteAddress.trim() || null,
               phone: values.phone.trim() || null,
               status,
@@ -245,17 +251,29 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
         </p>
       </div>
 
-      {/* The account, which is not part of the onboarding form. */}
-      <section className="mb-6 rounded-3xl border border-border/70 bg-card p-6 shadow-card">
+      {/* Both blocks below read the same form. The account is not part of the
+          onboarding record, but the email it signs in with is a field on it. */}
+      <FormProvider {...methods}>
+        {/* The account: whether this supplier can sign in, and with what. */}
+        <section className="mb-6 rounded-3xl border border-border/70 bg-card p-6 shadow-card">
         <header className="mb-4">
           <h2 className="text-base font-semibold tracking-tight text-foreground">Account</h2>
           <p className="text-sm text-muted-foreground">
-            Whether this supplier can sign in, and what they sign in with. The email is in
-            Company Information below.
+            Whether this supplier can sign in, and what they sign in with.
           </p>
         </header>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField
+            name="email"
+            label="Login Email"
+            type="email"
+            placeholder="accounts@company.com"
+            required
+            rules={rules.email}
+            hint="What this supplier signs in with. Correcting it here is the only way it changes."
+          />
+
           <div className="space-y-2">
             <Label htmlFor="account-status">Account status</Label>
             <Select value={status} onValueChange={(value) => setStatus(value as AccountStatus)}>
@@ -302,10 +320,9 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
             )}
           </div>
         </div>
-      </section>
+        </section>
 
-      {/* The onboarding record: the supplier's own form, for somebody else. */}
-      <FormProvider {...methods}>
+        {/* The onboarding record: the supplier's own form, for somebody else. */}
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -313,7 +330,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
           }}
           className="space-y-6"
         >
-          <SupplierInfoSection emailEditable />
+          <SupplierInfoSection />
           <ContactInfoSection />
           <DirectorsSection />
           <BankDetailsSection />

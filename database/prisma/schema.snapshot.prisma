@@ -64,11 +64,27 @@ model Vendor {
   /// Australian Company Number, nine digits. Only a registered company has one,
   /// so a sole trader carries an ABN here and nothing in this column.
   acn                 String?              @map("acn")
+  /// What the Business Register says about the ABN, in its own words:
+  /// "Active from 24 Nov 2025". Filled by the lookup, never typed.
+  abnStatus           String?              @map("abn_status")
+  /// "Australian Private Company", "Individual/Sole Trader". Also from the
+  /// register, and what says whether an ACN should exist at all.
+  entityType          String?              @map("entity_type")
   logoUrl             String?              @map("logo_url")
-  /// Human readable supplier reference (BVR-1001). Handed out by the server on
-  /// the first onboarding load, never typed in.
+  /// Human readable supplier reference (BIVRY-5000). Handed out by the server
+  /// on the first onboarding load, never typed in.
   supplierId          String?              @unique @map("supplier_id")
+  /// Superseded by `tradingNames`, and read by no code here any more. It is
+  /// still written, and still declared, because a deployed build from before
+  /// that change reads it: migrations run ahead of the app and again on a
+  /// rollback, so the column outlives the code by one release on purpose.
+  /// Remove it, and this line, once no deployed build reads it.
   tradingName         String?              @map("trading_name")
+  /// Every name the business trades under. The Business Register lists them
+  /// newest first and a company can hold several, so this is a list rather
+  /// than the single name it used to be. The first is the one shown wherever
+  /// only one will fit.
+  tradingNames        String[]             @map("trading_names")
   legalName           String?              @map("legal_name")
   websiteAddress      String?              @map("website_address")
   /// How invoices reach this supplier: Mail, Email, Portal.

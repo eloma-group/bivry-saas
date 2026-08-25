@@ -32,6 +32,17 @@ const patchText = (max = 150) =>
     .optional()
     .transform((value) => (value === '' ? null : value));
 
+/**
+ * A list of short strings, empty entries dropped. Same helper as the supplier's
+ * own validator: an admin writes the same shapes the supplier portal writes.
+ */
+const textList = (max = 150) =>
+  z
+    .array(z.string().trim().max(max))
+    .optional()
+    .default([])
+    .transform((values) => values.filter((value) => value !== ''));
+
 const password = z
   .string({ required_error: 'Password is required' })
   .min(8, 'Password must be at least 8 characters')
@@ -157,11 +168,13 @@ export const createVendorSchema = z.object({
   // Business names are not people's names: "A1 Logistics Pty. Ltd." is a real
   // one, so only contactPerson takes the letters-only rule.
   companyName: z.string().trim().min(1, 'Company name is required').max(150),
-  tradingName: optionalText(150),
+  tradingNames: textList(150),
   legalName: optionalText(150),
   contactPerson: optionalPersonName('Contact person'),
   abn: optionalText(30),
   acn: optionalText(30),
+  abnStatus: optionalText(100),
+  entityType: optionalText(100),
   websiteAddress: optionalText(200),
   status: z.enum(ACCOUNT_STATUSES).optional(),
 });
@@ -178,11 +191,13 @@ export const updateVendorSchema = z
       .optional(),
     phone: patchPhoneNumber(),
     companyName: z.string().trim().min(1, 'Company name is required').max(150).optional(),
-    tradingName: patchText(150),
+    tradingNames: textList(150).optional(),
     legalName: patchText(150),
     contactPerson: patchPersonName('Contact person'),
     abn: patchText(30),
     acn: patchText(30),
+    abnStatus: patchText(100),
+    entityType: patchText(100),
     websiteAddress: patchText(200),
     status: z.enum(ACCOUNT_STATUSES).optional(),
   })

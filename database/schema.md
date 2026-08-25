@@ -108,9 +108,12 @@ look up a column. Every table, column, type, default and relation is below.
 | `contact_person` | text | NULL |  |  |
 | `abn` | text | NULL |  |  |
 | `acn` | text | NULL |  | Australian Company Number, nine digits. Only a registered company has one,\nso a sole trader carries an ABN here and nothing in this column. |
+| `abn_status` | text | NULL |  | What the Business Register says about the ABN, in its own words:\n"Active from 24 Nov 2025". Filled by the lookup, never typed. |
+| `entity_type` | text | NULL |  | "Australian Private Company", "Individual/Sole Trader". Also from the\nregister, and what says whether an ACN should exist at all. |
 | `logo_url` | text | NULL |  |  |
-| `supplier_id` | text | NULL |  | unique; Human readable supplier reference (BVR-1001). Handed out by the server on\nthe first onboarding load, never typed in. |
-| `trading_name` | text | NULL |  |  |
+| `supplier_id` | text | NULL |  | unique; Human readable supplier reference (BIVRY-5000). Handed out by the server\non the first onboarding load, never typed in. |
+| `trading_name` | text | NULL |  | Superseded by `tradingNames`, and read by no code here any more. It is\nstill written, and still declared, because a deployed build from before\nthat change reads it: migrations run ahead of the app and again on a\nrollback, so the column outlives the code by one release on purpose.\nRemove it, and this line, once no deployed build reads it. |
+| `trading_names` | text | NOT NULL |  | Every name the business trades under. The Business Register lists them\nnewest first and a company can hold several, so this is a list rather\nthan the single name it used to be. The first is the one shown wherever\nonly one will fit. |
 | `legal_name` | text | NULL |  |  |
 | `website_address` | text | NULL |  |  |
 | `invoice_preference` | text | NULL |  | How invoices reach this supplier: Mail, Email, Portal. |

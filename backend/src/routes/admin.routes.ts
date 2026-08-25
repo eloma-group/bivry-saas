@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { adminController } from '../controllers/admin.controller';
+import { abnController } from '../controllers/abn.controller';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
+import { abnLookupLimiter } from '../middleware/rateLimiter.middleware';
 import { validateBody, validateParams } from '../middleware/validate.middleware';
 import { upload } from '../middleware/upload.middleware';
 import {
@@ -182,6 +184,10 @@ router.post(
 
 // The account password, replaceable by an admin when a supplier is locked out.
 router.put('/vendors/:id/password', validateBody(setPasswordSchema), adminController.setVendorPassword);
+
+// The same Business Register lookup the supplier's own form uses, because an
+// admin filling that form in on their behalf needs it just as much.
+router.get('/abn-lookup', abnLookupLimiter, abnController.lookup);
 
 // A supplier's onboarding record, section by section. Same split as the
 // supplier's own routes in vendor.routes.ts.

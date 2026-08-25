@@ -13,6 +13,17 @@ export interface ContactBlock {
   email: string;
 }
 
+/**
+ * One name the business trades under.
+ *
+ * A bare string would do for the value, but the form repeats this row and needs
+ * a stable key per row to animate one out without the rest jumping, which is
+ * what an object gives it.
+ */
+export interface TradingNameRow {
+  name: string;
+}
+
 export interface DirectorRow {
   id: string;
   designation: string;
@@ -75,10 +86,15 @@ export interface ComplianceDocRow {
 export interface VendorFormValues {
   /* Section 1 - Supplier information */
   companyName: string;
-  tradingName: string;
+  /** At least one, and the first is the one shown wherever only one will fit. */
+  tradingNames: TradingNameRow[];
   abn: string;
   /** Nine digits, and only a registered company has one. Optional for that reason. */
   acn: string;
+  /** "Active from 24 Nov 2025", as the Business Register words it. Never typed. */
+  abnStatus: string;
+  /** "Australian Private Company". Also straight from the register. */
+  entityType: string;
   legalName: string;
   websiteAddress: string;
   /** Handed out by the server, shown read only. */

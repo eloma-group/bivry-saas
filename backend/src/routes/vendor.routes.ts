@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { vendorController } from '../controllers/vendor.controller';
+import { abnController } from '../controllers/abn.controller';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
+import { abnLookupLimiter } from '../middleware/rateLimiter.middleware';
 import { validateBody } from '../middleware/validate.middleware';
 import { upload } from '../middleware/upload.middleware';
 import { sendSuccess } from '../utils/apiResponse';
@@ -28,6 +30,9 @@ router.get('/dashboard', (req, res) => {
 });
 
 router.get('/notifications', vendorController.notifications);
+
+// The Business Register, so an ABN on the form fills in the rest of the company.
+router.get('/abn-lookup', abnLookupLimiter, abnController.lookup);
 
 router.get('/onboarding', vendorController.getOnboarding);
 router.post(

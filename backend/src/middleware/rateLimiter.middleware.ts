@@ -51,6 +51,17 @@ export const resetPasswordLimiter = limiter(
   'Too many reset attempts. Please request a new link.',
 );
 
+/**
+ * The ABN lookup reaches out to a third party on the caller's behalf, so the
+ * budget is the register's to protect, not ours. Generous enough to fill a form
+ * and correct a typo, tight enough that nobody walks the whole register.
+ */
+export const abnLookupLimiter = limiter(
+  15 * 60 * 1000,
+  40,
+  'Too many ABN lookups. Please wait a few minutes and try again.',
+);
+
 export const refreshLimiter = limiter(
   15 * 60 * 1000,
   60,

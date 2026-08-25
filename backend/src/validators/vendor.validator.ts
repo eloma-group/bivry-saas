@@ -64,10 +64,12 @@ export const VENDOR_DOCUMENT_TYPES = [
  */
 export const companySectionSchema = z.object({
   companyName: optionalText(150),
-  tradingName: optionalText(150),
+  tradingNames: textList(150),
   legalName: optionalText(150),
   abn: optionalText(30),
   acn: optionalText(30),
+  abnStatus: optionalText(100),
+  entityType: optionalText(100),
   websiteAddress: optionalText(200),
   phone: optionalPhoneNumber(),
   contactPerson: optionalPersonName('Contact person'),

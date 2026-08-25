@@ -72,9 +72,11 @@ function emptyComplianceDocs(): ComplianceDocRow[] {
 export function emptyFormValues(): VendorFormValues {
   return {
     companyName: "",
-    tradingName: "",
+    tradingNames: [{ name: "" }],
     abn: "",
     acn: "",
+    abnStatus: "",
+    entityType: "",
     legalName: "",
     websiteAddress: "",
     supplierId: "",
@@ -215,9 +217,16 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
 
   return {
     companyName: data.companyName,
-    tradingName: data.tradingName ?? "",
+    // The form always shows a row, so a supplier with nothing saved still has
+    // somewhere to type.
+    tradingNames:
+      data.tradingNames.length > 0
+        ? data.tradingNames.map((name) => ({ name }))
+        : [{ name: "" }],
     abn: data.abn ?? "",
     acn: data.acn ?? "",
+    abnStatus: data.abnStatus ?? "",
+    entityType: data.entityType ?? "",
     legalName: data.legalName ?? "",
     websiteAddress: data.websiteAddress ?? "",
     supplierId: data.supplierId ?? "",
@@ -311,10 +320,14 @@ export async function saveOnboarding(
 ): Promise<void> {
   await gateway.saveCompany({
     companyName: values.companyName.trim(),
-    tradingName: trimmedOrNull(values.tradingName),
+    tradingNames: values.tradingNames
+      .map((row) => row.name.trim())
+      .filter((name) => name !== ""),
     legalName: trimmedOrNull(values.legalName),
     abn: trimmedOrNull(values.abn),
     acn: trimmedOrNull(values.acn),
+    abnStatus: trimmedOrNull(values.abnStatus),
+    entityType: trimmedOrNull(values.entityType),
     websiteAddress: trimmedOrNull(values.websiteAddress),
     phone: trimmedOrNull(values.phone),
     // The operations contact is the person we deal with day to day, so that is

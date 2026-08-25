@@ -116,6 +116,17 @@ interface TextFieldProps extends BaseFieldProps {
    * and saying so then beats saying it once the cursor has moved on.
    */
   digitsOnly?: boolean;
+  /**
+   * A control parked at the right hand end of the input, inside its border.
+   *
+   * Used where a field can fill itself in (the ABN and its lookup) or clear
+   * itself away (one trading name of several). It sits in the box rather than
+   * beside it so it reads as belonging to that value, and so the grid keeps its
+   * columns.
+   */
+  action?: React.ReactNode;
+  /** How much room to keep clear for the action. Defaults to a labelled button. */
+  actionSize?: "icon" | "label";
 }
 
 /** Reusable text/email/number input wired to react-hook-form. */
@@ -130,6 +141,8 @@ export function TextField({
   hint,
   maxLength,
   digitsOnly,
+  action,
+  actionSize = "label",
   className,
 }: TextFieldProps) {
   const {
@@ -149,31 +162,37 @@ export function TextField({
       hint={hint}
       className={className}
     >
-      <Input
-        id={name}
-        type={type}
-        inputMode={digitsOnly ? "numeric" : undefined}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        maxLength={maxLength}
-        aria-readonly={readOnly || undefined}
-        aria-invalid={!!error}
-        className={cn(
-          error && "border-red-300 focus-visible:ring-red-500/10",
-          readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground"
+      <div className="relative">
+        <Input
+          id={name}
+          type={type}
+          inputMode={digitsOnly ? "numeric" : undefined}
+          placeholder={placeholder}
+          readOnly={readOnly}
+          maxLength={maxLength}
+          aria-readonly={readOnly || undefined}
+          aria-invalid={!!error}
+          className={cn(
+            error && "border-red-300 focus-visible:ring-red-500/10",
+            readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground",
+            action && (actionSize === "icon" ? "pr-11" : "pr-28")
+          )}
+          {...field}
+          onChange={
+            digitsOnly
+              ? (event) => {
+                  const digits = event.target.value.replace(/\D/g, "");
+                  if (digits !== event.target.value) event.target.value = digits;
+                  void field.onChange(event);
+                  void trigger(name);
+                }
+              : field.onChange
+          }
+        />
+        {action && (
+          <div className="absolute inset-y-0 right-1.5 flex items-center">{action}</div>
         )}
-        {...field}
-        onChange={
-          digitsOnly
-            ? (event) => {
-                const digits = event.target.value.replace(/\D/g, "");
-                if (digits !== event.target.value) event.target.value = digits;
-                void field.onChange(event);
-                void trigger(name);
-              }
-            : field.onChange
-        }
-      />
+      </div>
     </FieldShell>
   );
 }

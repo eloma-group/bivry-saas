@@ -17,6 +17,12 @@ function isFilled(value: unknown): boolean {
   if (Array.isArray(value)) {
     if (value.length === 0) return false;
 
+    // Trading names: one filled in is enough, empty rows do not count.
+    const named = value as Array<{ name?: unknown }>;
+    if (typeof named[0] === "object" && named[0] !== null && "name" in named[0]) {
+      return named.some((row) => typeof row.name === "string" && row.name.trim() !== "");
+    }
+
     // The compliance table: complete once every required row has a file.
     const rows = value as ComplianceDocRow[];
     if (typeof rows[0] === "object" && rows[0] !== null && "fixed" in rows[0]) {
