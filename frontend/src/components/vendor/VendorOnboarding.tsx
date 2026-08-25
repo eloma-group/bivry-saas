@@ -11,9 +11,9 @@ import { ContactInfoSection } from "./forms/ContactInfoSection";
 import { DirectorsSection } from "./forms/DirectorsSection";
 import { BankDetailsSection } from "./forms/BankDetailsSection";
 import { BusinessCoverageSection } from "./forms/BusinessCoverageSection";
-import { WarehouseSection } from "./forms/WarehouseSection";
 import { AccreditationSection } from "./forms/AccreditationSection";
 import { InsuranceSection } from "./forms/InsuranceSection";
+import { AddressSection } from "./forms/AddressSection";
 import { ComplianceDocsSection } from "./forms/ComplianceDocsSection";
 import { Button } from "@/components/ui/button";
 import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
@@ -114,10 +114,10 @@ function OnboardingBody({
         <div className="space-y-6">
           <SupplierInfoSection />
           <ContactInfoSection />
-          <DirectorsSection />
           <BankDetailsSection />
+          <AddressSection />
+          <DirectorsSection />
           <BusinessCoverageSection />
-          <WarehouseSection />
           <AccreditationSection />
           <InsuranceSection />
           <ComplianceDocsSection />

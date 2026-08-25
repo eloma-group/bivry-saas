@@ -54,67 +54,72 @@ model Customer {
 }
 
 model Vendor {
-  id                  String               @id @default(uuid()) @db.Uuid
-  email               String               @unique
-  phone               String?              @unique
-  passwordHash        String               @map("password_hash")
-  companyName         String               @map("company_name")
-  contactPerson       String?              @map("contact_person")
-  abn                 String?              @map("abn")
+  id                     String               @id @default(uuid()) @db.Uuid
+  email                  String               @unique
+  phone                  String?              @unique
+  passwordHash           String               @map("password_hash")
+  companyName            String               @map("company_name")
+  contactPerson          String?              @map("contact_person")
+  abn                    String?              @map("abn")
   /// Australian Company Number, nine digits. Only a registered company has one,
   /// so a sole trader carries an ABN here and nothing in this column.
-  acn                 String?              @map("acn")
+  acn                    String?              @map("acn")
   /// What the Business Register says about the ABN, in its own words:
   /// "Active from 24 Nov 2025". Filled by the lookup, never typed.
-  abnStatus           String?              @map("abn_status")
+  abnStatus              String?              @map("abn_status")
   /// "Australian Private Company", "Individual/Sole Trader". Also from the
   /// register, and what says whether an ACN should exist at all.
-  entityType          String?              @map("entity_type")
-  logoUrl             String?              @map("logo_url")
+  entityType             String?              @map("entity_type")
+  logoUrl                String?              @map("logo_url")
   /// Human readable supplier reference (BIVRY-5000). Handed out by the server
   /// on the first onboarding load, never typed in.
-  supplierId          String?              @unique @map("supplier_id")
+  supplierId             String?              @unique @map("supplier_id")
   /// Superseded by `tradingNames`, and read by no code here any more. It is
   /// still written, and still declared, because a deployed build from before
   /// that change reads it: migrations run ahead of the app and again on a
   /// rollback, so the column outlives the code by one release on purpose.
   /// Remove it, and this line, once no deployed build reads it.
-  tradingName         String?              @map("trading_name")
+  tradingName            String?              @map("trading_name")
   /// Every name the business trades under. The Business Register lists them
   /// newest first and a company can hold several, so this is a list rather
   /// than the single name it used to be. The first is the one shown wherever
   /// only one will fit.
-  tradingNames        String[]             @map("trading_names")
-  legalName           String?              @map("legal_name")
-  websiteAddress      String?              @map("website_address")
+  tradingNames           String[]             @map("trading_names")
+  legalName              String?              @map("legal_name")
+  websiteAddress         String?              @map("website_address")
+  /// Whether the billing address is a copy of the principal one. Stored so the
+  /// tick comes back ticked; both rows are written out either way.
+  billingSameAsPrincipal Boolean              @default(false) @map("billing_same_as_principal")
   /// How invoices reach this supplier: Mail, Email, Portal.
-  invoicePreference   String?              @map("invoice_preference")
+  invoicePreference      String?              @map("invoice_preference")
   /// Which of the contact emails invoices are copied to.
-  invoiceEmails       String[]             @map("invoice_emails")
+  invoiceEmails          String[]             @map("invoice_emails")
   /// Free text, used when the preference list above does not cover it.
-  invoiceOther        String?              @map("invoice_other")
-  status              AccountStatus        @default(PENDING)
-  onboardingStatus    OnboardingStatus     @default(NOT_STARTED) @map("onboarding_status")
+  invoiceOther           String?              @map("invoice_other")
+  status                 AccountStatus        @default(PENDING)
+  onboardingStatus       OnboardingStatus     @default(NOT_STARTED) @map("onboarding_status")
   /// Index of the last completed onboarding step, used to resume the wizard.
-  onboardingStep      Int                  @default(0) @map("onboarding_step")
-  submittedAt         DateTime?            @map("submitted_at")
-  approvedAt          DateTime?            @map("approved_at")
-  rejectionReason     String?              @map("rejection_reason")
-  emailVerifiedAt     DateTime?            @map("email_verified_at")
-  lastLoginAt         DateTime?            @map("last_login_at")
-  failedLoginAttempts Int                  @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime?            @map("locked_until")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  deletedAt           DateTime?            @map("deleted_at")
-  accreditation       VendorAccreditation?
-  bankDetail          VendorBankDetail?
-  contacts            VendorContact[]
-  coverage            VendorCoverage?
-  directors           VendorDirector[]
-  documents           VendorDocument[]
-  insurances          VendorInsurance[]
-  warehouses          VendorWarehouse[]
+  onboardingStep         Int                  @default(0) @map("onboarding_step")
+  submittedAt            DateTime?            @map("submitted_at")
+  approvedAt             DateTime?            @map("approved_at")
+  rejectionReason        String?              @map("rejection_reason")
+  emailVerifiedAt        DateTime?            @map("email_verified_at")
+  lastLoginAt            DateTime?            @map("last_login_at")
+  failedLoginAttempts    Int                  @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime?            @map("locked_until")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  deletedAt              DateTime?            @map("deleted_at")
+  accreditation          VendorAccreditation?
+  addresses              VendorAddress[]
+  bankDetail             VendorBankDetail?
+  contacts               VendorContact[]
+  coverage               VendorCoverage?
+  directors              VendorDirector[]
+  documents              VendorDocument[]
+  insurances             VendorInsurance[]
+  warehouses             VendorWarehouse[]
+  yards                  VendorYard[]
 
   @@index([status])
   @@index([onboardingStatus])
@@ -199,6 +204,49 @@ model VendorWarehouse {
 
   @@index([vendorId])
   @@map("vendor_warehouses")
+}
+
+/// A yard: a site the supplier parks or stages at, kept apart from the
+/// warehouses because it is not somewhere freight is collected from or
+/// delivered to. Optional, and there can be several.
+model VendorYard {
+  id        String   @id @default(uuid()) @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  /// Keeps "Yard 1", "Yard 2" in the order they were entered.
+  position  Int      @default(0)
+  street1   String?
+  street2   String?
+  suburb    String?
+  state     String?
+  country   String?
+  postCode  String?  @map("post_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("vendor_yards")
+}
+
+/// The two addresses a supplier is registered at: where the business is run
+/// from, and where its invoices go. A warehouse is a different thing - a site
+/// freight moves through - and keeps its own table.
+model VendorAddress {
+  id        String            @id @default(uuid()) @db.Uuid
+  vendorId  String            @map("vendor_id") @db.Uuid
+  type      VendorAddressType
+  street1   String?
+  street2   String?
+  suburb    String?
+  state     String?
+  country   String?
+  postCode  String?           @map("post_code")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  vendor    Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, type])
+  @@map("vendor_addresses")
 }
 
 /// Certificate of accreditation. One per supplier, several expiry dates on it.
@@ -608,6 +656,14 @@ enum AddressType {
   PERMANENT
 
   @@map("address_type")
+}
+
+/// Which of a supplier's two registered addresses a row holds.
+enum VendorAddressType {
+  PRINCIPAL
+  BILLING
+
+  @@map("vendor_address_type")
 }
 
 enum LicenceType {

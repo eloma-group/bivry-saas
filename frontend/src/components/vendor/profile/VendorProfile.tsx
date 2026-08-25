@@ -11,8 +11,10 @@ import {
   Globe2,
   Landmark,
   Loader2,
+  MapPin,
   Pencil,
   ShieldCheck,
+  Tractor,
   Users2,
   Warehouse,
 } from "lucide-react";
@@ -141,14 +143,51 @@ function InfoCard({
   );
 }
 
-function warehouseLines(
-  warehouse: VendorOnboardingData["warehouses"][number],
-): string[] {
-  const street = [warehouse.street1, warehouse.street2].filter(Boolean).join(", ");
-  const region = [warehouse.suburb, warehouse.state, warehouse.postCode]
-    .filter(Boolean)
-    .join(", ");
-  return [street, region, warehouse.country ?? ""].filter((line) => line.trim() !== "");
+/** A list of sites, warehouses or yards, counted in the header. */
+function SiteCard({
+  icon,
+  title,
+  empty,
+  sites,
+}: {
+  icon: LucideIcon;
+  title: string;
+  empty: string;
+  sites: VendorOnboardingData["warehouses"];
+}) {
+  return (
+    <InfoCard
+      icon={icon}
+      title={title}
+      action={<span className="text-sm font-medium text-muted-foreground">{sites.length}</span>}
+    >
+      {sites.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        sites.map((site, index) => (
+          <Row key={site.id} label={`Address ${index + 1}`}>
+            <span className="block whitespace-pre-line">
+              {addressLines(site).join("\n") || EMPTY}
+            </span>
+          </Row>
+        ))
+      )}
+    </InfoCard>
+  );
+}
+
+/** One address over three lines: the street, the area, then the country. */
+function addressLines(address: {
+  street1: string | null;
+  street2: string | null;
+  suburb: string | null;
+  state: string | null;
+  postCode: string | null;
+  country: string | null;
+}): string[] {
+  const street = [address.street1, address.street2].filter(Boolean).join(", ");
+  const region = [address.suburb, address.state, address.postCode].filter(Boolean).join(", ");
+  return [street, region, address.country ?? ""].filter((line) => line.trim() !== "");
 }
 
 function DocumentRow({ doc, source }: { doc: VendorDocument; source: DocumentSource }) {
@@ -394,29 +433,36 @@ export function VendorProfile({
           <Row label="Operations">{list(data.coverage?.businessOperations)}</Row>
         </InfoCard>
 
-        <InfoCard
-          icon={Warehouse}
-          title="Warehouse Locations"
-          action={
-            <span className="text-sm font-medium text-muted-foreground">
-              {data.warehouses.length}
-            </span>
-          }
-        >
-          {data.warehouses.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No warehouse addresses added yet.
-            </p>
-          ) : (
-            data.warehouses.map((warehouse, index) => (
-              <Row key={warehouse.id} label={`Address ${index + 1}`}>
+        <InfoCard icon={MapPin} title="Registered Addresses">
+          {(["PRINCIPAL", "BILLING"] as const).map((type) => {
+            const stored = data.addresses.find((row) => row.type === type);
+            const label = type === "PRINCIPAL" ? "Principal address" : "Billing address";
+            return (
+              <Row key={type} label={label}>
                 <span className="block whitespace-pre-line">
-                  {warehouseLines(warehouse).join("\n") || EMPTY}
+                  {stored ? addressLines(stored).join("\n") || EMPTY : EMPTY}
                 </span>
               </Row>
-            ))
-          )}
+            );
+          })}
+          <Row label="Billing matches principal">
+            {data.billingSameAsPrincipal ? "Yes" : "No"}
+          </Row>
         </InfoCard>
+
+        <SiteCard
+          icon={Tractor}
+          title="Yard Locations"
+          empty="No yard addresses added."
+          sites={data.yards}
+        />
+
+        <SiteCard
+          icon={Warehouse}
+          title="Warehouse Locations"
+          empty="No warehouse addresses added yet."
+          sites={data.warehouses}
+        />
 
         <InfoCard
           icon={BadgeCheck}

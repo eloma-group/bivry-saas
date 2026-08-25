@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**26 tables, 10 enum types.**
+**28 tables, 11 enum types.**
 
 ## Tables
 
@@ -18,6 +18,8 @@ look up a column. Every table, column, type, default and relation is below.
 - [`vendor_bank_details`](#vendorbankdetails)
 - [`vendor_coverages`](#vendorcoverages)
 - [`vendor_warehouses`](#vendorwarehouses)
+- [`vendor_yards`](#vendoryards)
+- [`vendor_addresses`](#vendoraddresses)
 - [`vendor_accreditations`](#vendoraccreditations)
 - [`vendor_insurances`](#vendorinsurances)
 - [`vendor_documents`](#vendordocuments)
@@ -46,6 +48,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `onboarding_status` | `NOT_STARTED`, `IN_PROGRESS`, `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED` |
 | `verification_status` | `PENDING`, `VERIFIED`, `REJECTED`, `EXPIRED` |
 | `address_type` | `CURRENT`, `PERMANENT` |
+| `vendor_address_type` | `PRINCIPAL`, `BILLING` |
 | `licence_type` | `CAR`, `HEAVY_RIGID`, `HEAVY_COMBINATION`, `MULTI_COMBINATION`, `MOTORCYCLE` |
 | `driver_document_type` | `PROFILE_PHOTO`, `LICENCE_FRONT`, `LICENCE_BACK`, `DRIVING_HISTORY`, `POLICE_VERIFICATION`, `VISA`, `MEDICAL`, `DRUG_TEST`, `PASSPORT_FRONT`, `PASSPORT_BACK`, `MEDICARE`, `ADDITIONAL` |
 | `vendor_contact_type` | `OPERATIONS`, `COMPLIANCE`, `ADMIN`, `DISPATCH` |
@@ -116,6 +119,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `trading_names` | text | NOT NULL |  | Every name the business trades under. The Business Register lists them\nnewest first and a company can hold several, so this is a list rather\nthan the single name it used to be. The first is the one shown wherever\nonly one will fit. |
 | `legal_name` | text | NULL |  |  |
 | `website_address` | text | NULL |  |  |
+| `billing_same_as_principal` | boolean | NOT NULL | false | Whether the billing address is a copy of the principal one. Stored so the\ntick comes back ticked; both rows are written out either way. |
 | `invoice_preference` | text | NULL |  | How invoices reach this supplier: Mail, Email, Portal. |
 | `invoice_emails` | text | NOT NULL |  | Which of the contact emails invoices are copied to. |
 | `invoice_other` | text | NULL |  | Free text, used when the preference list above does not cover it. |
@@ -136,6 +140,7 @@ look up a column. Every table, column, type, default and relation is below.
 **Relations**
 
 - optional one `vendor_accreditations`
+- many `vendor_addresses`
 - optional one `vendor_bank_details`
 - many `vendor_contacts`
 - optional one `vendor_coverages`
@@ -143,6 +148,7 @@ look up a column. Every table, column, type, default and relation is below.
 - many `vendor_documents`
 - many `vendor_insurances`
 - many `vendor_warehouses`
+- many `vendor_yards`
 
 ### `vendor_contacts`
 
@@ -236,6 +242,54 @@ Where the supplier operates. Both columns hold several selections.
 | `post_code` | text | NULL |  |  |
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
 | `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_yards`
+
+A yard: a site the supplier parks or stages at, kept apart from the\nwarehouses because it is not somewhere freight is collected from or\ndelivered to. Optional, and there can be several.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `position` | integer | NOT NULL | 0 | Keeps "Yard 1", "Yard 2" in the order they were entered. |
+| `street1` | text | NULL |  |  |
+| `street2` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`
+
+### `vendor_addresses`
+
+The two addresses a supplier is registered at: where the business is run\nfrom, and where its invoices go. A warehouse is a different thing - a site\nfreight moves through - and keeps its own table.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
+| `type` | vendor_address_type | NOT NULL |  |  |
+| `street1` | text | NULL |  |  |
+| `street2` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Constraints**
+
+- unique: (`vendorId`, `type`)
 
 **Relations**
 

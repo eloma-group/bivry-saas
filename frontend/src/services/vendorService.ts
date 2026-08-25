@@ -75,6 +75,22 @@ export interface VendorCoveragePayload {
   businessOperations: string[];
 }
 
+/** The two addresses the company is registered at, sent together. */
+export interface VendorAddressesPayload {
+  billingSameAsPrincipal: boolean;
+  principal: VendorAddressPayload;
+  billing: VendorAddressPayload;
+}
+
+export interface VendorAddressPayload {
+  street1: string | null;
+  street2: string | null;
+  suburb: string | null;
+  state: string | null;
+  country: string | null;
+  postCode: string | null;
+}
+
 export interface VendorWarehousePayload {
   street1: string | null;
   street2: string | null;
@@ -151,7 +167,10 @@ export interface VendorOnboardingData {
   directors: Array<VendorDirectorPayload & { id: string; position: number }>;
   bankDetail: (VendorBankPayload & { id: string }) | null;
   coverage: (VendorCoveragePayload & { id: string }) | null;
+  billingSameAsPrincipal: boolean;
+  addresses: Array<VendorAddressPayload & { id: string; type: "PRINCIPAL" | "BILLING" }>;
   warehouses: Array<VendorWarehousePayload & { id: string; position: number }>;
+  yards: Array<VendorWarehousePayload & { id: string; position: number }>;
   accreditation: Reviewed<VendorAccreditationPayload> | null;
   insurances: Array<Reviewed<VendorInsurancePayload> & { id: string }>;
   documents: VendorDocument[];
@@ -187,8 +206,16 @@ export const vendorService = {
     return request({ url: "/vendor/onboarding/coverage", method: "PUT", data: values });
   },
 
+  saveAddresses(values: VendorAddressesPayload) {
+    return request({ url: "/vendor/onboarding/addresses", method: "PUT", data: values });
+  },
+
   saveWarehouses(warehouses: VendorWarehousePayload[]) {
     return request({ url: "/vendor/onboarding/warehouses", method: "PUT", data: { warehouses } });
+  },
+
+  saveYards(yards: VendorWarehousePayload[]) {
+    return request({ url: "/vendor/onboarding/yards", method: "PUT", data: { yards } });
   },
 
   saveAccreditation(values: VendorAccreditationPayload) {

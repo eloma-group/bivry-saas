@@ -17,7 +17,9 @@ import {
   onboardingStepSchema,
   updateDocumentSchema,
   uploadDocumentSchema,
+  addressesSectionSchema,
   warehousesSectionSchema,
+  yardsSectionSchema,
 } from '../validators/vendor.validator';
 
 const router = Router();
@@ -60,9 +62,19 @@ router.put(
   vendorController.updateCoverage,
 );
 router.put(
+  '/onboarding/addresses',
+  validateBody(addressesSectionSchema),
+  vendorController.updateAddresses,
+);
+router.put(
   '/onboarding/warehouses',
   validateBody(warehousesSectionSchema),
   vendorController.updateWarehouses,
+);
+router.put(
+  '/onboarding/yards',
+  validateBody(yardsSectionSchema),
+  vendorController.updateYards,
 );
 router.put(
   '/onboarding/accreditation',

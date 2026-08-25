@@ -29,6 +29,9 @@ CREATE TYPE "verification_status" AS ENUM ('PENDING', 'VERIFIED', 'REJECTED', 'E
 CREATE TYPE "address_type" AS ENUM ('CURRENT', 'PERMANENT');
 
 -- CreateEnum
+CREATE TYPE "vendor_address_type" AS ENUM ('PRINCIPAL', 'BILLING');
+
+-- CreateEnum
 CREATE TYPE "licence_type" AS ENUM ('CAR', 'HEAVY_RIGID', 'HEAVY_COMBINATION', 'MULTI_COMBINATION', 'MOTORCYCLE');
 
 -- CreateEnum
@@ -105,6 +108,7 @@ CREATE TABLE "vendors" (
     "trading_names" TEXT[],
     "legal_name" TEXT,
     "website_address" TEXT,
+    "billing_same_as_principal" BOOLEAN NOT NULL DEFAULT false,
     "invoice_preference" TEXT,
     "invoice_emails" TEXT[],
     "invoice_other" TEXT,
@@ -195,6 +199,40 @@ CREATE TABLE "vendor_warehouses" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "vendor_warehouses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "vendor_yards" (
+    "id" UUID NOT NULL,
+    "vendor_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "street1" TEXT,
+    "street2" TEXT,
+    "suburb" TEXT,
+    "state" TEXT,
+    "country" TEXT,
+    "post_code" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "vendor_yards_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "vendor_addresses" (
+    "id" UUID NOT NULL,
+    "vendor_id" UUID NOT NULL,
+    "type" "vendor_address_type" NOT NULL,
+    "street1" TEXT,
+    "street2" TEXT,
+    "suburb" TEXT,
+    "state" TEXT,
+    "country" TEXT,
+    "post_code" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "vendor_addresses_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -573,6 +611,12 @@ CREATE UNIQUE INDEX "vendor_coverages_vendor_id_key" ON "vendor_coverages"("vend
 CREATE INDEX "vendor_warehouses_vendor_id_idx" ON "vendor_warehouses"("vendor_id");
 
 -- CreateIndex
+CREATE INDEX "vendor_yards_vendor_id_idx" ON "vendor_yards"("vendor_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "vendor_addresses_vendor_id_type_key" ON "vendor_addresses"("vendor_id", "type");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "vendor_accreditations_vendor_id_key" ON "vendor_accreditations"("vendor_id");
 
 -- CreateIndex
@@ -670,6 +714,12 @@ ALTER TABLE "vendor_coverages" ADD CONSTRAINT "vendor_coverages_vendor_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "vendor_warehouses" ADD CONSTRAINT "vendor_warehouses_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "vendor_yards" ADD CONSTRAINT "vendor_yards_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "vendor_addresses" ADD CONSTRAINT "vendor_addresses_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "vendor_accreditations" ADD CONSTRAINT "vendor_accreditations_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;

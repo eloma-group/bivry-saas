@@ -116,6 +116,28 @@ export const coverageSectionSchema = z.object({
   businessOperations: textList(120),
 });
 
+const addressShape = z.object({
+  street1: optionalText(150),
+  street2: optionalText(150),
+  suburb: optionalText(100),
+  state: optionalText(100),
+  country: optionalText(100),
+  postCode: optionalText(20),
+});
+
+/**
+ * The two addresses the company is registered at.
+ *
+ * The billing block is sent whether or not the tick says it is a copy: the
+ * client sends the copy, so nothing downstream has to follow a flag to find an
+ * address.
+ */
+export const addressesSectionSchema = z.object({
+  billingSameAsPrincipal: z.boolean(),
+  principal: addressShape,
+  billing: addressShape,
+});
+
 export const warehousesSectionSchema = z.object({
   warehouses: z
     .array(
@@ -129,6 +151,11 @@ export const warehousesSectionSchema = z.object({
       }),
     )
     .max(50),
+});
+
+/** Yards. Same address shape as a warehouse, and optional: there may be none. */
+export const yardsSectionSchema = z.object({
+  yards: z.array(addressShape).max(50),
 });
 
 export const accreditationSectionSchema = z.object({

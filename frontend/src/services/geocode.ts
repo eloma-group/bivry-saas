@@ -134,3 +134,63 @@ export async function locateCurrentAddress(): Promise<AddressBlock> {
 
   return toAddressBlock(address);
 }
+
+// ---------------------------------------------------------------------------
+// Searching for an address
+// ---------------------------------------------------------------------------
+
+const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
+
+/** How many results the box offers. Enough to choose from, few enough to read. */
+const SEARCH_LIMIT = 6;
+
+export interface AddressSuggestion {
+  /** Stable key for the list. */
+  id: string;
+  /** The one line the register prints, which is what the box shows. */
+  label: string;
+  /** The same place split into the fields a form asks for. */
+  address: AddressBlock;
+}
+
+/**
+ * Looks a place up by name, anywhere in the world.
+ *
+ * The same service as the reverse lookup above, asked the other way round: a
+ * typed line in, a list of real places out. Picking one fills the address in,
+ * and every field it fills stays editable, because the closest match to what
+ * somebody typed is still a guess at what they meant.
+ *
+ * The caller passes a signal, because the box searches as it is typed and an
+ * answer to an older query must never land on top of a newer one.
+ */
+export async function searchAddresses(
+  query: string,
+  signal?: AbortSignal,
+): Promise<AddressSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+
+  const url = new URL(NOMINATIM_SEARCH_URL);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("limit", String(SEARCH_LIMIT));
+  url.searchParams.set("q", trimmed);
+
+  const response = await fetch(url, { headers: { Accept: "application/json" }, signal });
+  if (!response.ok) throw new Error("The address search is not answering right now.");
+
+  const body = (await response.json()) as Array<{
+    place_id?: number | string;
+    display_name?: string;
+    address?: NominatimAddress;
+  }>;
+
+  return body
+    .filter((row) => row.address && row.display_name)
+    .map((row) => ({
+      id: String(row.place_id ?? row.display_name),
+      label: row.display_name as string,
+      address: toAddressBlock(row.address as NominatimAddress),
+    }));
+}

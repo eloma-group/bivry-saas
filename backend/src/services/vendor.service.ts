@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import * as storage from './storage.service';
 import type {
   Prisma,
+  VendorAddressType,
   VendorContactType,
   VendorDocumentType,
   VendorInsuranceType,
@@ -34,7 +35,9 @@ export async function getOnboarding(vendorId: string) {
       directors: { orderBy: { position: 'asc' } },
       bankDetail: true,
       coverage: true,
+      addresses: true,
       warehouses: { orderBy: { position: 'asc' } },
+      yards: { orderBy: { position: 'asc' } },
       accreditation: true,
       insurances: true,
       documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
@@ -214,6 +217,54 @@ export interface WarehouseInput {
   postCode: string | null;
 }
 
+export interface AddressInput {
+  street1: string | null;
+  street2: string | null;
+  suburb: string | null;
+  state: string | null;
+  country: string | null;
+  postCode: string | null;
+}
+
+export interface AddressesInput {
+  /** Whether the supplier ticked the billing address as a copy. */
+  billingSameAsPrincipal: boolean;
+  principal: AddressInput;
+  billing: AddressInput;
+}
+
+/**
+ * The two addresses the company is registered at.
+ *
+ * Both rows are written even when the tick says they are the same, so anything
+ * reading the billing address gets an address rather than a flag it has to know
+ * how to follow. The caller sends the copy; the tick only remembers how the
+ * form was filled in, so it comes back ticked.
+ */
+export async function updateAddresses(vendorId: string, input: AddressesInput) {
+  const rows: Array<{ type: VendorAddressType; data: AddressInput }> = [
+    { type: 'PRINCIPAL', data: input.principal },
+    { type: 'BILLING', data: input.billing },
+  ];
+
+  await prisma.$transaction([
+    prisma.vendor.update({
+      where: { id: vendorId },
+      data: { billingSameAsPrincipal: input.billingSameAsPrincipal },
+    }),
+    ...rows.map((row) =>
+      prisma.vendorAddress.upsert({
+        where: { vendorId_type: { vendorId, type: row.type } },
+        create: { vendorId, type: row.type, ...row.data },
+        update: row.data,
+      }),
+    ),
+  ]);
+
+  await touchOnboarding(vendorId);
+  return prisma.vendorAddress.findMany({ where: { vendorId } });
+}
+
 export async function updateWarehouses(vendorId: string, warehouses: WarehouseInput[]) {
   await prisma.$transaction([
     prisma.vendorWarehouse.deleteMany({ where: { vendorId } }),
@@ -224,6 +275,25 @@ export async function updateWarehouses(vendorId: string, warehouses: WarehouseIn
 
   await touchOnboarding(vendorId);
   return prisma.vendorWarehouse.findMany({ where: { vendorId }, orderBy: { position: 'asc' } });
+}
+
+/**
+ * The yards, replaced wholesale in the order they were entered.
+ *
+ * Same shape as the warehouses and the same wholesale replace, but a table of
+ * its own: a yard is a site the supplier parks or stages at, not somewhere
+ * freight is collected from or delivered to.
+ */
+export async function updateYards(vendorId: string, yards: WarehouseInput[]) {
+  await prisma.$transaction([
+    prisma.vendorYard.deleteMany({ where: { vendorId } }),
+    prisma.vendorYard.createMany({
+      data: yards.map((yard, position) => ({ vendorId, position, ...yard })),
+    }),
+  ]);
+
+  await touchOnboarding(vendorId);
+  return prisma.vendorYard.findMany({ where: { vendorId }, orderBy: { position: 'asc' } });
 }
 
 // ---------------------------------------------------------------------------

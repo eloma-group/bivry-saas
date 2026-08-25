@@ -16,7 +16,7 @@ export function DirectorsSection() {
 
   return (
     <SectionCard
-      index={3}
+      index={5}
       id="step-company"
       icon={Users2}
       title="Company C-Suite Details"

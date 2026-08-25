@@ -483,9 +483,12 @@ export const adminService = {
       saveDirectors: (directors) =>
         request({ url: `${base}/onboarding/directors`, method: "PUT", data: { directors } }),
       saveBank: section("bank"),
+      saveAddresses: section("addresses"),
       saveCoverage: section("coverage"),
       saveWarehouses: (warehouses) =>
         request({ url: `${base}/onboarding/warehouses`, method: "PUT", data: { warehouses } }),
+      saveYards: (yards) =>
+        request({ url: `${base}/onboarding/yards`, method: "PUT", data: { yards } }),
       saveAccreditation: section("accreditation"),
       saveInsurances: (insurances) =>
         request({ url: `${base}/onboarding/insurances`, method: "PUT", data: { insurances } }),

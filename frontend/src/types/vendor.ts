@@ -31,14 +31,30 @@ export interface DirectorRow {
   contactNumber: string;
 }
 
-export interface WarehouseRow {
-  id: string;
+/**
+ * A block of address fields.
+ *
+ * The two addresses the company is registered at and every warehouse are all
+ * asked for the same six things, so they are all filled by the same block and
+ * the same location tools.
+ */
+export interface VendorAddressBlock {
   street1: string;
   street2: string;
   suburb: string;
   state: string;
   country: string;
   postCode: string;
+}
+
+/**
+ * One site the supplier operates, warehouse or yard.
+ *
+ * An address plus a key, so a list of them can be added to and removed from
+ * without the rows losing their place.
+ */
+export interface SiteRow extends VendorAddressBlock {
+  id: string;
 }
 
 /**
@@ -80,7 +96,6 @@ export interface ComplianceDocRow {
   file: UploadedFile | null;
   /** yyyy-MM-dd. */
   issue: string;
-  expiry: string;
 }
 
 export interface VendorFormValues {
@@ -112,21 +127,37 @@ export interface VendorFormValues {
   invoiceEmails: string[];
   invoiceOther: string;
 
-  /* Section 3 - Company C-suite */
-  directors: DirectorRow[];
-
-  /* Section 4 - Bank details */
+  /* Section 3 - Bank details */
   accountName: string;
   bankName: string;
   bsb: string;
   accountNumber: string;
 
-  /* Section 5 - Business coverage */
+  /* Section 4 - Addresses */
+  /** The principal place of business. Where the company is run from. */
+  principalAddress: VendorAddressBlock;
+  /** Where invoices go. A copy of the principal one when the tick says so. */
+  billingAddress: VendorAddressBlock;
+  /**
+   * Whether the billing address was ticked as a copy. The copy itself is still
+   * held above and still saved, so nothing downstream has to follow the tick to
+   * find an address.
+   */
+  billingSameAsPrincipal: boolean;
+  /**
+   * Yards: sites the supplier parks or stages at. Optional, and there can be
+   * several, so the fields only appear once one is added.
+   */
+  yards: SiteRow[];
+  /** Every site freight moves through. At least one is asked for. */
+  warehouses: SiteRow[];
+
+  /* Section 5 - Company C-suite */
+  directors: DirectorRow[];
+
+  /* Section 6 - Business coverage */
   areasCovered: string[];
   businessOperations: string[];
-
-  /* Section 6 - Warehouse locations */
-  warehouses: WarehouseRow[];
 
   /* Section 7 - Certificate of accreditation */
   accreditationNumber: string;

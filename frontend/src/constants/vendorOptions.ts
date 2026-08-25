@@ -148,9 +148,14 @@ export const VENDOR_STEPS: VendorStepDef[] = [
     requires: ["directors", "accountName", "bankName", "bsb", "accountNumber"],
   },
   {
+    id: "addresses",
+    label: "Addresses",
+    requires: ["principalAddress", "billingAddress", "warehouses"],
+  },
+  {
     id: "coverage",
     label: "Coverage",
-    requires: ["areasCovered", "businessOperations", "warehouses"],
+    requires: ["areasCovered", "businessOperations"],
   },
   {
     id: "accreditation",

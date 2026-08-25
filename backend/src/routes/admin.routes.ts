@@ -41,10 +41,12 @@ import {
   bankSectionSchema,
   companySectionSchema,
   contactsSectionSchema,
+  addressesSectionSchema,
   coverageSectionSchema,
   directorsSectionSchema,
   insurancesSectionSchema,
   warehousesSectionSchema,
+  yardsSectionSchema,
   updateDocumentSchema as updateVendorDocumentSchema,
   uploadDocumentSchema as uploadVendorDocumentSchema,
 } from '../validators/vendor.validator';
@@ -207,9 +209,19 @@ router.put(
   adminController.updateVendorDirectors,
 );
 router.put(
+  '/vendors/:id/onboarding/addresses',
+  validateBody(addressesSectionSchema),
+  adminController.updateVendorAddresses,
+);
+router.put(
   '/vendors/:id/onboarding/warehouses',
   validateBody(warehousesSectionSchema),
   adminController.updateVendorWarehouses,
+);
+router.put(
+  '/vendors/:id/onboarding/yards',
+  validateBody(yardsSectionSchema),
+  adminController.updateVendorYards,
 );
 router.put(
   '/vendors/:id/onboarding/bank',

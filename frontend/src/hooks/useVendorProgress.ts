@@ -1,7 +1,12 @@
 import { useFormContext, useWatch } from "react-hook-form";
 import { VENDOR_STEPS } from "@/constants/vendorOptions";
 import type { StepProgress, DriverProgress } from "./useDriverProgress";
-import type { ComplianceDocRow, ContactBlock, VendorFormValues } from "@/types/vendor";
+import type {
+  ComplianceDocRow,
+  ContactBlock,
+  VendorAddressBlock,
+  VendorFormValues,
+} from "@/types/vendor";
 
 /**
  * Whether a value counts as answered.
@@ -10,6 +15,23 @@ import type { ComplianceDocRow, ContactBlock, VendorFormValues } from "@/types/v
  * multi selects, repeating rows and the compliance table each mean something
  * different by "filled in", so they are judged on their own terms.
  */
+/**
+ * Whether an address has been answered.
+ *
+ * Street 2 is left out on purpose: it carries a unit or a level, and plenty of
+ * addresses have none, so asking for it would leave the section stuck at short
+ * of complete for the suppliers who are already finished.
+ */
+function isWholeAddress(address: Partial<VendorAddressBlock>): boolean {
+  return Boolean(
+    address.street1?.trim() &&
+      address.suburb?.trim() &&
+      address.state?.trim() &&
+      address.country?.trim() &&
+      address.postCode?.trim(),
+  );
+}
+
 function isFilled(value: unknown): boolean {
   if (value == null) return false;
   if (typeof value === "string") return value.trim().length > 0;
@@ -29,6 +51,12 @@ function isFilled(value: unknown): boolean {
       return rows.every((row) => !row.fixed || row.file !== null);
     }
 
+    // Warehouses: every address in the list has to be a whole address.
+    const addresses = value as VendorAddressBlock[];
+    if (typeof addresses[0] === "object" && addresses[0] !== null && "street1" in addresses[0]) {
+      return addresses.every(isWholeAddress);
+    }
+
     return true;
   }
 
@@ -38,6 +66,9 @@ function isFilled(value: unknown): boolean {
     if ("contactPerson" in contact) {
       return Boolean(contact.contactPerson && contact.email && contact.contactNumber);
     }
+
+    // The principal and billing addresses.
+    if ("street1" in value) return isWholeAddress(value as Partial<VendorAddressBlock>);
 
     // The insurance map: every policy needs its document.
     const record = value as Record<string, { file?: unknown } | undefined>;

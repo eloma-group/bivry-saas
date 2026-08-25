@@ -48,10 +48,24 @@ export const vendorController = {
     sendSuccess(res, data, 'Business coverage saved');
   }),
 
+  updateAddresses: asyncHandler(async (req, res) => {
+    const data = await vendorService.updateAddresses(
+      vendorId(req),
+      req.body as vendorService.AddressesInput,
+    );
+    sendSuccess(res, data, 'Addresses saved');
+  }),
+
   updateWarehouses: asyncHandler(async (req, res) => {
     const { warehouses } = req.body as { warehouses: vendorService.WarehouseInput[] };
     const data = await vendorService.updateWarehouses(vendorId(req), warehouses);
     sendSuccess(res, data, 'Warehouse addresses saved');
+  }),
+
+  updateYards: asyncHandler(async (req, res) => {
+    const { yards } = req.body as { yards: vendorService.WarehouseInput[] };
+    const data = await vendorService.updateYards(vendorId(req), yards);
+    sendSuccess(res, data, 'Yard addresses saved');
   }),
 
   updateAccreditation: asyncHandler(async (req, res) => {

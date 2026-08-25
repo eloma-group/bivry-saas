@@ -347,10 +347,24 @@ export const adminController = {
     sendSuccess(res, data, 'Directors saved');
   }),
 
+  updateVendorAddresses: asyncHandler(async (req, res) => {
+    const data = await adminService.updateVendorAddresses(
+      req.params.id,
+      req.body as Parameters<typeof adminService.updateVendorAddresses>[1],
+    );
+    sendSuccess(res, data, 'Addresses saved');
+  }),
+
   updateVendorWarehouses: asyncHandler(async (req, res) => {
     const { warehouses } = req.body as { warehouses: Parameters<typeof adminService.updateVendorWarehouses>[1] };
     const data = await adminService.updateVendorWarehouses(req.params.id, warehouses);
     sendSuccess(res, data, 'Warehouses saved');
+  }),
+
+  updateVendorYards: asyncHandler(async (req, res) => {
+    const { yards } = req.body as { yards: Parameters<typeof adminService.updateVendorYards>[1] };
+    const data = await adminService.updateVendorYards(req.params.id, yards);
+    sendSuccess(res, data, 'Yards saved');
   }),
 
   updateVendorBank: asyncHandler(async (req, res) => {

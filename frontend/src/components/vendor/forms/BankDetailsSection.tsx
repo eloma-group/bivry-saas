@@ -8,7 +8,7 @@ const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 export function BankDetailsSection() {
   return (
     <SectionCard
-      index={4}
+      index={3}
       id="step-bank"
       icon={Landmark}
       title="Bank Details"

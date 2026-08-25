@@ -11,7 +11,7 @@ import { ContactInfoSection } from "@/components/vendor/forms/ContactInfoSection
 import { DirectorsSection } from "@/components/vendor/forms/DirectorsSection";
 import { BankDetailsSection } from "@/components/vendor/forms/BankDetailsSection";
 import { BusinessCoverageSection } from "@/components/vendor/forms/BusinessCoverageSection";
-import { WarehouseSection } from "@/components/vendor/forms/WarehouseSection";
+import { AddressSection } from "@/components/vendor/forms/AddressSection";
 import { AccreditationSection } from "@/components/vendor/forms/AccreditationSection";
 import { InsuranceSection } from "@/components/vendor/forms/InsuranceSection";
 import { ComplianceDocsSection } from "@/components/vendor/forms/ComplianceDocsSection";
@@ -332,10 +332,10 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
         >
           <SupplierInfoSection />
           <ContactInfoSection />
-          <DirectorsSection />
           <BankDetailsSection />
+          <AddressSection />
+          <DirectorsSection />
           <BusinessCoverageSection />
-          <WarehouseSection />
           <AccreditationSection />
           <InsuranceSection />
           <ComplianceDocsSection />

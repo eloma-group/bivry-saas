@@ -18,6 +18,8 @@ import type {
   ContactBlock,
   InsuranceKey,
   InsuranceRow,
+  SiteRow,
+  VendorAddressBlock,
   VendorFormValues,
 } from "@/types/vendor";
 
@@ -64,8 +66,50 @@ function emptyComplianceDocs(): ComplianceDocRow[] {
     fixed: true,
     file: null,
     issue: "",
-    expiry: "",
   }));
+}
+
+/** An address with nothing in it. Australia leads, as most suppliers are here. */
+function emptyAddress(): VendorAddressBlock {
+  return {
+    street1: "",
+    street2: "",
+    suburb: "",
+    state: "",
+    country: "Australia",
+    postCode: "",
+  };
+}
+
+/** One stored warehouse or yard as the form holds it. */
+function siteRow(site: VendorOnboardingData["warehouses"][number]): SiteRow {
+  return {
+    id: site.id,
+    street1: site.street1 ?? "",
+    street2: site.street2 ?? "",
+    suburb: site.suburb ?? "",
+    state: site.state ?? "",
+    country: site.country ?? "",
+    postCode: site.postCode ?? "",
+  };
+}
+
+/** One stored address row as the form holds it, or a blank one. */
+function addressOfType(
+  addresses: VendorOnboardingData["addresses"],
+  type: "PRINCIPAL" | "BILLING",
+): VendorAddressBlock {
+  const stored = addresses.find((row) => row.type === type);
+  if (!stored) return emptyAddress();
+
+  return {
+    street1: stored.street1 ?? "",
+    street2: stored.street2 ?? "",
+    suburb: stored.suburb ?? "",
+    state: stored.state ?? "",
+    country: stored.country ?? "",
+    postCode: stored.postCode ?? "",
+  };
 }
 
 /** A blank wizard, used before anything is loaded and by a brand new supplier. */
@@ -99,10 +143,14 @@ export function emptyFormValues(): VendorFormValues {
     bsb: "",
     accountNumber: "",
 
+    principalAddress: emptyAddress(),
+    billingAddress: emptyAddress(),
+    billingSameAsPrincipal: false,
+    yards: [],
+    warehouses: [],
+
     areasCovered: [],
     businessOperations: [],
-
-    warehouses: [],
 
     accreditationNumber: "",
     massManagementExpiry: "",
@@ -198,7 +246,6 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
       fixed: true,
       file: stored ? storedFile(stored) : null,
       issue: dateInput(stored?.issueDate),
-      expiry: dateInput(stored?.expiryDate),
     };
   });
 
@@ -211,7 +258,6 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
       fixed: false,
       file: storedFile(doc),
       issue: dateInput(doc.issueDate),
-      expiry: dateInput(doc.expiryDate),
     });
   }
 
@@ -254,18 +300,14 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     bsb: data.bankDetail?.bsb ?? "",
     accountNumber: data.bankDetail?.accountNumber ?? "",
 
+    principalAddress: addressOfType(data.addresses, "PRINCIPAL"),
+    billingAddress: addressOfType(data.addresses, "BILLING"),
+    billingSameAsPrincipal: data.billingSameAsPrincipal,
+    yards: data.yards.map(siteRow),
+    warehouses: data.warehouses.map(siteRow),
+
     areasCovered: data.coverage?.areasCovered ?? [],
     businessOperations: data.coverage?.businessOperations ?? [],
-
-    warehouses: data.warehouses.map((warehouse) => ({
-      id: warehouse.id,
-      street1: warehouse.street1 ?? "",
-      street2: warehouse.street2 ?? "",
-      suburb: warehouse.suburb ?? "",
-      state: warehouse.state ?? "",
-      country: warehouse.country ?? "",
-      postCode: warehouse.postCode ?? "",
-    })),
 
     accreditationNumber: data.accreditation?.accreditationNumber ?? "",
     massManagementExpiry: dateInput(data.accreditation?.massManagementExpiry),
@@ -304,14 +346,28 @@ export type VendorOnboardingGateway = Pick<
   | "saveContacts"
   | "saveDirectors"
   | "saveBank"
+  | "saveAddresses"
   | "saveCoverage"
   | "saveWarehouses"
+  | "saveYards"
   | "saveAccreditation"
   | "saveInsurances"
   | "uploadDocument"
   | "updateDocument"
   | "deleteDocument"
 >;
+
+/** One address as the API takes it: trimmed, and empty means null. */
+function addressPayload(address: VendorAddressBlock) {
+  return {
+    street1: trimmedOrNull(address.street1),
+    street2: trimmedOrNull(address.street2),
+    suburb: trimmedOrNull(address.suburb),
+    state: trimmedOrNull(address.state),
+    country: trimmedOrNull(address.country),
+    postCode: trimmedOrNull(address.postCode),
+  };
+}
 
 export async function saveOnboarding(
   values: VendorFormValues,
@@ -373,16 +429,19 @@ export async function saveOnboarding(
     businessOperations: values.businessOperations,
   });
 
-  await gateway.saveWarehouses(
-    values.warehouses.map((warehouse) => ({
-      street1: trimmedOrNull(warehouse.street1),
-      street2: trimmedOrNull(warehouse.street2),
-      suburb: trimmedOrNull(warehouse.suburb),
-      state: trimmedOrNull(warehouse.state),
-      country: trimmedOrNull(warehouse.country),
-      postCode: trimmedOrNull(warehouse.postCode),
-    })),
-  );
+  await gateway.saveAddresses({
+    billingSameAsPrincipal: values.billingSameAsPrincipal,
+    principal: addressPayload(values.principalAddress),
+    // The tick is remembered, but the copy is what is sent: nothing reading the
+    // billing address should have to follow a flag to find one.
+    billing: addressPayload(
+      values.billingSameAsPrincipal ? values.principalAddress : values.billingAddress,
+    ),
+  });
+
+  await gateway.saveWarehouses(values.warehouses.map(addressPayload));
+
+  await gateway.saveYards(values.yards.map(addressPayload));
 
   await gateway.saveAccreditation({
     accreditationNumber: trimmedOrNull(values.accreditationNumber),
@@ -476,7 +535,6 @@ async function syncDocuments(
         docType,
         category: row.fixed ? undefined : row.label || "Other",
         issueDate: row.issue || undefined,
-        expiryDate: row.expiry || undefined,
       });
       continue;
     }
@@ -487,20 +545,24 @@ async function syncDocuments(
     }
 
     // Already stored. The bytes cannot change without replacing them, but the
-    // dates and the label on an extra row can still be corrected in place.
+    // issue date and the label on an extra row can still be corrected in place.
+    // The stored expiry is left alone: the form no longer asks for one, so it
+    // has nothing to say about it.
     const documentId = row.file.documentId;
     if (!documentId || !existing) continue;
 
     const unchanged =
       (existing.issueDate?.slice(0, 10) ?? "") === row.issue &&
-      (existing.expiryDate?.slice(0, 10) ?? "") === row.expiry &&
       (row.fixed || (existing.category ?? "") === row.label);
     if (unchanged) continue;
 
     await gateway.updateDocument(documentId, {
       category: row.fixed ? existing.category : row.label || null,
       issueDate: row.issue || null,
-      expiryDate: row.expiry || null,
+      // The API writes whatever it is handed, so the stored expiry is handed
+      // straight back. The form no longer asks for one, and not sending it
+      // would wipe it.
+      expiryDate: existing.expiryDate?.slice(0, 10) ?? null,
     });
   }
 }
@@ -528,6 +590,12 @@ export function submissionBlockers(values: VendorFormValues): string[] {
   if (!values.companyName.trim()) missing.push("Company name");
   if (!values.abn.trim()) missing.push("ABN");
   if (!values.accountNumber.trim()) missing.push("Bank account number");
+  if (!values.principalAddress.street1.trim()) missing.push("Principal address");
+  // The tick makes the principal address the billing one, so it is only asked
+  // for separately when the tick is off.
+  if (!values.billingSameAsPrincipal && !values.billingAddress.street1.trim()) {
+    missing.push("Billing address");
+  }
   if (values.warehouses.length === 0) missing.push("Warehouse address");
   if (!values.accreditationNumber.trim()) missing.push("Accreditation number");
 

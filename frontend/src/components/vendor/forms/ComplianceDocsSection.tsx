@@ -13,8 +13,8 @@ import type { VendorFormValues } from "@/types/vendor";
  * The compliance pack.
  *
  * The eight rows the fleet always asks for come pre-listed and cannot be
- * removed; a supplier adds their own rows underneath. Each row carries an issue
- * date and an expiry date so a renewal can be chased before it lapses.
+ * removed; a supplier adds their own rows underneath. Each row carries the date
+ * the document was issued.
  *
  * The layout is one row per document on a wide screen and a stacked card on a
  * narrow one - every cell carries its own label, so it reads either way.
@@ -44,8 +44,8 @@ export function ComplianceDocsSection() {
     >
       <div className="space-y-3">
         {/* Column headings, wide screens only: each cell is labelled below. */}
-        <div className="hidden gap-4 px-5 lg:grid lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,11rem)_minmax(0,11rem)_2.5rem]">
-          {["Document Type", "Attach File", "Issue Date", "Expiry Date", ""].map((heading) => (
+        <div className="hidden gap-4 px-5 lg:grid lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,11rem)_2.5rem]">
+          {["Document Type", "Attach File", "Issue Date", ""].map((heading) => (
             <span
               key={heading || "actions"}
               className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground"
@@ -68,7 +68,7 @@ export function ComplianceDocsSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.25 }}
-                className="grid grid-cols-1 items-start gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,11rem)_minmax(0,11rem)_2.5rem] lg:items-center lg:py-4"
+                className="grid grid-cols-1 items-start gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,11rem)_2.5rem] lg:items-center lg:py-4"
               >
                 {fixed ? (
                   <div className="min-w-0">
@@ -109,13 +109,6 @@ export function ComplianceDocsSection() {
                   rules={dateRule(index, "Issue date")}
                   className="min-w-0 lg:[&>label]:sr-only"
                 />
-                <DateField
-                  name={`complianceDocs.${index}.expiry`}
-                  label="Expiry Date"
-                  compact
-                  rules={dateRule(index, "Expiry date")}
-                  className="min-w-0 lg:[&>label]:sr-only"
-                />
 
                 <div className="flex justify-end lg:justify-center">
                   <Button
@@ -146,7 +139,6 @@ export function ComplianceDocsSection() {
               fixed: false,
               file: null,
               issue: "",
-              expiry: "",
             })
           }
         >

@@ -7,7 +7,7 @@ import { rules } from "@/utils/validation";
 export function BusinessCoverageSection() {
   return (
     <SectionCard
-      index={5}
+      index={6}
       id="step-coverage"
       icon={Globe2}
       title="Business Coverage"

@@ -687,7 +687,9 @@ export async function getVendor(vendorId: string) {
       directors: { orderBy: { position: 'asc' } },
       bankDetail: true,
       coverage: true,
+      addresses: true,
       warehouses: { orderBy: { position: 'asc' } },
+      yards: { orderBy: { position: 'asc' } },
       accreditation: true,
       insurances: true,
       documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
@@ -842,12 +844,28 @@ export async function updateVendorDirectors(
   return vendorService.updateDirectors(vendorId, input);
 }
 
+export async function updateVendorAddresses(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateAddresses>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateAddresses(vendorId, input);
+}
+
 export async function updateVendorWarehouses(
   vendorId: string,
   input: Parameters<typeof vendorService.updateWarehouses>[1],
 ) {
   await assertVendorExists(vendorId);
   return vendorService.updateWarehouses(vendorId, input);
+}
+
+export async function updateVendorYards(
+  vendorId: string,
+  input: Parameters<typeof vendorService.updateYards>[1],
+) {
+  await assertVendorExists(vendorId);
+  return vendorService.updateYards(vendorId, input);
 }
 
 export async function updateVendorBank(
