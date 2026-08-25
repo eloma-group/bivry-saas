@@ -16,6 +16,7 @@ import { AccreditationSection } from "./forms/AccreditationSection";
 import { InsuranceSection } from "./forms/InsuranceSection";
 import { ComplianceDocsSection } from "./forms/ComplianceDocsSection";
 import { Button } from "@/components/ui/button";
+import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { useVendorProgress } from "@/hooks/useVendorProgress";
 import { useAuth } from "@/context/AuthContext";
 import { vendorService, type VendorOnboardingData } from "@/services/vendorService";
@@ -271,16 +272,18 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
-        <OnboardingBody
-          submitting={submitting}
-          submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
-          editing={!firstSubmission}
-          savingDraft={savingDraft}
-          onSaveDraft={() => void saveDraft()}
-          firstSubmission={firstSubmission}
-        />
-      </form>
+      <OnboardingCanvas>
+        <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
+          <OnboardingBody
+            submitting={submitting}
+            submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
+            editing={!firstSubmission}
+            savingDraft={savingDraft}
+            onSaveDraft={() => void saveDraft()}
+            firstSubmission={firstSubmission}
+          />
+        </form>
+      </OnboardingCanvas>
     </FormProvider>
   );
 }

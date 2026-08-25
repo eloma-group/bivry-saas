@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
+import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -199,7 +200,7 @@ export function AdminSimpleAccountEditPage({
   );
 
   return (
-    <>
+    <OnboardingCanvas>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link to={listPath}>
@@ -328,6 +329,6 @@ export function AdminSimpleAccountEditPage({
           {saveButton("submit")}
         </div>
       </form>
-    </>
+    </OnboardingCanvas>
   );
 }

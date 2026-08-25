@@ -14,6 +14,7 @@ import { MedicalSection } from "@/components/driver/forms/MedicalSection";
 import { DrugTestSection } from "@/components/driver/forms/DrugTestSection";
 import { AdditionalDocsSection } from "@/components/driver/forms/AdditionalDocsSection";
 import { DocumentSourceProvider } from "@/context/DocumentSourceContext";
+import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -247,6 +248,7 @@ export function AdminDriverEditPage({ driverId }: { driverId?: string }) {
 
   return (
     <DocumentSourceProvider source={documentSource}>
+      <OnboardingCanvas>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link to={creating ? "/admin/onboarding/driver" : `/admin/onboarding/driver/${driverId}`}>
@@ -365,6 +367,7 @@ export function AdminDriverEditPage({ driverId }: { driverId?: string }) {
           </div>
         </form>
       </FormProvider>
+      </OnboardingCanvas>
     </DocumentSourceProvider>
   );
 }

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Stepper } from "./Stepper";
+import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { SummaryCard } from "./summary/SummaryCard";
 import { PersonalInfoSection } from "./forms/PersonalInfoSection";
 import { AddressSection } from "./forms/AddressSection";
@@ -274,15 +275,17 @@ export function DriverOnboarding({ initial }: DriverOnboardingProps) {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
-        <OnboardingBody
-          submitting={submitting}
-          submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
-          editing={!firstSubmission}
-          savingDraft={savingDraft}
-          onSaveDraft={() => void saveDraft()}
-        />
-      </form>
+      <OnboardingCanvas>
+        <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
+          <OnboardingBody
+            submitting={submitting}
+            submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
+            editing={!firstSubmission}
+            savingDraft={savingDraft}
+            onSaveDraft={() => void saveDraft()}
+          />
+        </form>
+      </OnboardingCanvas>
     </FormProvider>
   );
 }
