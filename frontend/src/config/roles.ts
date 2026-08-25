@@ -29,6 +29,12 @@ export interface PortalConfig {
   accentGlowClass: string;
   /** Solid accent colour for small type on the white panel. */
   accentTextClass: string;
+  /**
+   * The same accent as a plain hex. The page backdrop blows its bubbles from
+   * this, and a gradient stop needs a value it can fade to transparent, which
+   * a Tailwind class cannot give it.
+   */
+  accentHex: string;
 }
 
 /**
@@ -55,6 +61,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     accentClass: "from-brand-navy via-[#123256] to-[#1b4b7d]",
     accentGlowClass: "bg-[#1b4b7d]",
     accentTextClass: "text-[#1b4b7d]",
+    accentHex: "#1b4b7d",
   },
   customer: {
     slug: "customer",
@@ -69,6 +76,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     accentClass: "from-[#0d2440] via-[#134e4a] to-brand-green",
     accentGlowClass: "bg-brand-green",
     accentTextClass: "text-[#0f8f65]",
+    accentHex: "#2bb583",
   },
   vendor: {
     slug: "vendor",
@@ -84,6 +92,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     accentClass: "from-[#0d2440] via-[#3b2f63] to-[#6d4aa8]",
     accentGlowClass: "bg-[#6d4aa8]",
     accentTextClass: "text-[#6d4aa8]",
+    accentHex: "#6d4aa8",
   },
   employee: {
     slug: "employee",
@@ -98,6 +107,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     accentClass: "from-[#0d2440] via-[#1f3d63] to-[#2f6f9e]",
     accentGlowClass: "bg-[#2f6f9e]",
     accentTextClass: "text-[#2f6f9e]",
+    accentHex: "#2f6f9e",
   },
   driver: {
     slug: "driver",
@@ -113,6 +123,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     accentClass: "from-[#0d2440] via-[#14503c] to-brand-green",
     accentGlowClass: "bg-brand-green",
     accentTextClass: "text-[#0f8f65]",
+    accentHex: "#2bb583",
   },
 };
 

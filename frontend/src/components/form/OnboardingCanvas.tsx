@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
  * meant to avoid. A percentage keeps the margin the same fraction of the screen
  * at every size, so the form still fills the width - just slightly less of it.
  *
- * It starts at 2xl. Below that there is no width to spare and the field grid
- * would only get cramped.
+ * It starts at xl, gently, and doubles at 2xl where the width to give away is.
+ * Below xl there is none to spare and the field grid would only get cramped.
  */
 export function OnboardingCanvas({
   children,
@@ -25,5 +25,9 @@ export function OnboardingCanvas({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("w-full 2xl:px-[3%]", className)}>{children}</div>;
+  return (
+    <div className={cn("w-full xl:px-[3%] 2xl:px-[6%]", className)}>
+      {children}
+    </div>
+  );
 }

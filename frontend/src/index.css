@@ -49,21 +49,32 @@
     /* Smooth, high-refresh (120 fps) scrolling */
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
-    /* Fluid root font.
-       - Mobile up to and including FHD/desktop (<= 1920px): stays 16px, so the
-         100% desktop design is completely untouched (calc value is <= 16px
-         there, and the 16px floor of clamp() wins).
+    /* Fluid root font. The whole UI is rem-based, so this is not just type:
+       padding, gaps, cards and buttons all move with it.
+       - Mobile and tablet (< 1024px): stays 16px. Untouched.
+       - Desktop and up (>= 1024px, where the sidebar becomes permanent and the
+         layout switches anyway): 15px. The desktop design read slightly large
+         for the amount of form on a page, and this takes about six percent off
+         it at 1080p, FHD and every size above.
        - Above FHD (1.5K / 2K / 4K, and whenever the browser is zoomed out to
-         preview a large screen): the root grows with the viewport, so the
-         design fills the screen instead of sitting in a narrow column, and it
-         never shrinks on zoom-out. Because the whole UI is rem-based, fonts,
-         spacing and the layout all move together.
-       - It grows a little SLOWER than proportional on purpose. The line used to
-         be 1.25vw - 8px, capped at 40px, which put a 2K screen at 1.5x the
-         desktop design and a 4K screen at 2.5x: everything read as oversized
-         rather than as more of it. Anchored at (1920px -> 16px) and capped at
-         30px, a 2K screen now sits at 1.3x and a 4K screen at 1.875x. */
-    font-size: clamp(16px, calc(0.75vw + 1.6px), 30px);
+         preview a large screen): grows with the viewport, so the design fills
+         the screen instead of sitting in a narrow column, and it never shrinks
+         on zoom-out. It grows a good deal SLOWER than proportional on purpose:
+         the line started at 1.25vw - 8px capped at 40px, which put 2K at 1.5x
+         and 4K at 2.5x and read as oversized rather than as more of it.
+         Anchored at (1920px -> 15px) and capped at 24px, 2K sits at 1.2x and 4K
+         at 1.6x of the desktop design. */
+    font-size: 16px;
+  }
+  @media (min-width: 1024px) {
+    html {
+      font-size: 15px;
+    }
+  }
+  @media (min-width: 1920px) {
+    html {
+      font-size: clamp(15px, calc(0.46875vw + 6px), 24px);
+    }
   }
   /* Keep scroll GPU-friendly and honour reduced-motion preferences */
   @media (prefers-reduced-motion: reduce) {

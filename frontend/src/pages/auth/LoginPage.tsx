@@ -45,7 +45,7 @@ export function LoginPage({ role }: LoginPageProps) {
   return (
     <AuthShell
       portal={portal}
-      title={`Sign in to ${portal.label} portal`}
+      title="Welcome back"
       subtitle={`Use the email address registered for your BIVRY ${portal.label.toLowerCase()} account.`}
       footer={
         portal.selfSignup ? (
