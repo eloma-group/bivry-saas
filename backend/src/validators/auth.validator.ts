@@ -72,12 +72,12 @@ export const registerSchemas: Record<RoleSlug, z.ZodTypeAny> = {
   admin: z.object({
     ...baseRegister,
     firstName: personName('First name'),
-    lastName: optionalPersonName('Last name'),
+    lastName: personName('Last name'),
   }),
   customer: z.object({
     ...baseRegister,
     firstName: personName('First name'),
-    lastName: optionalPersonName('Last name'),
+    lastName: personName('Last name'),
     companyName: z.string().trim().max(150).optional(),
   }),
   vendor: z.object({
@@ -89,7 +89,7 @@ export const registerSchemas: Record<RoleSlug, z.ZodTypeAny> = {
   employee: z.object({
     ...baseRegister,
     firstName: personName('First name'),
-    lastName: optionalPersonName('Last name'),
+    lastName: personName('Last name'),
     employeeCode: z.string().trim().max(30).optional(),
     department: z.string().trim().max(100).optional(),
     designation: z.string().trim().max(100).optional(),
@@ -98,6 +98,6 @@ export const registerSchemas: Record<RoleSlug, z.ZodTypeAny> = {
     ...baseRegister,
     firstName: personName('First name'),
     middleName: optionalPersonName('Middle name'),
-    lastName: optionalPersonName('Last name'),
+    lastName: personName('Last name'),
   }),
 };

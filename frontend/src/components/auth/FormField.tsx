@@ -9,15 +9,22 @@ interface FieldWrapperProps {
   label: string;
   error?: string;
   hint?: ReactNode;
+  /**
+   * Marks the label with a star. The input carries the HTML attribute either
+   * way; this is the half a person can see, which is the half that tells them
+   * which boxes they cannot skip before they try to submit.
+   */
+  required?: boolean;
   children: ReactNode;
 }
 
-function FieldWrapper({ id, label, error, hint, children }: FieldWrapperProps) {
+function FieldWrapper({ id, label, error, hint, required, children }: FieldWrapperProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <Label htmlFor={id} className="text-sm font-semibold">
           {label}
+          {required && <span className="ml-0.5 text-primary">*</span>}
         </Label>
         {hint}
       </div>
@@ -39,11 +46,12 @@ export interface TextFieldProps extends InputProps {
 }
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ id, label, error, hint, className, ...props }, ref) => (
-    <FieldWrapper id={id} label={label} error={error} hint={hint}>
+  ({ id, label, error, hint, required, className, ...props }, ref) => (
+    <FieldWrapper id={id} label={label} error={error} hint={hint} required={required}>
       <Input
         id={id}
         ref={ref}
+        required={required}
         aria-invalid={error ? true : undefined}
         className={cn(error && "border-destructive focus-visible:border-destructive", className)}
         {...props}
@@ -54,16 +62,17 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
 TextField.displayName = "TextField";
 
 export const PasswordField = forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ id, label, error, hint, className, ...props }, ref) => {
+  ({ id, label, error, hint, required, className, ...props }, ref) => {
     const [visible, setVisible] = useState(false);
 
     return (
-      <FieldWrapper id={id} label={label} error={error} hint={hint}>
+      <FieldWrapper id={id} label={label} error={error} hint={hint} required={required}>
         <div className="relative">
           <Input
             id={id}
             ref={ref}
             type={visible ? "text" : "password"}
+            required={required}
             aria-invalid={error ? true : undefined}
             className={cn(
               "pr-11",

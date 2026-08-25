@@ -35,11 +35,11 @@ const NAME = { maxLength: NAME_MAX } as const;
 const ROLE_FIELDS: Record<RoleSlug, FieldDef[]> = {
   admin: [
     { name: "firstName", label: "First name", required: true, half: true, ...NAME },
-    { name: "lastName", label: "Last name", half: true, ...NAME },
+    { name: "lastName", label: "Last name", required: true, half: true, ...NAME },
   ],
   customer: [
     { name: "firstName", label: "First name", required: true, half: true, ...NAME },
-    { name: "lastName", label: "Last name", half: true, ...NAME },
+    { name: "lastName", label: "Last name", required: true, half: true, ...NAME },
     // A business name, not a person's, so it keeps the wider limit.
     { name: "companyName", label: "Company name", placeholder: "Optional" },
   ],
@@ -50,13 +50,13 @@ const ROLE_FIELDS: Record<RoleSlug, FieldDef[]> = {
   ],
   employee: [
     { name: "firstName", label: "First name", required: true, half: true, ...NAME },
-    { name: "lastName", label: "Last name", half: true, ...NAME },
+    { name: "lastName", label: "Last name", required: true, half: true, ...NAME },
     { name: "employeeCode", label: "Employee code", placeholder: "Optional" },
   ],
   driver: [
     { name: "firstName", label: "First name", required: true, half: true, ...NAME },
     { name: "middleName", label: "Middle name", placeholder: "Optional", half: true, ...NAME },
-    { name: "lastName", label: "Last name", ...NAME },
+    { name: "lastName", label: "Last name", required: true, ...NAME },
   ],
 };
 
