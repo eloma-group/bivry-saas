@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Camera, ImageUp, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/upload/CameraCapture";
+import { ImageCropDialog } from "@/components/upload/ImageCropDialog";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import { useDocumentSource } from "@/context/DocumentSourceContext";
 import {
@@ -20,6 +21,8 @@ export function AvatarUpload() {
   const { control } = useFormContext<DriverFormValues>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [camOpen, setCamOpen] = useState(false);
+  /** Picked or captured, waiting to be cropped. Null when nothing is waiting. */
+  const [pending, setPending] = useState<UploadedFile | null>(null);
   const stored = useWatch({ control, name: "profilePhoto" }) as UploadedFile | null;
   // A photo saved earlier has no local bytes, so it is fetched for the preview.
   const storedUrl = useDocumentUrl(stored?.dataUrl ? null : stored?.documentId, useDocumentSource());
@@ -37,7 +40,9 @@ export function AvatarUpload() {
           // An iPhone HEIC becomes a JPEG here, so the avatar draws everywhere.
           const file = isHeic(picked) ? await heicToJpeg(picked) : picked;
           const dataUrl = await readAsDataUrl(file);
-          field.onChange({
+          // Offered for cropping rather than committed. Whatever comes back out
+          // of the dialog is what reaches the form, cropped or not.
+          setPending({
             name: file.name,
             size: file.size,
             type: file.type,
@@ -118,7 +123,13 @@ export function AvatarUpload() {
                 type="file"
                 accept={ACCEPT_IMAGE}
                 className="hidden"
-                onChange={(e) => void onFile(e.target.files?.[0])}
+                onChange={(e) => {
+                  void onFile(e.target.files?.[0]);
+                  // Clearing it means picking the same file twice still fires a
+                  // change. Without this, cancelling the crop and reaching for
+                  // the same picture again does nothing at all.
+                  e.target.value = "";
+                }}
               />
             </div>
 
@@ -126,7 +137,17 @@ export function AvatarUpload() {
               open={camOpen}
               onOpenChange={setCamOpen}
               title="Take profile photo"
-              onCapture={(f) => field.onChange(f)}
+              onCapture={(f) => setPending(f)}
+            />
+
+            <ImageCropDialog
+              file={pending}
+              label="Profile photo"
+              onConfirm={(cropped) => {
+                field.onChange(cropped);
+                setPending(null);
+              }}
+              onCancel={() => setPending(null)}
             />
           </div>
         );

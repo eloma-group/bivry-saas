@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Building2, Camera, ImageUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/upload/CameraCapture";
+import { ImageCropDialog } from "@/components/upload/ImageCropDialog";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import { vendorDocuments } from "@/services/vendorDocuments";
 import { useDocumentSource } from "@/context/DocumentSourceContext";
@@ -21,6 +22,8 @@ export function LogoUpload() {
   const { control } = useFormContext();
   const inputRef = useRef<HTMLInputElement>(null);
   const [camOpen, setCamOpen] = useState(false);
+  /** Picked or captured, waiting to be cropped. Null when nothing is waiting. */
+  const [pending, setPending] = useState<UploadedFile | null>(null);
   const stored = useWatch({ control, name: "companyLogo" }) as UploadedFile | null;
   // A logo saved earlier has no local bytes, so it is fetched for the preview.
   const storedUrl = useDocumentUrl(
@@ -41,7 +44,9 @@ export function LogoUpload() {
           // An iPhone HEIC becomes a JPEG here, so the logo draws everywhere.
           const file = isHeic(picked) ? await heicToJpeg(picked) : picked;
           const dataUrl = await readAsDataUrl(file);
-          field.onChange({
+          // Offered for cropping rather than committed. Whatever comes back out
+          // of the dialog is what reaches the form, cropped or not.
+          setPending({
             name: file.name,
             size: file.size,
             type: file.type,
@@ -117,7 +122,13 @@ export function LogoUpload() {
                 type="file"
                 accept={ACCEPT_IMAGE}
                 className="hidden"
-                onChange={(e) => void onFile(e.target.files?.[0])}
+                onChange={(e) => {
+                  void onFile(e.target.files?.[0]);
+                  // Clearing it means picking the same file twice still fires a
+                  // change. Without this, cancelling the crop and reaching for
+                  // the same picture again does nothing at all.
+                  e.target.value = "";
+                }}
               />
             </div>
 
@@ -125,7 +136,17 @@ export function LogoUpload() {
               open={camOpen}
               onOpenChange={setCamOpen}
               title="Take a photo of the logo"
-              onCapture={(f) => field.onChange(f)}
+              onCapture={(f) => setPending(f)}
+            />
+
+            <ImageCropDialog
+              file={pending}
+              label="Company logo"
+              onConfirm={(cropped) => {
+                field.onChange(cropped);
+                setPending(null);
+              }}
+              onCancel={() => setPending(null)}
             />
           </div>
         );
