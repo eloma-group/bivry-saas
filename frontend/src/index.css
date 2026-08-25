@@ -54,12 +54,16 @@
          100% desktop design is completely untouched (calc value is <= 16px
          there, and the 16px floor of clamp() wins).
        - Above FHD (1.5K / 2K / 4K, and whenever the browser is zoomed out to
-         preview a large screen): the root grows with the viewport width a bit
-         FASTER than proportional. Because the whole UI is rem-based, fonts,
-         spacing and the layout all scale together - so the design fills large
-         screens and looks comfortably bigger, and never shrinks on zoom-out.
-       Line is anchored at (1920px -> 16px) and capped at 40px on 4K. */
-    font-size: clamp(16px, calc(1.25vw - 8px), 40px);
+         preview a large screen): the root grows with the viewport, so the
+         design fills the screen instead of sitting in a narrow column, and it
+         never shrinks on zoom-out. Because the whole UI is rem-based, fonts,
+         spacing and the layout all move together.
+       - It grows a little SLOWER than proportional on purpose. The line used to
+         be 1.25vw - 8px, capped at 40px, which put a 2K screen at 1.5x the
+         desktop design and a 4K screen at 2.5x: everything read as oversized
+         rather than as more of it. Anchored at (1920px -> 16px) and capped at
+         30px, a 2K screen now sits at 1.3x and a 4K screen at 1.875x. */
+    font-size: clamp(16px, calc(0.75vw + 1.6px), 30px);
   }
   /* Keep scroll GPU-friendly and honour reduced-motion preferences */
   @media (prefers-reduced-motion: reduce) {
