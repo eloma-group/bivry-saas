@@ -18,6 +18,23 @@ const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 /** The fields the Business Register can answer for. All plain strings. */
 type RegisterFilled = "companyName" | "legalName" | "acn" | "abnStatus" | "entityType";
 
+/**
+ * The fields a lookup can leave empty and that are better marked than blank.
+ *
+ * The register does not hold a website at all, and it lists no trading name for
+ * plenty of live businesses. Left empty those read exactly like a lookup that
+ * never ran, so they are marked instead: the question was asked and the
+ * register had no answer.
+ *
+ * The ACN is deliberately not on this list. Empty already means something there
+ * - the business is not a registered company - and the field takes digits only,
+ * so a mark would fail its own validation.
+ */
+type RegisterBlank = "abnStatus" | "entityType" | "websiteAddress";
+
+/** What goes in a field the register could not answer. */
+const NOT_ON_REGISTER = "N/A";
+
 export function SupplierInfoSection() {
   const { user } = useAuth();
   const { control, getValues, setValue, trigger } = useFormContext<VendorFormValues>();
@@ -30,6 +47,11 @@ export function SupplierInfoSection() {
    * Everything it writes stays editable. The register holds the registered
    * truth about a company, so a supplier who asked for it gets it in full
    * rather than only in the gaps, but the last word is still theirs.
+   *
+   * What it cannot answer for is marked N/A rather than left blank, so the
+   * section says the register was asked and had nothing, instead of looking
+   * like nobody got round to it. A mark never lands on a field the supplier
+   * has already filled in, and it can be typed over like anything else here.
    */
   async function fillFromRegister() {
     const abn = (getValues("abn") ?? "").replace(/\D/g, "");
@@ -53,6 +75,13 @@ export function SupplierInfoSection() {
         setValue(field, value, { shouldDirty: true, shouldValidate: true });
       };
 
+      // Marks a field the register had nothing for, without writing over one
+      // the supplier has already filled in themselves.
+      const markIfEmpty = (field: RegisterBlank) => {
+        if ((getValues(field) ?? "").trim()) return;
+        setValue(field, NOT_ON_REGISTER, { shouldDirty: true, shouldValidate: true });
+      };
+
       // The entity name is the company's registered name, so it lands in both
       // the account's name and the legal one.
       fill("companyName", found.entityName);
@@ -66,9 +95,19 @@ export function SupplierInfoSection() {
       // record, not something anyone should be typing in by hand.
       if (found.businessNames.length > 0) {
         tradingNames.replace(found.businessNames.map((name) => ({ name })));
+      } else if (!(getValues("tradingNames.0.name") ?? "").trim()) {
+        // The register lists none for this business. The field is required, so
+        // leaving it empty would only fail on submit later.
+        tradingNames.replace([{ name: NOT_ON_REGISTER }]);
       }
       fill("abnStatus", abnStatusLine(found));
       fill("entityType", found.entityTypeName);
+
+      // Anything the register could not answer for is marked, so a thin record
+      // reads as answered rather than as a lookup that never ran.
+      markIfEmpty("abnStatus");
+      markIfEmpty("entityType");
+      markIfEmpty("websiteAddress");
 
       toast.success("Filled from the Business Register", {
         description: found.entityName,
@@ -209,6 +248,7 @@ export function SupplierInfoSection() {
           name="websiteAddress"
           label="Website Address"
           placeholder="xyz.com"
+          hint="The register does not hold this one. Type it in if you have a site."
         />
         <TextField
           name="supplierId"
