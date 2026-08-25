@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  optionalDateOfBirth,
+  optionalPersonName,
+  optionalPhoneNumber,
+} from './fields';
 
 /** Empty strings from the form are treated as "not provided". */
 const optionalDate = z
@@ -15,12 +20,12 @@ const optionalText = (max = 150) =>
 export const personalSectionSchema = z.object({
   // Optional so a half filled form can still be saved as a draft. An absent
   // name leaves the stored one alone rather than clearing it.
-  firstName: optionalText(100),
-  middleName: optionalText(100),
-  lastName: optionalText(100),
-  dateOfBirth: optionalDate,
+  firstName: optionalPersonName('First name'),
+  middleName: optionalPersonName('Middle name'),
+  lastName: optionalPersonName('Last name'),
+  dateOfBirth: optionalDateOfBirth,
   nationality: optionalText(100),
-  phone: optionalText(20),
+  phone: optionalPhoneNumber(),
 });
 
 const addressBlockSchema = z.object({

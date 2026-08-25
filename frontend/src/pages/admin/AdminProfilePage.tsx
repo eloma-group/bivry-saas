@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { adminService, type AdminProfile } from "@/services/adminService";
 import { ApiRequestError } from "@/services/api";
+import { NAME_MAX, PHONE_MAX } from "@/utils/validation";
 import { useAuth } from "@/context/AuthContext";
 import { ACCOUNT_STATUS } from "@/constants/adminStatus";
 import { prettyDate } from "@/utils/date";
@@ -236,6 +237,7 @@ export function AdminProfilePage() {
                       className="mt-1.5"
                       value={firstName}
                       onChange={(event) => setFirstName(event.target.value)}
+                      maxLength={NAME_MAX}
                       required
                     />
                     {fieldErrors.firstName && (
@@ -251,6 +253,7 @@ export function AdminProfilePage() {
                       className="mt-1.5"
                       value={lastName}
                       onChange={(event) => setLastName(event.target.value)}
+                      maxLength={NAME_MAX}
                     />
                   </div>
                   <div>
@@ -261,6 +264,7 @@ export function AdminProfilePage() {
                       className="mt-1.5"
                       value={phone}
                       onChange={(event) => setPhone(event.target.value)}
+                      maxLength={PHONE_MAX}
                     />
                     {fieldErrors.phone && (
                       <p className="mt-1 text-xs font-medium text-red-500">

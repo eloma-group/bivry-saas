@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { RoleSlug } from '../types/auth.types';
+import { optionalPersonName, personName, phoneNumber } from './fields';
 
 const email = z
   .string({ required_error: 'Email is required' })
@@ -16,15 +17,15 @@ const password = z
   .regex(/[A-Z]/, 'Password must contain an uppercase letter')
   .regex(/[0-9]/, 'Password must contain a number');
 
-const phone = z
-  .string()
-  .trim()
-  .min(6, 'Enter a valid phone number')
-  .max(20, 'Enter a valid phone number')
-  .optional();
+const phone = phoneNumber().optional();
 
-const name = (label: string) =>
-  z.string({ required_error: `${label} is required` }).trim().min(1, `${label} is required`).max(100);
+/**
+ * A company name is not a person's name: "A1 Logistics Pty. Ltd." is a real one
+ * and would fail the letters-only rule, so business names keep the plain length
+ * check and only the names of people are narrowed.
+ */
+const businessName = (label: string) =>
+  z.string({ required_error: `${label} is required` }).trim().min(1, `${label} is required`).max(150);
 
 export const loginSchema = z.object({
   email,
@@ -70,33 +71,33 @@ const baseRegister = { email, password, phone };
 export const registerSchemas: Record<RoleSlug, z.ZodTypeAny> = {
   admin: z.object({
     ...baseRegister,
-    firstName: name('First name'),
-    lastName: z.string().trim().max(100).optional(),
+    firstName: personName('First name'),
+    lastName: optionalPersonName('Last name'),
   }),
   customer: z.object({
     ...baseRegister,
-    firstName: name('First name'),
-    lastName: z.string().trim().max(100).optional(),
+    firstName: personName('First name'),
+    lastName: optionalPersonName('Last name'),
     companyName: z.string().trim().max(150).optional(),
   }),
   vendor: z.object({
     ...baseRegister,
-    companyName: name('Company name'),
-    contactPerson: z.string().trim().max(100).optional(),
+    companyName: businessName('Company name'),
+    contactPerson: optionalPersonName('Contact person'),
     abn: z.string().trim().max(30).optional(),
   }),
   employee: z.object({
     ...baseRegister,
-    firstName: name('First name'),
-    lastName: z.string().trim().max(100).optional(),
+    firstName: personName('First name'),
+    lastName: optionalPersonName('Last name'),
     employeeCode: z.string().trim().max(30).optional(),
     department: z.string().trim().max(100).optional(),
     designation: z.string().trim().max(100).optional(),
   }),
   driver: z.object({
     ...baseRegister,
-    firstName: name('First name'),
-    middleName: z.string().trim().max(100).optional(),
-    lastName: z.string().trim().max(100).optional(),
+    firstName: personName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: optionalPersonName('Last name'),
   }),
 };

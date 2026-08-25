@@ -10,7 +10,7 @@ import {
   INVOICE_EMAIL_TARGETS,
   INVOICE_PREFERENCES,
 } from "@/constants/vendorOptions";
-import { rules } from "@/utils/validation";
+import { NAME_MAX, PHONE_MAX, rules } from "@/utils/validation";
 import type { VendorFormValues } from "@/types/vendor";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -26,7 +26,8 @@ function ContactBlockFields({ prefix, label }: { prefix: string; label: string }
           label="Contact Person"
           placeholder="Sanket"
           required
-          rules={rules.required(`${label} contact person`)}
+          maxLength={NAME_MAX}
+          rules={rules.name(`${label} contact person`)}
         />
         <SelectField
           name={`${prefix}.designation`}
@@ -39,8 +40,9 @@ function ContactBlockFields({ prefix, label }: { prefix: string; label: string }
           name={`${prefix}.contactNumber`}
           label="Contact Number"
           type="tel"
-          placeholder="045489548"
+          placeholder="0400000000"
           required
+          maxLength={PHONE_MAX}
           rules={rules.phone}
         />
         <TextField

@@ -5,7 +5,7 @@ import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, SelectField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
 import { DESIGNATIONS } from "@/constants/vendorOptions";
-import { rules } from "@/utils/validation";
+import { PHONE_MAX, rules } from "@/utils/validation";
 import type { VendorFormValues } from "@/types/vendor";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -68,8 +68,9 @@ export function DirectorsSection() {
                   name={`directors.${index}.contactNumber`}
                   label="Director Contact Number"
                   type="tel"
-                  placeholder="045489548"
+                  placeholder="0400000000"
                   required
+                  maxLength={PHONE_MAX}
                   rules={rules.phone}
                 />
               </div>

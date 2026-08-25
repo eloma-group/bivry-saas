@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalPersonName, optionalPhoneNumber } from './fields';
 
 /** Empty strings from the form are treated as "not provided". */
 const optionalDate = z
@@ -67,8 +68,8 @@ export const companySectionSchema = z.object({
   legalName: optionalText(150),
   abn: optionalText(30),
   websiteAddress: optionalText(200),
-  phone: optionalText(20),
-  contactPerson: optionalText(100),
+  phone: optionalPhoneNumber(),
+  contactPerson: optionalPersonName('Contact person'),
 });
 
 export const contactsSectionSchema = z.object({
@@ -76,9 +77,9 @@ export const contactsSectionSchema = z.object({
     .array(
       z.object({
         type: z.enum(CONTACT_TYPES),
-        contactPerson: optionalText(100),
+        contactPerson: optionalPersonName('Contact person'),
         designation: optionalText(100),
-        contactNumber: optionalText(20),
+        contactNumber: optionalPhoneNumber('Contact number'),
         email: optionalText(150),
       }),
     )
@@ -94,7 +95,7 @@ export const directorsSectionSchema = z.object({
       z.object({
         designation: optionalText(100),
         email: optionalText(150),
-        contactNumber: optionalText(20),
+        contactNumber: optionalPhoneNumber('Contact number'),
       }),
     )
     .max(25),
