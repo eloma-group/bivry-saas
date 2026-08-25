@@ -74,6 +74,7 @@ export function emptyFormValues(): VendorFormValues {
     companyName: "",
     tradingName: "",
     abn: "",
+    acn: "",
     legalName: "",
     websiteAddress: "",
     supplierId: "",
@@ -216,6 +217,7 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     companyName: data.companyName,
     tradingName: data.tradingName ?? "",
     abn: data.abn ?? "",
+    acn: data.acn ?? "",
     legalName: data.legalName ?? "",
     websiteAddress: data.websiteAddress ?? "",
     supplierId: data.supplierId ?? "",
@@ -312,6 +314,7 @@ export async function saveOnboarding(
     tradingName: trimmedOrNull(values.tradingName),
     legalName: trimmedOrNull(values.legalName),
     abn: trimmedOrNull(values.abn),
+    acn: trimmedOrNull(values.acn),
     websiteAddress: trimmedOrNull(values.websiteAddress),
     phone: trimmedOrNull(values.phone),
     // The operations contact is the person we deal with day to day, so that is

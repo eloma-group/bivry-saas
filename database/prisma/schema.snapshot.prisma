@@ -61,6 +61,9 @@ model Vendor {
   companyName         String               @map("company_name")
   contactPerson       String?              @map("contact_person")
   abn                 String?              @map("abn")
+  /// Australian Company Number, nine digits. Only a registered company has one,
+  /// so a sole trader carries an ABN here and nothing in this column.
+  acn                 String?              @map("acn")
   logoUrl             String?              @map("logo_url")
   /// Human readable supplier reference (BVR-1001). Handed out by the server on
   /// the first onboarding load, never typed in.

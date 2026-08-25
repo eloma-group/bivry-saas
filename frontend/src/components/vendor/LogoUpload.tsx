@@ -8,12 +8,7 @@ import { ImageCropDialog } from "@/components/upload/ImageCropDialog";
 import { useDocumentUrl } from "@/hooks/useDocumentUrl";
 import { vendorDocuments } from "@/services/vendorDocuments";
 import { useDocumentSource } from "@/context/DocumentSourceContext";
-import {
-  ACCEPT_IMAGE,
-  ACCEPT_IMAGE_LABEL,
-  readAsDataUrl,
-  rules,
-} from "@/utils/validation";
+import { ACCEPT_IMAGE, ACCEPT_IMAGE_LABEL, readAsDataUrl } from "@/utils/validation";
 import { heicToJpeg, isHeic } from "@/utils/heic";
 import type { UploadedFile } from "@/types/driver";
 
@@ -35,8 +30,7 @@ export function LogoUpload() {
     <Controller
       control={control}
       name="companyLogo"
-      rules={rules.requiredFile("Company logo")}
-      render={({ field, fieldState }) => {
+      render={({ field }) => {
         const value = field.value as UploadedFile | null;
         const preview = value ? value.dataUrl || storedUrl : null;
         const onFile = async (picked?: File | null) => {
@@ -90,15 +84,10 @@ export function LogoUpload() {
             </div>
 
             <div className="flex flex-col items-center gap-2 sm:items-start">
-              <p className="text-sm font-medium text-foreground">
-                Company Logo<span className="ml-0.5 text-primary">*</span>
-              </p>
+              <p className="text-sm font-medium text-foreground">Company Logo</p>
               <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-left">
                 Your business logo, square works best. Accepts {ACCEPT_IMAGE_LABEL}.
               </p>
-              {fieldState.error && (
-                <p className="text-xs font-medium text-red-500">{fieldState.error.message}</p>
-              )}
               <div className="mt-1 flex gap-2">
                 <Button
                   type="button"

@@ -316,6 +316,7 @@ export function VendorProfile({
           <Row label="Trading name">{value(data.tradingName)}</Row>
           <Row label="Legal name">{value(data.legalName)}</Row>
           <Row label="ABN">{value(data.abn)}</Row>
+          <Row label="ACN">{value(data.acn)}</Row>
           <Row label="Website">{value(data.websiteAddress)}</Row>
           <Row label="Phone">{value(data.phone)}</Row>
           <Row label="Email">

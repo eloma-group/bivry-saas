@@ -111,6 +111,7 @@ export interface VendorCompanyPayload {
   tradingName: string | null;
   legalName: string | null;
   abn: string | null;
+  acn: string | null;
   websiteAddress: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -127,6 +128,7 @@ export interface VendorOnboardingData {
   tradingName: string | null;
   legalName: string | null;
   abn: string | null;
+  acn: string | null;
   supplierId: string | null;
   websiteAddress: string | null;
   contactPerson: string | null;

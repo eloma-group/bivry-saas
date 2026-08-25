@@ -2,7 +2,7 @@ import { Building2 } from "lucide-react";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField } from "@/components/form/Fields";
 import { LogoUpload } from "@/components/vendor/LogoUpload";
-import { PHONE_MAX, rules } from "@/utils/validation";
+import { ABN_LENGTH, ACN_LENGTH, rules } from "@/utils/validation";
 import { useAuth } from "@/context/AuthContext";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -28,7 +28,7 @@ export function SupplierInfoSection({
       index={1}
       id="step-supplier"
       icon={Building2}
-      title="Supplier Information"
+      title="Company Information"
       description="How your business is registered and how we identify it."
     >
       <div className="mb-8 rounded-2xl border border-border/60 bg-secondary/30 p-5">
@@ -36,6 +36,24 @@ export function SupplierInfoSection({
       </div>
 
       <div className={GRID}>
+        <TextField
+          name="abn"
+          label="ABN"
+          placeholder="51824753556"
+          required
+          digitsOnly
+          maxLength={ABN_LENGTH}
+          rules={rules.abn}
+        />
+        <TextField
+          name="acn"
+          label="ACN"
+          placeholder="004085616"
+          digitsOnly
+          maxLength={ACN_LENGTH}
+          rules={rules.acn}
+          hint="Nine digits. Leave it empty if the business is not a registered company."
+        />
         <TextField
           name="companyName"
           label="Company Name"
@@ -51,13 +69,6 @@ export function SupplierInfoSection({
           rules={rules.required("Trading name")}
         />
         <TextField
-          name="abn"
-          label="ABN"
-          placeholder="08548445"
-          required
-          rules={rules.required("ABN")}
-        />
-        <TextField
           name="legalName"
           label="Legal Name"
           placeholder="Sanket Transport Pty Ltd"
@@ -68,8 +79,6 @@ export function SupplierInfoSection({
           name="websiteAddress"
           label="Website Address"
           placeholder="xyz.com"
-          required
-          rules={rules.required("Website address")}
         />
         <TextField
           name="supplierId"
@@ -79,28 +88,19 @@ export function SupplierInfoSection({
           hint="Assigned by BIVRY. It cannot be changed."
         />
         <TextField
-          name="phone"
-          label="Company Phone"
-          type="tel"
-          placeholder="+61 400000000"
-          required
-          maxLength={PHONE_MAX}
-          rules={rules.phone}
-        />
-        <TextField
           name="email"
-          label="Account Email"
+          label="Login Email"
           type="email"
           placeholder="accounts@company.com"
           required
           readOnly={emailLocked}
           hint={
             emailLocked
-              ? "Taken from your account and used to identify you. It cannot be changed here."
-              : undefined
+              ? "The email this account was created with. You sign in with it, and it cannot be changed here."
+              : "The email this account signs in with. Department mailboxes are asked for further down."
           }
           rules={rules.email}
-          className="sm:col-span-2"
+          className="sm:col-span-2 lg:col-span-2"
         />
       </div>
     </SectionCard>

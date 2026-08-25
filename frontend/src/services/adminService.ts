@@ -82,6 +82,7 @@ export interface AdminVendorRow {
   tradingName: string | null;
   legalName: string | null;
   abn: string | null;
+  acn: string | null;
   supplierId: string | null;
   websiteAddress: string | null;
   contactPerson: string | null;
@@ -232,6 +233,7 @@ export interface CreateVendorInput {
   legalName?: string | null;
   contactPerson?: string | null;
   abn?: string | null;
+  acn?: string | null;
   websiteAddress?: string | null;
   status?: AccountStatus;
 }

@@ -67,6 +67,7 @@ export const companySectionSchema = z.object({
   tradingName: optionalText(150),
   legalName: optionalText(150),
   abn: optionalText(30),
+  acn: optionalText(30),
   websiteAddress: optionalText(200),
   phone: optionalPhoneNumber(),
   contactPerson: optionalPersonName('Contact person'),

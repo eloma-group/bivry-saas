@@ -106,6 +106,16 @@ interface TextFieldProps extends BaseFieldProps {
    * reject ever reaching it.
    */
   maxLength?: number;
+  /**
+   * A number the field holds as digits and nothing else - an ABN, a BSB.
+   *
+   * Two things follow from it. Anything that is not a digit is dropped as it is
+   * typed or pasted, so a letter never lands in the box at all, and the value is
+   * checked on every keystroke rather than on the way out of the field: a number
+   * of a fixed length is either right or wrong the moment the last digit lands,
+   * and saying so then beats saying it once the cursor has moved on.
+   */
+  digitsOnly?: boolean;
 }
 
 /** Reusable text/email/number input wired to react-hook-form. */
@@ -119,13 +129,16 @@ export function TextField({
   readOnly,
   hint,
   maxLength,
+  digitsOnly,
   className,
 }: TextFieldProps) {
   const {
     register,
+    trigger,
     formState: { errors },
   } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
+  const field = register(name, rules);
 
   return (
     <FieldShell
@@ -139,6 +152,7 @@ export function TextField({
       <Input
         id={name}
         type={type}
+        inputMode={digitsOnly ? "numeric" : undefined}
         placeholder={placeholder}
         readOnly={readOnly}
         maxLength={maxLength}
@@ -148,7 +162,17 @@ export function TextField({
           error && "border-red-300 focus-visible:ring-red-500/10",
           readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground"
         )}
-        {...register(name, rules)}
+        {...field}
+        onChange={
+          digitsOnly
+            ? (event) => {
+                const digits = event.target.value.replace(/\D/g, "");
+                if (digits !== event.target.value) event.target.value = digits;
+                void field.onChange(event);
+                void trigger(name);
+              }
+            : field.onChange
+        }
       />
     </FieldShell>
   );

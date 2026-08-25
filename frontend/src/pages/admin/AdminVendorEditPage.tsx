@@ -147,6 +147,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
               // saveOnboarding writes a moment later. See saveCompany.
               contactPerson: values.operations.contactPerson.trim() || null,
               abn: values.abn.trim() || null,
+              acn: values.acn.trim() || null,
               websiteAddress: values.websiteAddress.trim() || null,
               phone: values.phone.trim() || null,
               status,
@@ -250,7 +251,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
           <h2 className="text-base font-semibold tracking-tight text-foreground">Account</h2>
           <p className="text-sm text-muted-foreground">
             Whether this supplier can sign in, and what they sign in with. The email is in
-            Supplier Information below.
+            Company Information below.
           </p>
         </header>
 

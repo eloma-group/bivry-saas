@@ -161,6 +161,7 @@ export const createVendorSchema = z.object({
   legalName: optionalText(150),
   contactPerson: optionalPersonName('Contact person'),
   abn: optionalText(30),
+  acn: optionalText(30),
   websiteAddress: optionalText(200),
   status: z.enum(ACCOUNT_STATUSES).optional(),
 });
@@ -181,6 +182,7 @@ export const updateVendorSchema = z
     legalName: patchText(150),
     contactPerson: patchPersonName('Contact person'),
     abn: patchText(30),
+    acn: patchText(30),
     websiteAddress: patchText(200),
     status: z.enum(ACCOUNT_STATUSES).optional(),
   })

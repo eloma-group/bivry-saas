@@ -96,6 +96,7 @@ CREATE TABLE "vendors" (
     "company_name" TEXT NOT NULL,
     "contact_person" TEXT,
     "abn" TEXT,
+    "acn" TEXT,
     "logo_url" TEXT,
     "supplier_id" TEXT,
     "trading_name" TEXT,

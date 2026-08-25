@@ -63,6 +63,7 @@ const VENDOR_LIST_FIELDS = {
   tradingName: true,
   legalName: true,
   abn: true,
+  acn: true,
   supplierId: true,
   websiteAddress: true,
   contactPerson: true,
@@ -708,6 +709,7 @@ export interface CreateVendorInput {
   legalName: string | null;
   contactPerson: string | null;
   abn: string | null;
+  acn: string | null;
   websiteAddress: string | null;
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 }
@@ -728,6 +730,7 @@ export async function createVendor(input: CreateVendorInput) {
       legalName: input.legalName,
       contactPerson: input.contactPerson,
       abn: input.abn,
+      acn: input.acn,
       websiteAddress: input.websiteAddress,
       // An admin created account is usable straight away; the supplier still has
       // to complete onboarding before it can be approved.

@@ -38,7 +38,8 @@ function text(value: unknown): string {
 /**
  * The identity the supplier already gave when the account was created. Nobody
  * should have to type their company name, email and phone a second time, so the
- * form opens with them filled in.
+ * form opens with them filled in. Only the company name is still typed here;
+ * the email and the phone ride along from the account.
  */
 function accountIdentity(user: AuthUser | null) {
   return {
@@ -48,8 +49,12 @@ function accountIdentity(user: AuthUser | null) {
   };
 }
 
-/** The editable half of the identity, so a later profile load cannot overwrite typing. */
-const EDITABLE_IDENTITY = ["companyName", "phone"] as const;
+/**
+ * The parts of the identity the form still seeds rather than mirrors, so a later
+ * profile load cannot overwrite typing. The company name has an input; the phone
+ * no longer does, and only fills the gap when nothing is saved against it yet.
+ */
+const SEEDED_IDENTITY = ["companyName", "phone"] as const;
 
 /** Inner body - lives inside FormProvider so it can read live progress. */
 function OnboardingBody({
@@ -160,12 +165,12 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
 
   // The signed in account is loaded before this page renders, so the values
   // above are normally already correct. This keeps them correct in the other
-  // cases too: the locked email always mirrors the account, and the editable
-  // fields are seeded only while they are still empty and untouched.
+  // cases too: the locked email always mirrors the account, and the seeded
+  // fields are filled only while they are still empty and untouched.
   useEffect(() => {
     methods.setValue("email", identity.email);
 
-    for (const field of EDITABLE_IDENTITY) {
+    for (const field of SEEDED_IDENTITY) {
       const untouched =
         !methods.getFieldState(field).isDirty && methods.getValues(field) === "";
       if (untouched && identity[field]) methods.setValue(field, identity[field]);
@@ -228,9 +233,9 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
     setSubmitting(true);
 
     try {
-      // The company name and phone are editable here, so this also updates the
-      // account they came from. The email is never sent: it identifies the
-      // account and can only change elsewhere.
+      // The company name is editable here, so this also updates the account it
+      // came from. The email is never sent: it identifies the account and can
+      // only change elsewhere.
       await saveOnboarding(data, saved);
       if (firstSubmission) await vendorService.submit();
       // So the header name and initials follow the edit straight away.

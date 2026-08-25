@@ -29,6 +29,25 @@ export const PHONE_MAX = 15;
  */
 export const PHONE_RE = /^\+?\d+(?: \d+)?$/;
 
+/**
+ * An Australian Business Number is exactly eleven digits, always. It is printed
+ * with spaces - `51 824 753 556` - but the number itself carries none, so the
+ * field takes digits only and refuses anything shorter or longer.
+ */
+export const ABN_LENGTH = 11;
+
+export const ABN_RE = /^\d{11}$/;
+
+/**
+ * An Australian Company Number is exactly nine digits. Only a registered
+ * company is issued one, so a sole trader or a partnership has an ABN and no
+ * ACN at all - the field is optional for that reason, but a nine digit number
+ * once anything is typed in it.
+ */
+export const ACN_LENGTH = 9;
+
+export const ACN_RE = /^\d{9}$/;
+
 export const MIN_AGE = 18;
 
 /**
@@ -154,6 +173,28 @@ export const rules = {
       return ageInYears(parsed) >= MIN_AGE || `Must be at least ${MIN_AGE} years old`;
     },
   }),
+  /**
+   * An ABN. Checked on every keystroke rather than on the way out of the field,
+   * so the eleventh digit either settles the field or says why it has not.
+   */
+  abn: {
+    required: "ABN is required",
+    validate: (value: unknown) => {
+      const abn = typeof value === "string" ? value.trim() : "";
+      if (abn === "") return "ABN is required";
+      if (!/^\d+$/.test(abn)) return "ABN is digits only - no letters, spaces or symbols";
+      return ABN_RE.test(abn) || `ABN must be exactly ${ABN_LENGTH} digits`;
+    },
+  },
+  /** An ACN. Optional, because not every supplier is a registered company. */
+  acn: {
+    validate: (value: unknown) => {
+      const acn = typeof value === "string" ? value.trim() : "";
+      if (acn === "") return true;
+      if (!/^\d+$/.test(acn)) return "ACN is digits only - no letters, spaces or symbols";
+      return ACN_RE.test(acn) || `ACN must be exactly ${ACN_LENGTH} digits`;
+    },
+  },
   licenceNumber: {
     required: "Licence number is required",
     minLength: { value: 5, message: "Licence number looks too short" },

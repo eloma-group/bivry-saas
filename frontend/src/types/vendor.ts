@@ -77,6 +77,8 @@ export interface VendorFormValues {
   companyName: string;
   tradingName: string;
   abn: string;
+  /** Nine digits, and only a registered company has one. Optional for that reason. */
+  acn: string;
   legalName: string;
   websiteAddress: string;
   /** Handed out by the server, shown read only. */

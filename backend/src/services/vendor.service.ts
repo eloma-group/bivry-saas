@@ -86,6 +86,7 @@ export interface CompanyInput {
   tradingName: string | null;
   legalName: string | null;
   abn: string | null;
+  acn: string | null;
   websiteAddress: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -103,6 +104,7 @@ export async function updateCompany(vendorId: string, data: CompanyInput) {
       tradingName: data.tradingName,
       legalName: data.legalName,
       abn: data.abn,
+      acn: data.acn,
       websiteAddress: data.websiteAddress,
       phone: data.phone,
       contactPerson: data.contactPerson,

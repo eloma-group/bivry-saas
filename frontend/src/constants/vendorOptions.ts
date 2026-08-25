@@ -134,8 +134,8 @@ export const ADDITIONAL_COMPLIANCE_CATEGORIES = [
 export const VENDOR_STEPS: VendorStepDef[] = [
   {
     id: "supplier",
-    label: "Supplier Info",
-    requires: ["companyName", "tradingName", "abn", "legalName", "websiteAddress", "companyLogo"],
+    label: "Company Info",
+    requires: ["abn", "companyName", "tradingName", "legalName"],
   },
   {
     id: "contacts",

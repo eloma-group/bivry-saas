@@ -107,6 +107,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `company_name` | text | NOT NULL |  |  |
 | `contact_person` | text | NULL |  |  |
 | `abn` | text | NULL |  |  |
+| `acn` | text | NULL |  | Australian Company Number, nine digits. Only a registered company has one,\nso a sole trader carries an ABN here and nothing in this column. |
 | `logo_url` | text | NULL |  |  |
 | `supplier_id` | text | NULL |  | unique; Human readable supplier reference (BVR-1001). Handed out by the server on\nthe first onboarding load, never typed in. |
 | `trading_name` | text | NULL |  |  |
