@@ -13,21 +13,21 @@ const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 export function VisaSection() {
   const { control, getValues } = useFormContext<DriverFormValues>();
-  // Which documents this section asks for is keyed off the driver's nationality
+  // Which documents this section asks for is keyed off the driver's country
   // (Section 1): an Australian national holds no visa but does hold a passport
   // and a Medicare card.
-  const nationality = useWatch({ control, name: "nationality" });
+  const country = useWatch({ control, name: "country" });
   const visaExpiry = useWatch({ control, name: "visaExpiry" });
   const passportExpiry = useWatch({ control, name: "passportExpiry" });
   const medicareExpiry = useWatch({ control, name: "medicareExpiry" });
-  const isAustralian = nationality === "Australia";
+  const isAustralian = country === "Australia";
 
   // Both halves stay registered once they have been shown, so each rule has to
   // check whether its half is the one actually being asked for.
   const australianOnly = (label: string) =>
-    rules.requiredWhen(label, () => getValues("nationality") === "Australia");
+    rules.requiredWhen(label, () => getValues("country") === "Australia");
   const visaOnly = (label: string) =>
-    rules.requiredWhen(label, () => getValues("nationality") !== "Australia");
+    rules.requiredWhen(label, () => getValues("country") !== "Australia");
 
   return (
     <SectionCard
@@ -38,11 +38,11 @@ export function VisaSection() {
     >
       <div className="mb-6 max-w-sm">
         <SelectField
-          name="nationality"
-          label="Nationality"
+          name="country"
+          label="Country"
           options={COUNTRIES}
           required
-          rules={rules.required("Nationality")}
+          rules={rules.required("Country")}
         />
       </div>
 

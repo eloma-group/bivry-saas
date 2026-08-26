@@ -24,9 +24,18 @@ export const personalSectionSchema = z.object({
   middleName: optionalPersonName('Middle name'),
   lastName: optionalPersonName('Last name'),
   dateOfBirth: optionalDateOfBirth,
+  country: optionalText(100),
+  // `nationality` is what a build from before the rename sends. It is accepted
+  // for one release and folded into `country`, so a save from a frontend that
+  // has not been replaced yet corrects the answer instead of wiping it. Drop
+  // it once no deployed build sends it.
   nationality: optionalText(100),
   phone: optionalPhoneNumber(),
-});
+})
+  .transform(({ nationality, ...rest }) => ({
+    ...rest,
+    country: rest.country ?? nationality,
+  }));
 
 const addressBlockSchema = z.object({
   houseNumber: optionalText(50),

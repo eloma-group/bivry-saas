@@ -46,7 +46,7 @@ const EXPORT_COLUMNS: SheetColumn<AdminDriverRow>[] = [
   { header: "Email", value: (row) => row.email, width: 30 },
   { header: "Phone", value: (row) => row.phone, width: 18 },
   { header: "Date of birth", value: (row) => prettyDate(row.dateOfBirth), width: 16 },
-  { header: "Nationality", value: (row) => row.nationality, width: 16 },
+  { header: "Country", value: (row) => row.country, width: 16 },
   {
     header: "Verification status",
     value: (row) => ONBOARDING_STATUS[row.onboardingStatus].label,

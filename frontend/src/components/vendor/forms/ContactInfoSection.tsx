@@ -2,134 +2,150 @@ import { Contact } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "@/components/form/SectionCard";
-import { TextField, SelectField, MultiSelectField } from "@/components/form/Fields";
+import { TextField, SelectField } from "@/components/form/Fields";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   CONTACT_BLOCKS,
   DESIGNATIONS,
-  INVOICE_EMAIL_TARGETS,
-  INVOICE_PREFERENCES,
+  PRIMARY_CONTACT,
 } from "@/constants/vendorOptions";
 import { NAME_MAX, PHONE_MAX, rules } from "@/utils/validation";
 import type { VendorFormValues } from "@/types/vendor";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
-/** One department's block: who to speak to and how to reach them. */
-function ContactBlockFields({ prefix, label }: { prefix: string; label: string }) {
+/** The form key of one contact block. */
+type ContactKey = (typeof CONTACT_BLOCKS)[number]["key"];
+
+/**
+ * One department's block: who to speak to and how to reach them.
+ *
+ * `asked` is what decides whether the fields have to be filled in. A block
+ * ticked as a copy of the operations one leaves the screen but stays
+ * registered, so a plain `required` there would block a submit over questions
+ * nobody was asked. The check is read at validation time, never captured.
+ */
+function ContactBlockFields({ prefix, label }: { prefix: ContactKey; label: string }) {
+  const { getValues } = useFormContext<VendorFormValues>();
+  const asked = () =>
+    prefix === PRIMARY_CONTACT.key || !getValues(`${prefix}.sameAsOperations`);
+
   return (
-    <div>
-      <p className="mb-3 text-sm font-semibold text-foreground">{label}</p>
-      <div className={GRID}>
-        <TextField
-          name={`${prefix}.contactPerson`}
-          label="Contact Person"
-          placeholder="Sanket"
-          required
-          maxLength={NAME_MAX}
-          rules={rules.name(`${label} contact person`)}
-        />
-        <SelectField
-          name={`${prefix}.designation`}
-          label="Designation"
-          options={DESIGNATIONS}
-          required
-          rules={rules.required(`${label} designation`)}
-        />
-        <TextField
-          name={`${prefix}.contactNumber`}
-          label="Contact Number"
-          type="tel"
-          placeholder="0400000000"
-          required
-          maxLength={PHONE_MAX}
-          rules={rules.phone}
-        />
-        <TextField
-          name={`${prefix}.email`}
-          label={`${label} Email`}
-          type="email"
-          placeholder="sanket.salve@gmail.com"
-          required
-          rules={rules.email}
-          className="sm:col-span-2"
-        />
-      </div>
+    <div className={GRID}>
+      <TextField
+        name={`${prefix}.contactPerson`}
+        label="Contact Person"
+        placeholder="Sanket"
+        required
+        maxLength={NAME_MAX}
+        rules={rules.onlyWhen(rules.name(`${label} contact person`), asked)}
+      />
+      <SelectField
+        name={`${prefix}.designation`}
+        label="Designation"
+        options={DESIGNATIONS}
+        required
+        rules={rules.requiredWhen(`${label} designation`, asked)}
+      />
+      <TextField
+        name={`${prefix}.contactNumber`}
+        label="Contact Number"
+        type="tel"
+        placeholder="0400000000"
+        required
+        maxLength={PHONE_MAX}
+        rules={rules.onlyWhen(rules.phone, asked)}
+      />
+      <TextField
+        name={`${prefix}.email`}
+        label={`${label} Email`}
+        type="email"
+        placeholder="sanket.salve@gmail.com"
+        required
+        rules={rules.onlyWhen(rules.email, asked)}
+        className="sm:col-span-2"
+      />
     </div>
   );
 }
 
-export function ContactInfoSection() {
-  const { control, getValues } = useFormContext<VendorFormValues>();
-  const invoiceEmails = useWatch({ control, name: "invoiceEmails" });
-
-  // "Other" is only worth asking about once it has actually been picked. The
-  // field stays registered after it leaves the screen, so the rule reads the
-  // answer at validation time rather than capturing it here.
-  const wantsOther = Array.isArray(invoiceEmails) && invoiceEmails.includes("Other");
-  const otherAsked = () => (getValues("invoiceEmails") ?? []).includes("Other");
+/**
+ * A block that can be a copy of the operations contact.
+ *
+ * Ticked, the fields fold away and the operations details are saved under this
+ * department instead. Whatever was typed here stays in the form, so unticking
+ * brings it back rather than making somebody type it twice.
+ */
+function CopyableContactBlock({ prefix, label }: { prefix: ContactKey; label: string }) {
+  const { control, setValue } = useFormContext<VendorFormValues>();
+  const sameAsOperations = useWatch({ control, name: `${prefix}.sameAsOperations` });
+  const checkboxId = `${prefix}-same-as-operations`;
 
   return (
-    <SectionCard
-      index={2}
-      id="step-contacts"
-      icon={Contact}
-      title="Contact Information"
-      description="Who we speak to in each part of your business, and where invoices go."
-    >
-      <div className="space-y-6">
-        {CONTACT_BLOCKS.map((block, index) => (
-          <div key={block.key}>
-            {index > 0 && <Separator className="mb-6" />}
-            <ContactBlockFields prefix={block.key} label={block.label} />
-          </div>
-        ))}
-      </div>
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-foreground">{label}</p>
 
-      <Separator className="my-6" />
-
-      <p className="mb-3 text-sm font-semibold text-foreground">Invoice Preferences</p>
-      <div className={GRID}>
-        <SelectField
-          name="invoicePreference"
-          label="Invoice Preferences"
-          options={INVOICE_PREFERENCES}
-          required
-          rules={rules.required("Invoice preference")}
-        />
-        <MultiSelectField
-          name="invoiceEmails"
-          label="Invoice Communication Preferences"
-          options={INVOICE_EMAIL_TARGETS}
-          placeholder="Select email"
-          required
-          rules={rules.requiredList("Invoice communication preference")}
-          className="sm:col-span-2"
-        />
+        <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-secondary/40 px-3 py-2">
+          <Checkbox
+            id={checkboxId}
+            checked={sameAsOperations}
+            onCheckedChange={(checked) =>
+              setValue(`${prefix}.sameAsOperations`, Boolean(checked), { shouldDirty: true })
+            }
+          />
+          <label
+            htmlFor={checkboxId}
+            className="cursor-pointer text-sm font-medium text-foreground"
+          >
+            Same as {PRIMARY_CONTACT.label}
+          </label>
+        </div>
       </div>
 
       <AnimatePresence initial={false}>
-        {wantsOther && (
+        {!sameAsOperations && (
           <motion.div
-            key="other"
+            key={prefix}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            <div className="pt-5">
-              <TextField
-                name="invoiceOther"
-                label="Other"
-                placeholder="Enter details"
-                required
-                rules={rules.requiredWhen("Other details", otherAsked)}
-              />
-            </div>
+            <ContactBlockFields prefix={prefix} label={label} />
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+export function ContactInfoSection() {
+  return (
+    <SectionCard
+      index={3}
+      id="step-contacts"
+      icon={Contact}
+      title="Contact Information"
+      description="Who we speak to in each part of your business. Only the operations contact is asked for; tick the rest as a copy of it where the same person handles them."
+    >
+      <div className="space-y-6">
+        <div>
+          <p className="mb-3 text-sm font-semibold text-foreground">
+            {PRIMARY_CONTACT.label}
+          </p>
+          <ContactBlockFields prefix={PRIMARY_CONTACT.key} label={PRIMARY_CONTACT.label} />
+        </div>
+
+        {CONTACT_BLOCKS.slice(1).map((block) => (
+          <div key={block.key}>
+            <Separator className="mb-6" />
+            <CopyableContactBlock prefix={block.key} label={block.label} />
+          </div>
+        ))}
+      </div>
     </SectionCard>
   );
 }

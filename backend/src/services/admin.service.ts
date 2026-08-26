@@ -44,6 +44,8 @@ const DRIVER_LIST_FIELDS = {
   middleName: true,
   lastName: true,
   dateOfBirth: true,
+  country: true,
+  // Still selected so a frontend from before the rename keeps reading it.
   nationality: true,
   status: true,
   onboardingStatus: true,
@@ -276,7 +278,7 @@ export interface CreateDriverInput {
   middleName: string | null;
   lastName: string | null;
   dateOfBirth: Date | null;
-  nationality: string | null;
+  country: string | null;
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 }
 
@@ -295,7 +297,9 @@ export async function createDriver(input: CreateDriverInput) {
       middleName: input.middleName,
       lastName: input.lastName,
       dateOfBirth: input.dateOfBirth,
-      nationality: input.nationality,
+      country: input.country,
+      // Written under both names: see the note on `nationality` in the schema.
+      nationality: input.country,
       // An admin created account is usable straight away; the driver still has
       // to complete onboarding before it can be approved.
       status: input.status ?? 'ACTIVE',
@@ -313,7 +317,7 @@ export interface UpdateDriverInput {
   middleName?: string | null;
   lastName?: string | null;
   dateOfBirth?: Date | null;
-  nationality?: string | null;
+  country?: string | null;
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 }
 
@@ -330,6 +334,11 @@ export async function updateDriver(driverId: string, input: UpdateDriverInput) {
 
   const { email, ...rest } = input;
   const data: Prisma.DriverUpdateInput = { ...rest };
+
+  // Written under both names: see the note on `nationality` in the schema. Only
+  // when the caller actually sent one, so a patch that leaves the country alone
+  // does not blank the legacy column.
+  if (rest.country !== undefined) data.nationality = rest.country;
 
   if (email !== undefined) {
     const normalised = email.trim().toLowerCase();

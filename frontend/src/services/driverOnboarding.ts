@@ -39,7 +39,7 @@ export function emptyFormValues(): DriverFormValues {
     middleName: "",
     lastName: "",
     dob: "",
-    nationality: "",
+    country: "",
     phone: "",
     email: "",
     profilePhoto: null,
@@ -205,7 +205,7 @@ export function toFormValues(data: DriverOnboardingData): DriverFormValues {
     middleName: data.middleName ?? "",
     lastName: data.lastName ?? "",
     dob: dateInput(data.dateOfBirth),
-    nationality: data.nationality ?? "",
+    country: data.country ?? "",
     phone: data.phone ?? "",
     email: data.email,
     profilePhoto: storedFileOfType(documents, "PROFILE_PHOTO"),
@@ -313,7 +313,7 @@ export async function saveOnboarding(
     middleName: trimmedOrNull(values.middleName),
     lastName: trimmedOrNull(values.lastName),
     dateOfBirth: values.dob || null,
-    nationality: trimmedOrNull(values.nationality),
+    country: trimmedOrNull(values.country),
     phone: trimmedOrNull(values.phone),
   });
 
@@ -346,7 +346,7 @@ export async function saveOnboarding(
   // An Australian national holds no visa but is asked for a passport and a
   // Medicare card instead. Only one of the two sets is on screen at a time, so
   // whichever is hidden is cleared rather than left behind.
-  const isAustralian = values.nationality === "Australia";
+  const isAustralian = values.country === "Australia";
 
   await gateway.saveVisa({
     visaStatus: isAustralian ? null : trimmedOrNull(values.visaStatus),
@@ -375,7 +375,7 @@ export async function saveOnboarding(
   });
 
   // Same rule for the files: only the branch that was on screen is kept, so a
-  // driver who corrects their nationality does not leave the other one behind.
+  // driver who corrects their country does not leave the other one behind.
   await syncDocuments(
     {
       ...values,

@@ -1,12 +1,14 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, Camera, X, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import { UploadCloud, Camera, X, Eye, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/upload/CameraCapture";
+import { useDocumentSource } from "@/context/DocumentSourceContext";
 import {
   ACCEPT_DOCUMENT,
   acceptLabel,
+  dataUrlToFile,
   readAsDataUrl,
   formatBytes,
 } from "@/utils/validation";
@@ -56,8 +58,77 @@ export function FileUpload({
   const [dragging, setDragging] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const source = useDocumentSource();
 
   const formats = acceptLabel(accept);
+
+  /**
+   * Object URLs handed to tabs opened from here.
+   *
+   * Revoked when this field goes away rather than straight after opening: the
+   * tab loads from the URL asynchronously, so revoking on the next line would
+   * sometimes beat it to the bytes. Anything already loaded keeps working
+   * after its URL is revoked.
+   */
+  const objectUrls = useRef<string[]>([]);
+  useEffect(
+    () => () => {
+      for (const url of objectUrls.current) URL.revokeObjectURL(url);
+      objectUrls.current = [];
+    },
+    [],
+  );
+
+  /**
+   * Opens the attached file in a new tab.
+   *
+   * A file just picked has not been anywhere yet - it is a data URL held in the
+   * form - so it is turned into a blob URL and opened as it is. It cannot be
+   * opened directly: browsers refuse to navigate a top level tab to a data URL.
+   *
+   * A file already stored has its bytes in blob storage behind a short lived
+   * signed link that has to be fetched first. The tab is opened before that
+   * await, while the click is still the user gesture the popup blocker is
+   * looking for, and pointed at the file once the link comes back.
+   */
+  const view = async () => {
+    if (!value || opening) return;
+
+    if (value.dataUrl) {
+      const url = URL.createObjectURL(
+        dataUrlToFile({ name: value.name, type: value.type, dataUrl: value.dataUrl }),
+      );
+      objectUrls.current.push(url);
+      window.open(url, "_blank");
+      return;
+    }
+
+    if (!value.documentId) return;
+
+    const tab = window.open("", "_blank");
+    setOpening(true);
+    try {
+      const link = await source.link(value.documentId);
+      // Straight from blob storage when it is signed; a developer running
+      // without Azure gets the API's own streaming path, which needs the
+      // session token and so arrives as a blob.
+      const target = /^https?:\/\//i.test(link.url)
+        ? link.url
+        : await source.blob(value.documentId);
+      if (target.startsWith("blob:")) objectUrls.current.push(target);
+      if (tab) tab.location.href = target;
+    } catch {
+      // Nothing to show. Closing the blank tab is less confusing than leaving
+      // it sitting there empty.
+      tab?.close();
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  /** Whether there is anything to open: bytes in hand, or bytes on the server. */
+  const viewable = Boolean(value?.dataUrl || value?.documentId);
 
   const ingest = async (picked?: File | null) => {
     if (!picked) return;
@@ -90,6 +161,22 @@ export function FileUpload({
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
               {value.name}
             </span>
+            {viewable && (
+              <button
+                type="button"
+                onClick={() => void view()}
+                disabled={opening}
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                aria-label={`View ${value.name}`}
+                title={`View ${value.name}`}
+              >
+                {opening ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onChange(null)}
@@ -164,10 +251,28 @@ export function FileUpload({
                 {value.documentId ? " - already uploaded" : ""}
               </p>
             </div>
+            {viewable && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void view()}
+                disabled={opening}
+                className="shrink-0 text-muted-foreground hover:text-primary"
+                aria-label={`View ${value.name}`}
+              >
+                {opening ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+                View
+              </Button>
+            )}
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500"
               aria-label="Remove file"
             >
               <X className="h-4 w-4" />

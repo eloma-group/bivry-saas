@@ -38,7 +38,7 @@ export async function updatePersonal(
     middleName: string | null;
     lastName: string | null;
     dateOfBirth: Date | null;
-    nationality: string | null;
+    country: string | null;
     phone: string | null;
   },
 ) {
@@ -56,7 +56,9 @@ export async function updatePersonal(
       middleName: data.middleName,
       lastName: data.lastName,
       dateOfBirth: data.dateOfBirth,
-      nationality: data.nationality,
+      country: data.country,
+      // Written under both names: see the note on `nationality` in the schema.
+      nationality: data.country,
       phone: data.phone,
     },
   });

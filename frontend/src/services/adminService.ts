@@ -28,7 +28,7 @@ export interface AdminDriverRow {
   middleName: string | null;
   lastName: string | null;
   dateOfBirth: string | null;
-  nationality: string | null;
+  country: string | null;
   status: AccountStatus;
   onboardingStatus: OnboardingStatus;
   onboardingStep: number;
@@ -166,7 +166,7 @@ export interface CreateDriverInput {
   middleName?: string | null;
   lastName?: string | null;
   dateOfBirth?: string | null;
-  nationality?: string | null;
+  country?: string | null;
   status?: AccountStatus;
 }
 

@@ -391,9 +391,6 @@ export function VendorProfile({
               </Row>
             );
           })}
-          <Row label="Invoice preference">{value(data.invoicePreference)}</Row>
-          <Row label="Invoice sent to">{list(data.invoiceEmails)}</Row>
-          {data.invoiceOther && <Row label="Other">{data.invoiceOther}</Row>}
         </InfoCard>
 
         <InfoCard
@@ -411,7 +408,7 @@ export function VendorProfile({
             </p>
           ) : (
             data.directors.map((director, index) => (
-              <Row key={director.id} label={director.designation || `Director ${index + 1}`}>
+              <Row key={director.id} label={director.name || `Director ${index + 1}`}>
                 <span className="block whitespace-pre-line">
                   {[director.email ?? "", director.contactNumber ?? ""]
                     .filter((line) => line.trim() !== "")
@@ -423,8 +420,8 @@ export function VendorProfile({
         </InfoCard>
 
         <InfoCard icon={Landmark} title="Bank Details">
-          <Row label="Account name">{value(data.bankDetail?.accountName)}</Row>
           <Row label="Bank">{value(data.bankDetail?.bankName)}</Row>
+          <Row label="Account name">{value(data.bankDetail?.accountName)}</Row>
           <Row label="BSB">{value(data.bankDetail?.bsb)}</Row>
           <Row label="Account number">{value(data.bankDetail?.accountNumber)}</Row>
         </InfoCard>
@@ -483,9 +480,6 @@ export function VendorProfile({
           </Row>
           <Row label="Mass management">
             <ExpiryBadge expiry={data.accreditation?.massManagementExpiry} />
-          </Row>
-          <Row label="Basic fatigue">
-            <ExpiryBadge expiry={data.accreditation?.basicFatigueExpiry} />
           </Row>
           <Row label="Dangerous goods">
             <ExpiryBadge expiry={data.accreditation?.dangerousGoodsExpiry} />

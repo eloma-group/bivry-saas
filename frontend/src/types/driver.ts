@@ -45,7 +45,7 @@ export interface DriverFormValues {
   middleName: string;
   lastName: string;
   dob: string;
-  nationality: string;
+  country: string;
   phone: string;
   email: string;
   profilePhoto: UploadedFile | null;

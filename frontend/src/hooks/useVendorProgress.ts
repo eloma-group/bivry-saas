@@ -1,5 +1,5 @@
 import { useFormContext, useWatch } from "react-hook-form";
-import { VENDOR_STEPS } from "@/constants/vendorOptions";
+import { CONTACT_BLOCKS, PRIMARY_CONTACT, VENDOR_STEPS } from "@/constants/vendorOptions";
 import type { StepProgress, DriverProgress } from "./useDriverProgress";
 import type {
   ComplianceDocRow,
@@ -22,6 +22,10 @@ import type {
  * addresses have none, so asking for it would leave the section stuck at short
  * of complete for the vendors who are already finished.
  */
+type ContactKey = (typeof CONTACT_BLOCKS)[number]["key"];
+
+const CONTACT_KEYS = new Set<ContactKey>(CONTACT_BLOCKS.map((block) => block.key));
+
 function isWholeAddress(address: Partial<VendorAddressBlock>): boolean {
   return Boolean(
     address.street1?.trim() &&
@@ -45,10 +49,11 @@ function isFilled(value: unknown): boolean {
       return named.some((row) => typeof row.name === "string" && row.name.trim() !== "");
     }
 
-    // The compliance table: complete once every required row has a file.
+    // The compliance table: nothing is pre-listed, so a row exists only because
+    // somebody added it, and it counts once it carries its file.
     const rows = value as ComplianceDocRow[];
-    if (typeof rows[0] === "object" && rows[0] !== null && "fixed" in rows[0]) {
-      return rows.every((row) => !row.fixed || row.file !== null);
+    if (typeof rows[0] === "object" && rows[0] !== null && "docType" in rows[0]) {
+      return rows.every((row) => row.file !== null);
     }
 
     // Warehouses: every address in the list has to be a whole address.
@@ -86,17 +91,29 @@ function isFilled(value: unknown): boolean {
 /**
  * The value a step's requirement is judged on.
  *
- * The billing address is the one exception. Ticked as a copy, its own fields
- * stay empty and off screen and the principal address is what gets saved as the
- * billing one, so judging the empty block would leave the Addresses step short
- * of complete for everybody who ticked the box.
+ * The two "same as" ticks are the exceptions. A billing address ticked as a
+ * copy of the principal one, or a contact block ticked as a copy of the
+ * operations one, keeps its own fields empty and off screen while the block it
+ * copies is what gets saved under it. Judging the empty block would leave its
+ * step short of complete for everybody who ticked the box.
  */
 function valueFor(
   values: VendorFormValues | undefined,
   key: keyof VendorFormValues,
 ): unknown {
   if (key === "billingAddress" && values?.billingSameAsPrincipal) return values.principalAddress;
+
+  if (values && key !== PRIMARY_CONTACT.key && isContactKey(key)) {
+    const block = values[key];
+    if (block?.sameAsOperations) return values[PRIMARY_CONTACT.key];
+  }
+
   return values?.[key];
+}
+
+/** Whether a step requirement names one of the four contact blocks. */
+function isContactKey(key: keyof VendorFormValues): key is ContactKey {
+  return CONTACT_KEYS.has(key as ContactKey);
 }
 
 /** Derives stepper completion + overall percentage from live form values. */

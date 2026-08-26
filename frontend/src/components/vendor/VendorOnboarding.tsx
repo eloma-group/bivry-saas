@@ -17,6 +17,8 @@ import { AddressSection } from "./forms/AddressSection";
 import { ComplianceDocsSection } from "./forms/ComplianceDocsSection";
 import { Button } from "@/components/ui/button";
 import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
+import { DocumentSourceProvider } from "@/context/DocumentSourceContext";
+import { vendorDocuments } from "@/services/vendorDocuments";
 import { useVendorProgress } from "@/hooks/useVendorProgress";
 import { useAuth } from "@/context/AuthContext";
 import { vendorService, type VendorOnboardingData } from "@/services/vendorService";
@@ -113,10 +115,10 @@ function OnboardingBody({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="space-y-6">
           <VendorInfoSection />
+          <DirectorsSection />
           <ContactInfoSection />
           <BankDetailsSection />
           <AddressSection />
-          <DirectorsSection />
           <BusinessCoverageSection />
           <AccreditationSection />
           <InsuranceSection />
@@ -277,18 +279,23 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
 
   return (
     <FormProvider {...methods}>
-      <OnboardingCanvas>
-        <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
-          <OnboardingBody
-            submitting={submitting}
-            submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
-            editing={!firstSubmission}
-            savingDraft={savingDraft}
-            onSaveDraft={() => void saveDraft()}
-            firstSubmission={firstSubmission}
-          />
-        </form>
-      </OnboardingCanvas>
+      {/* Every upload box below may hold a file already stored. They read it
+          back through the vendor API; left to itself the shared upload
+          component would fall back to the driver one. */}
+      <DocumentSourceProvider source={vendorDocuments}>
+        <OnboardingCanvas>
+          <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
+            <OnboardingBody
+              submitting={submitting}
+              submitLabel={firstSubmission ? "Submit Application" : "Save Changes"}
+              editing={!firstSubmission}
+              savingDraft={savingDraft}
+              onSaveDraft={() => void saveDraft()}
+              firstSubmission={firstSubmission}
+            />
+          </form>
+        </OnboardingCanvas>
+      </DocumentSourceProvider>
     </FormProvider>
   );
 }

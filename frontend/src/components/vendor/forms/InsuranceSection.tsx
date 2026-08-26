@@ -18,10 +18,13 @@ function PolicyFields({
   policyKey,
   label,
   workCover,
+  minimumLiability,
 }: {
   policyKey: string;
   label: string;
   workCover?: boolean;
+  /** The least cover accepted, shown under Sum Assured. */
+  minimumLiability?: string;
 }) {
   const prefix = `insurances.${policyKey}`;
 
@@ -37,6 +40,12 @@ function PolicyFields({
               placeholder="02945156"
               required
               rules={rules.required(`${label} employer number`)}
+            />
+            <DateField
+              name={`${prefix}.issue`}
+              label="Issue Date"
+              required
+              rules={rules.required(`${label} issue date`)}
             />
             <DateField
               name={`${prefix}.validFrom`}
@@ -76,6 +85,12 @@ function PolicyFields({
               rules={rules.required(`${label} insurer`)}
             />
             <DateField
+              name={`${prefix}.issue`}
+              label="Issue Date"
+              required
+              rules={rules.required(`${label} issue date`)}
+            />
+            <DateField
               name={`${prefix}.expiry`}
               label="Expiry Date"
               required
@@ -84,9 +99,14 @@ function PolicyFields({
             <TextField
               name={`${prefix}.sumAssured`}
               label="Sum Assured"
-              placeholder="$1 Million"
+              placeholder={minimumLiability ?? "$1 Million"}
               required
               rules={rules.required(`${label} sum assured`)}
+              hint={
+                minimumLiability
+                  ? `Minimum liability: ${minimumLiability}`
+                  : undefined
+              }
             />
           </>
         )}
@@ -124,6 +144,7 @@ export function InsuranceSection() {
               policyKey={policy.key}
               label={policy.label}
               workCover={policy.workCover}
+              minimumLiability={policy.minimumLiability}
             />
           </div>
         ))}

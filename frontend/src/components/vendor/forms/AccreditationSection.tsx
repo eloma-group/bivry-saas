@@ -24,16 +24,16 @@ export function AccreditationSection() {
           rules={rules.required("Accreditation number")}
         />
         <DateField
+          name="accreditationExpiry"
+          label="Date Of Expiry"
+          required
+          rules={rules.required("Date of expiry")}
+        />
+        <DateField
           name="massManagementExpiry"
           label="Mass Management Expiry Date"
           required
           rules={rules.required("Mass management expiry")}
-        />
-        <DateField
-          name="basicFatigueExpiry"
-          label="Basic Fatigue Management Expiry Date"
-          required
-          rules={rules.required("Basic fatigue management expiry")}
         />
         <DateField
           name="dangerousGoodsExpiry"

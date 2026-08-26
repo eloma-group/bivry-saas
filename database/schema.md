@@ -122,9 +122,9 @@ look up a column. Every table, column, type, default and relation is below.
 | `legal_name` | text | NULL |  |  |
 | `website_address` | text | NULL |  |  |
 | `billing_same_as_principal` | boolean | NOT NULL | false | Whether the billing address is a copy of the principal one. Stored so the\ntick comes back ticked; both rows are written out either way. |
-| `invoice_preference` | text | NULL |  | How invoices reach this vendor: Mail, Email, Portal. |
-| `invoice_emails` | text | NOT NULL |  | Which of the contact emails invoices are copied to. |
-| `invoice_other` | text | NULL |  | Free text, used when the preference list above does not cover it. |
+| `invoice_preference` | text | NULL |  | The three invoice preference columns. The form stopped asking for these\nand no code here writes them any more, but they still hold what every\nvendor answered while it did, and a deployed build from before the change\nstill reads them. Left in place for both reasons - the same arrangement\n`tradingName` above is in. Remove them, and these lines, once no deployed\nbuild reads them and the answers are no longer wanted. |
+| `invoice_emails` | text | NOT NULL |  |  |
+| `invoice_other` | text | NULL |  |  |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
 | `onboarding_status` | onboarding_status | NOT NULL | 'NOT_STARTED' |  |
 | `onboarding_step` | integer | NOT NULL | 0 | Index of the last completed onboarding step, used to resume the wizard. |
@@ -154,7 +154,7 @@ look up a column. Every table, column, type, default and relation is below.
 
 ### `vendor_contacts`
 
-One contact block per department, as the vendor form asks for them.
+One contact block per department, as the vendor form asks for them.\n\nThe form only asks for the operations block and offers the other three as a\ntick that copies it. There is no column for that tick: a copied block holds\ndetails identical to the operations one, so the tick is read back off the\nrows themselves. Storing it as well would be a second answer to a question\nthe data already answers, free to disagree with it.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -185,7 +185,8 @@ Company C-suite. A vendor lists as many directors as it has.
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
 | `position` | integer | NOT NULL | 0 | Keeps the rows in the order the vendor entered them. |
-| `designation` | text | NULL |  |  |
+| `name` | text | NULL |  | The director's full name, as it reads on the document naming them. |
+| `designation` | text | NULL |  | Superseded by `name`: the form asks who the director is rather than what\nthey are called in the company. Read by no code here any more, and no\nlonger written, but still declared because a deployed build from before\nthat change selects it. Remove it, and this line, once no deployed build\nreads it - the same arrangement `tradingName` is in. |
 | `email` | text | NULL |  |  |
 | `contact_number` | text | NULL |  |  |
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
@@ -306,8 +307,9 @@ Certificate of accreditation. One per vendor, several expiry dates on it.
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `vendor_id` | uuid | NOT NULL |  | unique; FK to `vendors` (cascade delete) |
 | `accreditation_number` | text | NULL |  |  |
+| `expiry_date` | date | NULL |  | When the accreditation itself lapses, as distinct from the scheme expiry\ndates below, which each belong to one module of it. |
 | `mass_management_expiry` | date | NULL |  |  |
-| `basic_fatigue_expiry` | date | NULL |  |  |
+| `basic_fatigue_expiry` | date | NULL |  | The form stopped asking for this one. Still declared and still holding\nwhat was answered while it did, because a deployed build from before that\nchange selects it. Remove it, and this line, once no deployed build reads\nit - the same arrangement `tradingName` is in. |
 | `dangerous_goods_expiry` | date | NULL |  |  |
 | `nhvas_expiry` | date | NULL |  |  |
 | `haccp_expiry` | date | NULL |  |  |
@@ -333,6 +335,7 @@ One row per policy the vendor holds. Work cover carries its own columns.
 | `type` | vendor_insurance_type | NOT NULL |  |  |
 | `policy_number` | text | NULL |  |  |
 | `insurer` | text | NULL |  |  |
+| `issue_date` | date | NULL |  | When the policy was issued. Asked for on every policy, work cover\nincluded, alongside whichever window that policy is keyed by. |
 | `expiry_date` | date | NULL |  |  |
 | `sum_assured` | text | NULL |  |  |
 | `employer_number` | text | NULL |  | Work cover only: it is keyed by employer number and a validity window. |
@@ -414,7 +417,8 @@ Every file a vendor uploads. `category` names the extra compliance rows\nthe ven
 | `middle_name` | text | NULL |  |  |
 | `last_name` | text | NULL |  |  |
 | `date_of_birth` | date | NULL |  |  |
-| `nationality` | text | NULL |  |  |
+| `country` | text | NULL |  | The country on the driver's passport, held as the country itself -\n"Australia" - which is what the form has always offered. It was called\n`nationality`, which would be "Australian": a different word for a\ndifferent thing, and never what was stored here. |
+| `nationality` | text | NULL |  | The same answer under that old name. Read by no code here any more, and\nstill written, because a deployed build from before the rename reads it:\nmigrations run ahead of the app and again on a rollback, so the column\noutlives the code by one release on purpose. Remove it, and this line,\nonce no deployed build reads it. |
 | `avatar_url` | text | NULL |  |  |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
 | `onboarding_status` | onboarding_status | NOT NULL | 'NOT_STARTED' |  |

@@ -48,6 +48,15 @@ export const ACN_LENGTH = 9;
 
 export const ACN_RE = /^\d{9}$/;
 
+/**
+ * A BSB identifies the branch an account is held at. Exactly six digits,
+ * always. It is printed with a dash or a space - `113-100`, `113 100` - but the
+ * number itself carries neither, so the field takes digits only.
+ */
+export const BSB_LENGTH = 6;
+
+export const BSB_RE = /^\d{6}$/;
+
 export const MIN_AGE = 18;
 
 /**
@@ -131,10 +140,44 @@ export const rules = {
   requiredWhen: (label: string, asked: () => boolean) => ({
     validate: (value: unknown) => !asked() || isPresent(value) || `${label} is required`,
   }),
+  /**
+   * Any rule below, insisted on only while its field is being asked for.
+   *
+   * Takes the rule's own "required" message and moves it behind the same check
+   * `requiredWhen` uses, so a contact block ticked as a copy of another stops
+   * demanding answers the moment it leaves the screen - without restating the
+   * length and format rules that go with it.
+   *
+   * Those are deliberately left in place. react-hook-form skips `pattern` and
+   * `maxLength` on an empty value, so a hidden empty field passes them anyway,
+   * and a hidden field with something still in it is worth checking.
+   */
+  onlyWhen: <T extends { required?: string }>(rule: T, asked: () => boolean) => {
+    const { required, ...format } = rule;
+    return {
+      ...format,
+      // A rule that was not insisting on an answer in the first place - `name`
+      // called with required false - keeps only its format checks.
+      validate: (value: unknown) =>
+        required === undefined || !asked() || isPresent(value) || required,
+    };
+  },
   email: {
     required: "Email is required",
     pattern: { value: EMAIL_RE, message: "Enter a valid email address" },
   },
+  /**
+   * A name as it is written on a document.
+   *
+   * No letters-only rule, unlike `name` below. This is copied off a passport or
+   * a company extract, and those carry apostrophes, hyphens, full stops in
+   * initials and the occasional comma. Refusing them would refuse the very
+   * thing the field asks to be shown. Only the length is capped.
+   */
+  fullName: (label: string) => ({
+    required: `${label} is required`,
+    maxLength: { value: NAME_MAX, message: `${label} must be ${NAME_MAX} characters or fewer` },
+  }),
   /** A person's name. Pass the label so the required message reads properly. */
   name: (label: string, required = true) => ({
     ...(required ? { required: `${label} is required` } : {}),
@@ -184,6 +227,34 @@ export const rules = {
       if (abn === "") return "ABN is required";
       if (!/^\d+$/.test(abn)) return "ABN is digits only - no letters, spaces or symbols";
       return ABN_RE.test(abn) || `ABN must be exactly ${ABN_LENGTH} digits`;
+    },
+  },
+  /**
+   * A BSB. Checked on every keystroke rather than on the way out of the field,
+   * so the sixth digit either settles it or says why it has not.
+   */
+  bsb: {
+    required: "BSB is required",
+    validate: (value: unknown) => {
+      const bsb = typeof value === "string" ? value.trim() : "";
+      if (bsb === "") return "BSB is required";
+      if (!/^\d+$/.test(bsb)) return "BSB is digits only - no letters, spaces or symbols";
+      return BSB_RE.test(bsb) || `BSB must be exactly ${BSB_LENGTH} digits`;
+    },
+  },
+  /**
+   * An account number. Digits only, and no length rule: how many digits one
+   * runs to depends on the bank, so a cap here would refuse a real account.
+   */
+  accountNumber: {
+    required: "Account number is required",
+    validate: (value: unknown) => {
+      const account = typeof value === "string" ? value.trim() : "";
+      if (account === "") return "Account number is required";
+      return (
+        /^\d+$/.test(account) ||
+        "Account number is digits only - no letters, spaces or symbols"
+      );
     },
   },
   /** An ACN. Optional, because not every vendor is a registered company. */

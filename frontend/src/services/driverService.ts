@@ -76,7 +76,7 @@ export interface PersonalPayload {
   middleName: string | null;
   lastName: string | null;
   dateOfBirth: string | null;
-  nationality: string | null;
+  country: string | null;
   phone: string | null;
 }
 
@@ -122,7 +122,7 @@ export interface DriverOnboardingData {
   middleName: string | null;
   lastName: string | null;
   dateOfBirth: string | null;
-  nationality: string | null;
+  country: string | null;
   avatarUrl: string | null;
   status: "PENDING" | "ACTIVE" | "SUSPENDED" | "DEACTIVATED";
   onboardingStatus: OnboardingStatus;

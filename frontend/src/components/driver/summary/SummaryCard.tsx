@@ -55,7 +55,7 @@ export function SummaryCard({
 
   // An Australian national is asked for a passport and a Medicare card in place
   // of a visa, so the checklist follows whichever half is on screen.
-  const isAustralian = v?.nationality === "Australia";
+  const isAustralian = v?.country === "Australia";
 
   const docs: { label: string; file: UploadedFile | null }[] = [
     { label: "Licence Front", file: v?.licenceFront ?? null },

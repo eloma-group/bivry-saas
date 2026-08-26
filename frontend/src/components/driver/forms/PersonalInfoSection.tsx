@@ -75,11 +75,11 @@ export function PersonalInfoSection({
           rules={rules.dateOfBirth()}
         />
         <SelectField
-          name="nationality"
-          label="Nationality"
+          name="country"
+          label="Country"
           options={COUNTRIES}
           required
-          rules={rules.required("Nationality")}
+          rules={rules.required("Country")}
         />
         <TextField
           name="phone"

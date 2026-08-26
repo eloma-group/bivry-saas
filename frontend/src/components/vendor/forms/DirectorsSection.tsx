@@ -2,10 +2,9 @@ import { Users2, Plus, Trash2 } from "lucide-react";
 import { useFormContext, useFieldArray } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "@/components/form/SectionCard";
-import { TextField, SelectField } from "@/components/form/Fields";
+import { TextField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
-import { DESIGNATIONS } from "@/constants/vendorOptions";
-import { PHONE_MAX, rules } from "@/utils/validation";
+import { NAME_MAX, PHONE_MAX, rules } from "@/utils/validation";
 import type { VendorFormValues } from "@/types/vendor";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -16,7 +15,7 @@ export function DirectorsSection() {
 
   return (
     <SectionCard
-      index={5}
+      index={2}
       id="step-company"
       icon={Users2}
       title="Company C-Suite Details"
@@ -49,12 +48,14 @@ export function DirectorsSection() {
               </div>
 
               <div className={GRID}>
-                <SelectField
-                  name={`directors.${index}.designation`}
-                  label="Designation"
-                  options={DESIGNATIONS}
+                <TextField
+                  name={`directors.${index}.name`}
+                  label="Director Name"
+                  placeholder="Sanket Salve"
                   required
-                  rules={rules.required("Designation")}
+                  maxLength={NAME_MAX}
+                  rules={rules.fullName("Director name")}
+                  hint="Full Name as per the document."
                 />
                 <TextField
                   name={`directors.${index}.email`}
@@ -88,7 +89,7 @@ export function DirectorsSection() {
           type="button"
           variant="outline"
           onClick={() =>
-            append({ id: crypto.randomUUID(), designation: "", email: "", contactNumber: "" })
+            append({ id: crypto.randomUUID(), name: "", email: "", contactNumber: "" })
           }
         >
           <Plus className="h-4 w-4" /> Add More Director

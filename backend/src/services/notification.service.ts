@@ -68,7 +68,7 @@ const SECTION_LABEL: Record<NotificationSection, string> = {
   ACCREDITATION_NHVAS: 'NHVAS accreditation',
   ACCREDITATION_HACCP: 'HACCP accreditation',
   INSURANCE: 'Insurance policy',
-  COMPLIANCE_DOCUMENT: 'Compliance document',
+  COMPLIANCE_DOCUMENT: 'Policy',
 };
 
 /** Midnight UTC today, to match how a `@db.Date` column comes back. */

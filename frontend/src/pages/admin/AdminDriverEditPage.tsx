@@ -166,7 +166,7 @@ export function AdminDriverEditPage({ driverId }: { driverId?: string }) {
               lastName: values.lastName.trim() || null,
               phone: values.phone.trim() || null,
               dateOfBirth: values.dob || null,
-              nationality: values.nationality || null,
+              country: values.country || null,
               status,
             })
           ).id

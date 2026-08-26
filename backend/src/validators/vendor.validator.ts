@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { optionalPersonName, optionalPhoneNumber } from './fields';
+import { NAME_MAX, optionalPersonName, optionalPhoneNumber } from './fields';
 
 /** Empty strings from the form are treated as "not provided". */
 const optionalDate = z
@@ -17,6 +17,51 @@ const optionalInt = z
   .union([z.coerce.number().int().min(0).max(100000), z.literal(''), z.null()])
   .optional()
   .transform((value) => (value === '' || value === undefined ? null : value));
+
+/**
+ * A BSB is exactly six digits. The frontend says the same in
+ * `utils/validation.ts`; keep the two in step.
+ */
+const BSB_LENGTH = 6;
+
+/**
+ * Digits and nothing else. Optional like everything else here - the form saves
+ * as a draft - but a value that is present has to be a number.
+ *
+ * `exact` is for a number with a fixed length. Left out there is no length rule
+ * at all, which is what an account number needs: how many digits one runs to
+ * depends on the bank, so a ceiling here would refuse a real account.
+ */
+const optionalDigits = (label: string, exact?: number) =>
+  z
+    .union([
+      z
+        .string()
+        .trim()
+        .min(1)
+        // One issue at a time, and the more basic one first: told that a dashed
+        // BSB is both non-numeric and the wrong length, the length is noise -
+        // take the dashes out and it is six digits after all.
+        .superRefine((value, ctx) => {
+          if (!/^\d+$/.test(value)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `${label} is digits only - no letters, spaces or symbols`,
+            });
+            return;
+          }
+          if (exact !== undefined && value.length !== exact) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `${label} must be exactly ${exact} digits`,
+            });
+          }
+        }),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .transform((value) => (value === '' || value === undefined ? null : value));
 
 /** A multi select comes back as a list of labels, empty entries dropped. */
 const textList = (max = 150) =>
@@ -88,16 +133,16 @@ export const contactsSectionSchema = z.object({
       }),
     )
     .max(CONTACT_TYPES.length),
-  invoicePreference: optionalText(100),
-  invoiceEmails: textList(150),
-  invoiceOther: optionalText(300),
 });
 
 export const directorsSectionSchema = z.object({
   directors: z
     .array(
       z.object({
-        designation: optionalText(100),
+        // Not `optionalPersonName`: this is copied off the document naming the
+        // director, and those carry apostrophes, hyphens and initials that the
+        // letters-only rule would refuse. Only the length is capped.
+        name: optionalText(NAME_MAX),
         email: optionalText(150),
         contactNumber: optionalPhoneNumber('Contact number'),
       }),
@@ -108,8 +153,8 @@ export const directorsSectionSchema = z.object({
 export const bankSectionSchema = z.object({
   accountName: optionalText(150),
   bankName: optionalText(150),
-  bsb: optionalText(20),
-  accountNumber: optionalText(40),
+  bsb: optionalDigits('BSB', BSB_LENGTH),
+  accountNumber: optionalDigits('Account number'),
 });
 
 export const coverageSectionSchema = z.object({
@@ -161,8 +206,8 @@ export const yardsSectionSchema = z.object({
 
 export const accreditationSectionSchema = z.object({
   accreditationNumber: optionalText(50),
+  expiryDate: optionalDate,
   massManagementExpiry: optionalDate,
-  basicFatigueExpiry: optionalDate,
   dangerousGoodsExpiry: optionalDate,
   nhvasExpiry: optionalDate,
   haccpExpiry: optionalDate,
@@ -175,6 +220,7 @@ export const insurancesSectionSchema = z.object({
         type: z.enum(INSURANCE_TYPES),
         policyNumber: optionalText(50),
         insurer: optionalText(150),
+        issueDate: optionalDate,
         expiryDate: optionalDate,
         sumAssured: optionalText(50),
         // Work cover is keyed by an employer number and a validity window

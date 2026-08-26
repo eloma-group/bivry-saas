@@ -171,9 +171,6 @@ export interface ContactInput {
 
 export interface ContactsInput {
   contacts: ContactInput[];
-  invoicePreference: string | null;
-  invoiceEmails: string[];
-  invoiceOther: string | null;
 }
 
 export async function updateContacts(vendorId: string, input: ContactsInput) {
@@ -186,15 +183,6 @@ export async function updateContacts(vendorId: string, input: ContactsInput) {
     });
   }
 
-  await prisma.vendor.update({
-    where: { id: vendorId },
-    data: {
-      invoicePreference: input.invoicePreference,
-      invoiceEmails: input.invoiceEmails,
-      invoiceOther: input.invoiceOther,
-    },
-  });
-
   await touchOnboarding(vendorId);
   return prisma.vendorContact.findMany({ where: { vendorId } });
 }
@@ -204,7 +192,7 @@ export async function updateContacts(vendorId: string, input: ContactsInput) {
 // ---------------------------------------------------------------------------
 
 export interface DirectorInput {
-  designation: string | null;
+  name: string | null;
   email: string | null;
   contactNumber: string | null;
 }
@@ -356,8 +344,8 @@ export async function updateCoverage(vendorId: string, data: CoverageInput) {
 
 export interface AccreditationInput {
   accreditationNumber: string | null;
+  expiryDate: Date | null;
   massManagementExpiry: Date | null;
-  basicFatigueExpiry: Date | null;
   dangerousGoodsExpiry: Date | null;
   nhvasExpiry: Date | null;
   haccpExpiry: Date | null;
@@ -387,6 +375,7 @@ export interface InsuranceInput {
   type: VendorInsuranceType;
   policyNumber: string | null;
   insurer: string | null;
+  issueDate: Date | null;
   expiryDate: Date | null;
   sumAssured: string | null;
   employerNumber: string | null;
@@ -434,18 +423,6 @@ export async function saveProgress(vendorId: string, step: number) {
 // Submission
 // ---------------------------------------------------------------------------
 
-/** The compliance documents every vendor has to hand in, in the form's order. */
-export const REQUIRED_COMPLIANCE_DOCS: Array<{ docType: VendorDocumentType; label: string }> = [
-  { docType: 'COMPLIANCE_DRUG', label: 'Drug' },
-  { docType: 'COMPLIANCE_ALCOHOL_POLICY', label: 'Alcohol Policy' },
-  { docType: 'COMPLIANCE_PROCEDURE', label: 'Procedure' },
-  { docType: 'COMPLIANCE_RISK_MANAGEMENT', label: 'Risk Management Policy' },
-  { docType: 'COMPLIANCE_SPEED_POLICY', label: 'Speed Policy' },
-  { docType: 'COMPLIANCE_FATIGUE_POLICY', label: 'Fatigue Policy & Presentation System' },
-  { docType: 'COMPLIANCE_GPS_SNAPSHOT', label: 'GPS Snapshot' },
-  { docType: 'COMPLIANCE_WHS_POLICY', label: 'Work Health & Safety Policy' },
-];
-
 /**
  * Whether a registered address has everything the form asks for.
  *
@@ -472,7 +449,6 @@ export async function submitOnboarding(vendorId: string) {
       addresses: true,
       warehouses: true,
       accreditation: true,
-      documents: { where: { deletedAt: null }, select: { docType: true } },
     },
   });
 
@@ -495,10 +471,10 @@ export async function submitOnboarding(vendorId: string) {
   if (vendor.warehouses.length === 0) missing.push('Warehouse address');
   if (!vendor.accreditation?.accreditationNumber) missing.push('Accreditation number');
 
-  const held = new Set(vendor.documents.map((document) => document.docType));
-  for (const required of REQUIRED_COMPLIANCE_DOCS) {
-    if (!held.has(required.docType)) missing.push(required.label);
-  }
+  // No fixed compliance pack any more: the form offers a list of document types
+  // and the vendor attaches the ones that apply to them, so there is no set of
+  // docTypes that every vendor must hold. What each attached row does still
+  // need is its file, and the form will not let one be added without it.
 
   if (missing.length > 0) {
     throw ApiError.badRequest(`Please complete these first: ${missing.join(', ')}`);

@@ -11,6 +11,19 @@ export interface ContactBlock {
   designation: string;
   contactNumber: string;
   email: string;
+  /**
+   * Whether this block was ticked as a copy of the operations one.
+   *
+   * Form state only - nothing stores it. A copied block is saved holding the
+   * operations details verbatim, so on the way back in the tick is read off the
+   * rows themselves rather than remembered separately; see `contactBlock`.
+   *
+   * The fields above keep whatever was typed in them and are not cleared by the
+   * tick, the same way the billing address behaves: untick it and what was
+   * there comes back. The copy is made on the way out, in `saveOnboarding`.
+   * Always false on the operations block itself.
+   */
+  sameAsOperations: boolean;
 }
 
 /**
@@ -26,7 +39,8 @@ export interface TradingNameRow {
 
 export interface DirectorRow {
   id: string;
-  designation: string;
+  /** Full name, as it reads on the document naming them. */
+  name: string;
   email: string;
   contactNumber: string;
 }
@@ -67,6 +81,8 @@ export interface SiteRow extends VendorAddressBlock {
 export interface InsuranceRow {
   policyNumber: string;
   insurer: string;
+  /** yyyy-MM-dd. Asked for on every policy, work cover included. */
+  issue: string;
   expiry: string;
   sumAssured: string;
   employerNumber: string;
@@ -84,18 +100,14 @@ export type InsuranceKey =
   | "marineAlcohol"
   | "coc";
 
-/** A row in the compliance documents table. */
+/** A row in the policies table. */
 export interface ComplianceDocRow {
   id: string;
   /** The stored document type. Extra rows the vendor adds are ADDITIONAL. */
   docType: string;
-  /** What the row is called on screen, and what an extra row is saved as. */
+  /** Which of the offered document types this row is, saved as its category. */
   label: string;
-  /** False for the rows a vendor added themselves, which can be removed. */
-  fixed: boolean;
   file: UploadedFile | null;
-  /** yyyy-MM-dd. */
-  issue: string;
 }
 
 export interface VendorFormValues {
@@ -123,11 +135,8 @@ export interface VendorFormValues {
   /* Section 2 - Contact information */
   operations: ContactBlock;
   compliance: ContactBlock;
-  admin: ContactBlock;
+  accounts: ContactBlock;
   dispatch: ContactBlock;
-  invoicePreference: string;
-  invoiceEmails: string[];
-  invoiceOther: string;
 
   /* Section 3 - Bank details */
   accountName: string;
@@ -163,8 +172,9 @@ export interface VendorFormValues {
 
   /* Section 7 - Certificate of accreditation */
   accreditationNumber: string;
+  /** When the accreditation itself lapses, not one of its scheme modules. */
+  accreditationExpiry: string;
   massManagementExpiry: string;
-  basicFatigueExpiry: string;
   dangerousGoodsExpiry: string;
   nhvasExpiry: string;
   haccpExpiry: string;
@@ -173,7 +183,7 @@ export interface VendorFormValues {
   /* Section 8 - Insurance details */
   insurances: Record<InsuranceKey, InsuranceRow>;
 
-  /* Section 9 - Compliance documents */
+  /* Section 9 - Policies */
   complianceDocs: ComplianceDocRow[];
 }
 

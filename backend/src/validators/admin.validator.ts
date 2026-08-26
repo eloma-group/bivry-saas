@@ -82,9 +82,18 @@ export const createDriverSchema = z.object({
   middleName: optionalPersonName('Middle name'),
   lastName: optionalPersonName('Last name'),
   dateOfBirth: optionalDateOfBirth,
+  country: optionalText(100),
+  // `nationality` is what a build from before the rename sends. It is accepted
+  // for one release and folded into `country`, so a save from a frontend that
+  // has not been replaced yet corrects the answer instead of wiping it. Drop
+  // it once no deployed build sends it.
   nationality: optionalText(100),
   status: z.enum(ACCOUNT_STATUSES).optional(),
-});
+})
+  .transform(({ nationality, ...rest }) => ({
+    ...rest,
+    country: rest.country ?? nationality,
+  }));
 
 export const updateDriverSchema = z
   .object({
@@ -101,9 +110,18 @@ export const updateDriverSchema = z
     middleName: patchPersonName('Middle name'),
     lastName: patchPersonName('Last name'),
     dateOfBirth: patchDateOfBirth,
+    country: patchText(100),
+    // `nationality` is what a build from before the rename sends. It is accepted
+    // for one release and folded into `country`, so a save from a frontend that
+    // has not been replaced yet corrects the answer instead of wiping it. Drop
+    // it once no deployed build sends it.
     nationality: patchText(100),
     status: z.enum(ACCOUNT_STATUSES).optional(),
   })
+  .transform(({ nationality, ...rest }) => ({
+    ...rest,
+    country: rest.country ?? nationality,
+  }))
   // Every field is optional on its own, but an empty body is a mistake, not an
   // instruction to change nothing.
   .refine((data) => Object.values(data).some((value) => value !== undefined), {

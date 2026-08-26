@@ -249,7 +249,7 @@ export function DriverProfile({
     [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ") ||
     data.email;
   const status = STATUS_LABEL[data.onboardingStatus];
-  const isAustralian = data.nationality === "Australia";
+  const isAustralian = data.country === "Australia";
 
   const current = data.addresses.find((row) => row.type === "CURRENT");
   const permanent = data.addresses.find((row) => row.type === "PERMANENT");
@@ -332,7 +332,7 @@ export function DriverProfile({
         <InfoCard icon={User} title="Personal Information">
           <Row label="Full name">{value(fullName)}</Row>
           <Row label="Date of birth">{prettyDate(data.dateOfBirth)}</Row>
-          <Row label="Nationality">{value(data.nationality)}</Row>
+          <Row label="Country">{value(data.country)}</Row>
           <Row label="Phone">{value(data.phone)}</Row>
           <Row label="Email">
             <span className="inline-flex flex-wrap items-center justify-end gap-2">

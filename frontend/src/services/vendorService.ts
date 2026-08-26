@@ -58,7 +58,7 @@ export interface VendorContactPayload {
 }
 
 export interface VendorDirectorPayload {
-  designation: string | null;
+  name: string | null;
   email: string | null;
   contactNumber: string | null;
 }
@@ -102,8 +102,8 @@ export interface VendorWarehousePayload {
 
 export interface VendorAccreditationPayload {
   accreditationNumber: string | null;
+  expiryDate: string | null;
   massManagementExpiry: string | null;
-  basicFatigueExpiry: string | null;
   dangerousGoodsExpiry: string | null;
   nhvasExpiry: string | null;
   haccpExpiry: string | null;
@@ -113,6 +113,7 @@ export interface VendorInsurancePayload {
   type: VendorInsuranceType;
   policyNumber: string | null;
   insurer: string | null;
+  issueDate: string | null;
   expiryDate: string | null;
   sumAssured: string | null;
   employerNumber: string | null;
@@ -155,9 +156,6 @@ export interface VendorOnboardingData {
   websiteAddress: string | null;
   contactPerson: string | null;
   logoUrl: string | null;
-  invoicePreference: string | null;
-  invoiceEmails: string[];
-  invoiceOther: string | null;
   status: "PENDING" | "ACTIVE" | "SUSPENDED" | "DEACTIVATED";
   onboardingStatus: OnboardingStatus;
   onboardingStep: number;
@@ -187,12 +185,7 @@ export const vendorService = {
     return request({ url: "/vendor/onboarding/company", method: "PUT", data: values });
   },
 
-  saveContacts(values: {
-    contacts: VendorContactPayload[];
-    invoicePreference: string | null;
-    invoiceEmails: string[];
-    invoiceOther: string | null;
-  }) {
+  saveContacts(values: { contacts: VendorContactPayload[] }) {
     return request({ url: "/vendor/onboarding/contacts", method: "PUT", data: values });
   },
 

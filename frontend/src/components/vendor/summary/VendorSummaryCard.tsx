@@ -73,7 +73,6 @@ export function VendorSummaryCard({
   const statuses: StatusRow[] = [
     { label: "NHVAS", expiry: v?.nhvasExpiry },
     { label: "Mass Management", expiry: v?.massManagementExpiry },
-    { label: "Basic Fatigue", expiry: v?.basicFatigueExpiry },
     { label: "Dangerous Goods", expiry: v?.dangerousGoodsExpiry },
     { label: "HACCP", expiry: v?.haccpExpiry },
     { label: "Product Liability", expiry: v?.insurances?.productLiability?.expiry },

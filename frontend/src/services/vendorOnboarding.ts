@@ -1,9 +1,10 @@
 import { vendorService } from "./vendorService";
 import { dataUrlToFile } from "@/utils/validation";
 import {
+  COMPLIANCE_DOCUMENT_TYPES,
   CONTACT_BLOCKS,
   INSURANCE_POLICIES,
-  REQUIRED_COMPLIANCE_DOCS,
+  PRIMARY_CONTACT,
 } from "@/constants/vendorOptions";
 import type {
   VendorContactPayload,
@@ -37,11 +38,13 @@ const emptyContact: ContactBlock = {
   designation: "",
   contactNumber: "",
   email: "",
+  sameAsOperations: false,
 };
 
 const emptyInsurance: InsuranceRow = {
   policyNumber: "",
   insurer: "",
+  issue: "",
   expiry: "",
   sumAssured: "",
   employerNumber: "",
@@ -57,16 +60,14 @@ function emptyInsurances(): Record<InsuranceKey, InsuranceRow> {
   ) as Record<InsuranceKey, InsuranceRow>;
 }
 
-/** The eight rows every vendor fills in, blank. Extra rows are appended after. */
+/**
+ * A blank compliance section, which is an empty one.
+ *
+ * There is no fixed pack: a vendor adds the documents that apply to them, so a
+ * form nobody has filled in yet has no rows at all.
+ */
 function emptyComplianceDocs(): ComplianceDocRow[] {
-  return REQUIRED_COMPLIANCE_DOCS.map((doc) => ({
-    id: doc.docType,
-    docType: doc.docType,
-    label: doc.label,
-    fixed: true,
-    file: null,
-    issue: "",
-  }));
+  return [];
 }
 
 /** An address with nothing in it. Australia leads, as most vendors are here. */
@@ -131,11 +132,8 @@ export function emptyFormValues(): VendorFormValues {
 
     operations: { ...emptyContact },
     compliance: { ...emptyContact },
-    admin: { ...emptyContact },
+    accounts: { ...emptyContact },
     dispatch: { ...emptyContact },
-    invoicePreference: "",
-    invoiceEmails: [],
-    invoiceOther: "",
 
     directors: [],
 
@@ -154,8 +152,8 @@ export function emptyFormValues(): VendorFormValues {
     businessOperations: [],
 
     accreditationNumber: "",
+    accreditationExpiry: "",
     massManagementExpiry: "",
-    basicFatigueExpiry: "",
     dangerousGoodsExpiry: "",
     nhvasExpiry: "",
     haccpExpiry: "",
@@ -181,6 +179,19 @@ function trimmedOrNull(value: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+/**
+ * The digits of a stored number, for the fields that now take digits only.
+ *
+ * A BSB or an account number saved before that rule could carry a dash or a
+ * space - the account number field used to suggest `1234-5678-9012` - and
+ * loading one of those straight back in would fail a rule the vendor never
+ * broke. Stripping on the way in leaves the same number, correctly typed, and
+ * the next save stores it that way.
+ */
+function digitsOf(value: string | null | undefined): string {
+  return (value ?? "").replace(/\D/g, "");
+}
+
 /** A document that is already stored: the bytes stay on the server. */
 function storedFile(doc: VendorDocument): UploadedFile {
   return {
@@ -200,10 +211,11 @@ function storedFileOfType(
   return match ? storedFile(match) : null;
 }
 
-function contactBlock(
+/** The four answers one contact block holds, in a comparable shape. */
+function contactDetails(
   contacts: VendorOnboardingData["contacts"],
   apiType: string,
-): ContactBlock {
+): Omit<ContactBlock, "sameAsOperations"> {
   const stored = contacts.find((row) => row.type === apiType);
   return {
     contactPerson: stored?.contactPerson ?? "",
@@ -213,6 +225,43 @@ function contactBlock(
   };
 }
 
+/** Whether a block was answered at all. */
+function hasContactDetails(block: Omit<ContactBlock, "sameAsOperations">): boolean {
+  return Object.values(block).some((field) => field.trim() !== "");
+}
+
+/**
+ * One contact block, with the "same as operations" tick worked out.
+ *
+ * Nothing stores that tick. A block ticked as a copy is saved holding the
+ * operations details verbatim, so a block that matches operations in all four
+ * answers is one that was copied - which makes the rows their own record of it,
+ * with no second copy of the answer free to drift out of step.
+ *
+ * Two guards. Operations is never a copy of itself, and a block only counts as
+ * copied once operations has actually been answered - otherwise a blank form,
+ * where every block matches every other, would open with three ticks in it.
+ *
+ * Somebody who typed the same person into two blocks rather than ticking the
+ * box gets the box ticked on the way back. That is the same record either way,
+ * which is what makes reading it back off the rows safe.
+ */
+function contactBlock(
+  contacts: VendorOnboardingData["contacts"],
+  apiType: string,
+  operations?: Omit<ContactBlock, "sameAsOperations">,
+): ContactBlock {
+  const details = contactDetails(contacts, apiType);
+  const copied =
+    operations !== undefined &&
+    hasContactDetails(operations) &&
+    (Object.keys(details) as Array<keyof typeof details>).every(
+      (field) => details[field] === operations[field],
+    );
+
+  return { ...details, sameAsOperations: copied };
+}
+
 // ---------------------------------------------------------------------------
 // API -> form
 // ---------------------------------------------------------------------------
@@ -220,6 +269,8 @@ function contactBlock(
 /** Fills the wizard with everything already saved, so editing resumes in place. */
 export function toFormValues(data: VendorOnboardingData): VendorFormValues {
   const documents = data.documents;
+  // The block the other three are compared against to work out their tick.
+  const operations = contactDetails(data.contacts, "OPERATIONS");
 
   const insurances = emptyInsurances();
   for (const policy of INSURANCE_POLICIES) {
@@ -227,6 +278,7 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     insurances[policy.key] = {
       policyNumber: stored?.policyNumber ?? "",
       insurer: stored?.insurer ?? "",
+      issue: dateInput(stored?.issueDate),
       expiry: dateInput(stored?.expiryDate),
       sumAssured: stored?.sumAssured ?? "",
       employerNumber: stored?.employerNumber ?? "",
@@ -237,30 +289,15 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     };
   }
 
-  // The eight fixed rows first, then whatever the vendor added themselves.
-  const complianceDocs: ComplianceDocRow[] = REQUIRED_COMPLIANCE_DOCS.map((required) => {
-    const stored = documents.find((doc) => doc.docType === required.docType);
-    return {
-      id: required.docType,
-      docType: required.docType,
-      label: required.label,
-      fixed: true,
-      file: stored ? storedFile(stored) : null,
-      issue: dateInput(stored?.issueDate),
-    };
-  });
-
-  for (const doc of documents) {
-    if (doc.docType !== "COMPLIANCE_ADDITIONAL") continue;
-    complianceDocs.push({
+  // Every row is one the vendor added, keyed by its own stored document.
+  const complianceDocs: ComplianceDocRow[] = documents
+    .filter((doc) => doc.docType === "COMPLIANCE_ADDITIONAL")
+    .map((doc) => ({
       id: doc.id,
       docType: "COMPLIANCE_ADDITIONAL",
-      label: doc.category ?? "Other",
-      fixed: false,
+      label: doc.category ?? COMPLIANCE_DOCUMENT_TYPES[0],
       file: storedFile(doc),
-      issue: dateInput(doc.issueDate),
-    });
-  }
+    }));
 
   return {
     companyName: data.companyName,
@@ -283,24 +320,21 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     companyLogo: storedFileOfType(documents, "COMPANY_LOGO"),
 
     operations: contactBlock(data.contacts, "OPERATIONS"),
-    compliance: contactBlock(data.contacts, "COMPLIANCE"),
-    admin: contactBlock(data.contacts, "ADMIN"),
-    dispatch: contactBlock(data.contacts, "DISPATCH"),
-    invoicePreference: data.invoicePreference ?? "",
-    invoiceEmails: data.invoiceEmails ?? [],
-    invoiceOther: data.invoiceOther ?? "",
+    compliance: contactBlock(data.contacts, "COMPLIANCE", operations),
+    accounts: contactBlock(data.contacts, "ADMIN", operations),
+    dispatch: contactBlock(data.contacts, "DISPATCH", operations),
 
     directors: data.directors.map((director) => ({
       id: director.id,
-      designation: director.designation ?? "",
+      name: director.name ?? "",
       email: director.email ?? "",
       contactNumber: director.contactNumber ?? "",
     })),
 
     accountName: data.bankDetail?.accountName ?? "",
     bankName: data.bankDetail?.bankName ?? "",
-    bsb: data.bankDetail?.bsb ?? "",
-    accountNumber: data.bankDetail?.accountNumber ?? "",
+    bsb: digitsOf(data.bankDetail?.bsb),
+    accountNumber: digitsOf(data.bankDetail?.accountNumber),
 
     principalAddress: addressOfType(data.addresses, "PRINCIPAL"),
     billingAddress: addressOfType(data.addresses, "BILLING"),
@@ -312,8 +346,8 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     businessOperations: data.coverage?.businessOperations ?? [],
 
     accreditationNumber: data.accreditation?.accreditationNumber ?? "",
+    accreditationExpiry: dateInput(data.accreditation?.expiryDate),
     massManagementExpiry: dateInput(data.accreditation?.massManagementExpiry),
-    basicFatigueExpiry: dateInput(data.accreditation?.basicFatigueExpiry),
     dangerousGoodsExpiry: dateInput(data.accreditation?.dangerousGoodsExpiry),
     nhvasExpiry: dateInput(data.accreditation?.nhvasExpiry),
     haccpExpiry: dateInput(data.accreditation?.haccpExpiry),
@@ -394,8 +428,14 @@ export async function saveOnboarding(
     contactPerson: trimmedOrNull(values.operations.contactPerson),
   });
 
+  // A ticked block is sent as a copy of the operations one, which is the whole
+  // of what "same as operations" means here - there is no flag alongside it,
+  // and `contactBlock` reads the tick back off these rows. Operations is the
+  // block being copied, so it is never a copy of itself however the form state
+  // got there.
   const contacts: VendorContactPayload[] = CONTACT_BLOCKS.map((block) => {
-    const source = values[block.key];
+    const copied = block.key !== PRIMARY_CONTACT.key && values[block.key].sameAsOperations;
+    const source = copied ? values[PRIMARY_CONTACT.key] : values[block.key];
     return {
       type: block.apiType,
       contactPerson: trimmedOrNull(source.contactPerson),
@@ -405,16 +445,11 @@ export async function saveOnboarding(
     };
   });
 
-  await gateway.saveContacts({
-    contacts,
-    invoicePreference: trimmedOrNull(values.invoicePreference),
-    invoiceEmails: values.invoiceEmails,
-    invoiceOther: trimmedOrNull(values.invoiceOther),
-  });
+  await gateway.saveContacts({ contacts });
 
   await gateway.saveDirectors(
     values.directors.map((director) => ({
-      designation: trimmedOrNull(director.designation),
+      name: trimmedOrNull(director.name),
       email: trimmedOrNull(director.email),
       contactNumber: trimmedOrNull(director.contactNumber),
     })),
@@ -448,8 +483,8 @@ export async function saveOnboarding(
 
   await gateway.saveAccreditation({
     accreditationNumber: trimmedOrNull(values.accreditationNumber),
+    expiryDate: values.accreditationExpiry || null,
     massManagementExpiry: values.massManagementExpiry || null,
-    basicFatigueExpiry: values.basicFatigueExpiry || null,
     dangerousGoodsExpiry: values.dangerousGoodsExpiry || null,
     nhvasExpiry: values.nhvasExpiry || null,
     haccpExpiry: values.haccpExpiry || null,
@@ -462,6 +497,7 @@ export async function saveOnboarding(
       type: policy.apiType as VendorInsurancePayload["type"],
       policyNumber: trimmedOrNull(row.policyNumber),
       insurer: trimmedOrNull(row.insurer),
+      issueDate: row.issue || null,
       expiryDate: row.expiry || null,
       sumAssured: trimmedOrNull(row.sumAssured),
       employerNumber: trimmedOrNull(row.employerNumber),
@@ -514,57 +550,47 @@ async function syncDocuments(
 
   // Compliance rows. The eight fixed ones are single slot too; the extras the
   // vendor added are keyed by their own document id.
-  const keptAdditionalIds = new Set(
+  // A row the vendor took off the form is a document to delete. Every row is
+  // one they added, so a stored policy with no row still holding its id is one
+  // that is gone.
+  const keptIds = new Set(
     values.complianceDocs
-      .filter((row) => !row.fixed)
       .map((row) => row.file?.documentId)
       .filter((id): id is string => Boolean(id)),
   );
 
   for (const doc of stored) {
     if (doc.docType !== "COMPLIANCE_ADDITIONAL") continue;
-    if (!keptAdditionalIds.has(doc.id)) await gateway.deleteDocument(doc.id);
+    if (!keptIds.has(doc.id)) await gateway.deleteDocument(doc.id);
   }
 
   for (const row of values.complianceDocs) {
-    const docType = row.docType as VendorDocumentType;
-    const existing = row.fixed
-      ? stored.find((doc) => doc.docType === docType)
-      : stored.find((doc) => doc.id === row.file?.documentId);
-
     if (row.file?.dataUrl) {
       await gateway.uploadDocument({
         file: dataUrlToFile(row.file),
-        docType,
-        category: row.fixed ? undefined : row.label || "Other",
-        issueDate: row.issue || undefined,
+        docType: row.docType as VendorDocumentType,
+        category: row.label || COMPLIANCE_DOCUMENT_TYPES[0],
       });
       continue;
     }
 
-    if (!row.file) {
-      if (row.fixed && existing) await gateway.deleteDocument(existing.id);
-      continue;
-    }
+    // A row with no file at all has nothing to store. It is left alone rather
+    // than deleted: the delete pass above has already removed what went.
+    if (!row.file) continue;
 
     // Already stored. The bytes cannot change without replacing them, but the
-    // issue date and the label on an extra row can still be corrected in place.
-    // The stored expiry is left alone: the form no longer asks for one, so it
-    // has nothing to say about it.
+    // document type can still be corrected in place.
     const documentId = row.file.documentId;
+    const existing = stored.find((doc) => doc.id === documentId);
     if (!documentId || !existing) continue;
-
-    const unchanged =
-      (existing.issueDate?.slice(0, 10) ?? "") === row.issue &&
-      (row.fixed || (existing.category ?? "") === row.label);
-    if (unchanged) continue;
+    if ((existing.category ?? "") === row.label) continue;
 
     await gateway.updateDocument(documentId, {
-      category: row.fixed ? existing.category : row.label || null,
-      issueDate: row.issue || null,
-      // The API writes whatever it is handed, so the stored expiry is handed
-      // straight back. The form no longer asks for one, and not sending it
-      // would wipe it.
+      category: row.label || null,
+      // The API writes whatever it is handed, so the stored dates are handed
+      // straight back. The form asks for neither any more, and leaving them
+      // out would wipe both.
+      issueDate: existing.issueDate?.slice(0, 10) ?? null,
       expiryDate: existing.expiryDate?.slice(0, 10) ?? null,
     });
   }
@@ -583,9 +609,10 @@ export function needsSubmission(data: VendorOnboardingData | null): boolean {
 /**
  * What is still missing before the form can be handed in.
  *
- * All eight compliance documents are required, along with the details the
- * backend also insists on, so the submit button can say why it is disabled
- * rather than only failing once it has been pressed.
+ * The same details the backend insists on, so the submit button can say why it
+ * is disabled rather than only failing once it has been pressed. There is no
+ * fixed set of policies to hold any more; what is checked is that every policy
+ * somebody added carries its file.
  */
 export function submissionBlockers(values: VendorFormValues): string[] {
   const missing: string[] = [];
@@ -602,8 +629,9 @@ export function submissionBlockers(values: VendorFormValues): string[] {
   if (values.warehouses.length === 0) missing.push("Warehouse address");
   if (!values.accreditationNumber.trim()) missing.push("Accreditation number");
 
+  // Nothing is demanded of every vendor alike any more, but a row somebody
+  // added with no file behind it is an unfinished answer.
   for (const row of values.complianceDocs) {
-    if (!row.fixed) continue;
     if (!row.file) missing.push(row.label);
   }
 

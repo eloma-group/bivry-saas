@@ -164,7 +164,7 @@ export function DriverTable({
                       {fullName(row)}
                     </Link>
                     <p className="text-xs text-muted-foreground">
-                      {row.nationality || "Nationality not set"}
+                      {row.country || "Country not set"}
                     </p>
                   </td>
 

@@ -91,7 +91,7 @@ export const STEPS: StepDef[] = [
       "dob",
       "email",
       "phone",
-      "nationality",
+      "country",
       "profilePhoto",
     ],
   },

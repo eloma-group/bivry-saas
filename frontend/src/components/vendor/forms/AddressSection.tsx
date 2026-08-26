@@ -278,7 +278,7 @@ export function AddressSection() {
 
   return (
     <SectionCard
-      index={4}
+      index={5}
       id="step-addresses"
       icon={MapPin}
       title="Address Information"
