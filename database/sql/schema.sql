@@ -105,15 +105,10 @@ CREATE TABLE "vendors" (
     "gst" TEXT,
     "logo_url" TEXT,
     "vendor_code" TEXT,
-    "supplier_id" TEXT,
-    "trading_name" TEXT,
     "trading_names" TEXT[],
     "legal_name" TEXT,
     "website_address" TEXT,
     "billing_same_as_principal" BOOLEAN NOT NULL DEFAULT false,
-    "invoice_preference" TEXT,
-    "invoice_emails" TEXT[],
-    "invoice_other" TEXT,
     "status" "account_status" NOT NULL DEFAULT 'PENDING',
     "onboarding_status" "onboarding_status" NOT NULL DEFAULT 'NOT_STARTED',
     "onboarding_step" INTEGER NOT NULL DEFAULT 0,
@@ -152,7 +147,6 @@ CREATE TABLE "vendor_directors" (
     "vendor_id" UUID NOT NULL,
     "position" INTEGER NOT NULL DEFAULT 0,
     "name" TEXT,
-    "designation" TEXT,
     "email" TEXT,
     "contact_number" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -245,7 +239,6 @@ CREATE TABLE "vendor_accreditations" (
     "accreditation_number" TEXT,
     "expiry_date" DATE,
     "mass_management_expiry" DATE,
-    "basic_fatigue_expiry" DATE,
     "dangerous_goods_expiry" DATE,
     "nhvas_expiry" DATE,
     "haccp_expiry" DATE,
@@ -338,7 +331,6 @@ CREATE TABLE "drivers" (
     "last_name" TEXT,
     "date_of_birth" DATE,
     "country" TEXT,
-    "nationality" TEXT,
     "avatar_url" TEXT,
     "status" "account_status" NOT NULL DEFAULT 'PENDING',
     "onboarding_status" "onboarding_status" NOT NULL DEFAULT 'NOT_STARTED',
@@ -594,9 +586,6 @@ CREATE UNIQUE INDEX "vendors_phone_key" ON "vendors"("phone");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "vendors_vendor_code_key" ON "vendors"("vendor_code");
-
--- CreateIndex
-CREATE UNIQUE INDEX "vendors_supplier_id_key" ON "vendors"("supplier_id");
 
 -- CreateIndex
 CREATE INDEX "vendors_status_idx" ON "vendors"("status");

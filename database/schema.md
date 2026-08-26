@@ -116,15 +116,10 @@ look up a column. Every table, column, type, default and relation is below.
 | `gst` | text | NULL |  | Where the business stands on GST, in the register's own words:\n"Registered from 01 Jul 2000". Filled by the lookup, and correctable by\nhand for the rare business the register has nothing on. |
 | `logo_url` | text | NULL |  |  |
 | `vendor_code` | text | NULL |  | unique; Human readable vendor reference (BIVRY-5000). Handed out by the server\non the first onboarding load, never typed in. |
-| `supplier_id` | text | NULL |  | unique; The same reference under its old name, from when a vendor was called a\nsupplier. Read by no code here any more, and still written, because a\ndeployed build from before the rename reads it: migrations run ahead of\nthe app and again on a rollback, so the column outlives the code by one\nrelease on purpose. Remove it, and this line, once no deployed build\nreads it - the same arrangement `tradingName` below is in. |
-| `trading_name` | text | NULL |  | Superseded by `tradingNames`, and read by no code here any more. It is\nstill written, and still declared, because a deployed build from before\nthat change reads it: migrations run ahead of the app and again on a\nrollback, so the column outlives the code by one release on purpose.\nRemove it, and this line, once no deployed build reads it. |
 | `trading_names` | text | NOT NULL |  | Every name the business trades under. The Business Register lists them\nnewest first and a company can hold several, so this is a list rather\nthan the single name it used to be. The first is the one shown wherever\nonly one will fit. |
 | `legal_name` | text | NULL |  |  |
 | `website_address` | text | NULL |  |  |
 | `billing_same_as_principal` | boolean | NOT NULL | false | Whether the billing address is a copy of the principal one. Stored so the\ntick comes back ticked; both rows are written out either way. |
-| `invoice_preference` | text | NULL |  | The three invoice preference columns. The form stopped asking for these\nand no code here writes them any more, but they still hold what every\nvendor answered while it did, and a deployed build from before the change\nstill reads them. Left in place for both reasons - the same arrangement\n`tradingName` above is in. Remove them, and these lines, once no deployed\nbuild reads them and the answers are no longer wanted. |
-| `invoice_emails` | text | NOT NULL |  |  |
-| `invoice_other` | text | NULL |  |  |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
 | `onboarding_status` | onboarding_status | NOT NULL | 'NOT_STARTED' |  |
 | `onboarding_step` | integer | NOT NULL | 0 | Index of the last completed onboarding step, used to resume the wizard. |
@@ -186,7 +181,6 @@ Company C-suite. A vendor lists as many directors as it has.
 | `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
 | `position` | integer | NOT NULL | 0 | Keeps the rows in the order the vendor entered them. |
 | `name` | text | NULL |  | The director's full name, as it reads on the document naming them. |
-| `designation` | text | NULL |  | Superseded by `name`: the form asks who the director is rather than what\nthey are called in the company. Read by no code here any more, and no\nlonger written, but still declared because a deployed build from before\nthat change selects it. Remove it, and this line, once no deployed build\nreads it - the same arrangement `tradingName` is in. |
 | `email` | text | NULL |  |  |
 | `contact_number` | text | NULL |  |  |
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
@@ -309,7 +303,6 @@ Certificate of accreditation. One per vendor, several expiry dates on it.
 | `accreditation_number` | text | NULL |  |  |
 | `expiry_date` | date | NULL |  | When the accreditation itself lapses, as distinct from the scheme expiry\ndates below, which each belong to one module of it. |
 | `mass_management_expiry` | date | NULL |  |  |
-| `basic_fatigue_expiry` | date | NULL |  | The form stopped asking for this one. Still declared and still holding\nwhat was answered while it did, because a deployed build from before that\nchange selects it. Remove it, and this line, once no deployed build reads\nit - the same arrangement `tradingName` is in. |
 | `dangerous_goods_expiry` | date | NULL |  |  |
 | `nhvas_expiry` | date | NULL |  |  |
 | `haccp_expiry` | date | NULL |  |  |
@@ -417,8 +410,7 @@ Every file a vendor uploads. `category` names the extra compliance rows\nthe ven
 | `middle_name` | text | NULL |  |  |
 | `last_name` | text | NULL |  |  |
 | `date_of_birth` | date | NULL |  |  |
-| `country` | text | NULL |  | The country on the driver's passport, held as the country itself -\n"Australia" - which is what the form has always offered. It was called\n`nationality`, which would be "Australian": a different word for a\ndifferent thing, and never what was stored here. |
-| `nationality` | text | NULL |  | The same answer under that old name. Read by no code here any more, and\nstill written, because a deployed build from before the rename reads it:\nmigrations run ahead of the app and again on a rollback, so the column\noutlives the code by one release on purpose. Remove it, and this line,\nonce no deployed build reads it. |
+| `country` | text | NULL |  | The country on the driver's passport, held as the country itself -\n"Australia", not "Australian". |
 | `avatar_url` | text | NULL |  |  |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
 | `onboarding_status` | onboarding_status | NOT NULL | 'NOT_STARTED' |  |

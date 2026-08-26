@@ -22,8 +22,8 @@ export type NotificationSection =
   | 'POLICE_VERIFICATION'
   | 'VISA'
   | 'MEDICAL'
+  | 'ACCREDITATION'
   | 'ACCREDITATION_MASS_MANAGEMENT'
-  | 'ACCREDITATION_BASIC_FATIGUE'
   | 'ACCREDITATION_DANGEROUS_GOODS'
   | 'ACCREDITATION_NHVAS'
   | 'ACCREDITATION_HACCP'
@@ -63,7 +63,7 @@ const SECTION_LABEL: Record<NotificationSection, string> = {
   VISA: 'Visa',
   MEDICAL: 'Medical certificate',
   ACCREDITATION_MASS_MANAGEMENT: 'Mass management accreditation',
-  ACCREDITATION_BASIC_FATIGUE: 'Basic fatigue management accreditation',
+  ACCREDITATION: 'Accreditation',
   ACCREDITATION_DANGEROUS_GOODS: 'Dangerous goods accreditation',
   ACCREDITATION_NHVAS: 'NHVAS accreditation',
   ACCREDITATION_HACCP: 'HACCP accreditation',
@@ -134,10 +134,13 @@ const DRIVER_SECTIONS: Array<{
   },
 ];
 
-/** The five accreditation columns, each with its own expiry date. */
+/**
+ * Every accreditation date that lapses: the certificate itself, and each scheme
+ * module named on it.
+ */
 const ACCREDITATION_COLUMNS = [
+  { column: 'expiryDate', section: 'ACCREDITATION' },
   { column: 'massManagementExpiry', section: 'ACCREDITATION_MASS_MANAGEMENT' },
-  { column: 'basicFatigueExpiry', section: 'ACCREDITATION_BASIC_FATIGUE' },
   { column: 'dangerousGoodsExpiry', section: 'ACCREDITATION_DANGEROUS_GOODS' },
   { column: 'nhvasExpiry', section: 'ACCREDITATION_NHVAS' },
   { column: 'haccpExpiry', section: 'ACCREDITATION_HACCP' },

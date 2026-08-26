@@ -78,19 +78,6 @@ model Vendor {
   /// Human readable vendor reference (BIVRY-5000). Handed out by the server
   /// on the first onboarding load, never typed in.
   vendorCode             String?              @unique @map("vendor_code")
-  /// The same reference under its old name, from when a vendor was called a
-  /// supplier. Read by no code here any more, and still written, because a
-  /// deployed build from before the rename reads it: migrations run ahead of
-  /// the app and again on a rollback, so the column outlives the code by one
-  /// release on purpose. Remove it, and this line, once no deployed build
-  /// reads it - the same arrangement `tradingName` below is in.
-  supplierId             String?              @unique @map("supplier_id")
-  /// Superseded by `tradingNames`, and read by no code here any more. It is
-  /// still written, and still declared, because a deployed build from before
-  /// that change reads it: migrations run ahead of the app and again on a
-  /// rollback, so the column outlives the code by one release on purpose.
-  /// Remove it, and this line, once no deployed build reads it.
-  tradingName            String?              @map("trading_name")
   /// Every name the business trades under. The Business Register lists them
   /// newest first and a company can hold several, so this is a list rather
   /// than the single name it used to be. The first is the one shown wherever
@@ -101,15 +88,6 @@ model Vendor {
   /// Whether the billing address is a copy of the principal one. Stored so the
   /// tick comes back ticked; both rows are written out either way.
   billingSameAsPrincipal Boolean              @default(false) @map("billing_same_as_principal")
-  /// The three invoice preference columns. The form stopped asking for these
-  /// and no code here writes them any more, but they still hold what every
-  /// vendor answered while it did, and a deployed build from before the change
-  /// still reads them. Left in place for both reasons - the same arrangement
-  /// `tradingName` above is in. Remove them, and these lines, once no deployed
-  /// build reads them and the answers are no longer wanted.
-  invoicePreference      String?              @map("invoice_preference")
-  invoiceEmails          String[]             @map("invoice_emails")
-  invoiceOther           String?              @map("invoice_other")
   status                 AccountStatus        @default(PENDING)
   onboardingStatus       OnboardingStatus     @default(NOT_STARTED) @map("onboarding_status")
   /// Index of the last completed onboarding step, used to resume the wizard.
@@ -171,12 +149,6 @@ model VendorDirector {
   position      Int      @default(0)
   /// The director's full name, as it reads on the document naming them.
   name          String?
-  /// Superseded by `name`: the form asks who the director is rather than what
-  /// they are called in the company. Read by no code here any more, and no
-  /// longer written, but still declared because a deployed build from before
-  /// that change selects it. Remove it, and this line, once no deployed build
-  /// reads it - the same arrangement `tradingName` is in.
-  designation   String?
   email         String?
   contactNumber String?  @map("contact_number")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -285,11 +257,6 @@ model VendorAccreditation {
   /// dates below, which each belong to one module of it.
   expiryDate           DateTime?          @map("expiry_date") @db.Date
   massManagementExpiry DateTime?          @map("mass_management_expiry") @db.Date
-  /// The form stopped asking for this one. Still declared and still holding
-  /// what was answered while it did, because a deployed build from before that
-  /// change selects it. Remove it, and this line, once no deployed build reads
-  /// it - the same arrangement `tradingName` is in.
-  basicFatigueExpiry   DateTime?          @map("basic_fatigue_expiry") @db.Date
   dangerousGoodsExpiry DateTime?          @map("dangerous_goods_expiry") @db.Date
   nhvasExpiry          DateTime?          @map("nhvas_expiry") @db.Date
   haccpExpiry          DateTime?          @map("haccp_expiry") @db.Date
@@ -392,16 +359,8 @@ model Driver {
   lastName            String?                   @map("last_name")
   dateOfBirth         DateTime?                 @map("date_of_birth") @db.Date
   /// The country on the driver's passport, held as the country itself -
-  /// "Australia" - which is what the form has always offered. It was called
-  /// `nationality`, which would be "Australian": a different word for a
-  /// different thing, and never what was stored here.
+  /// "Australia", not "Australian".
   country             String?
-  /// The same answer under that old name. Read by no code here any more, and
-  /// still written, because a deployed build from before the rename reads it:
-  /// migrations run ahead of the app and again on a rollback, so the column
-  /// outlives the code by one release on purpose. Remove it, and this line,
-  /// once no deployed build reads it.
-  nationality         String?
   avatarUrl           String?                   @map("avatar_url")
   status              AccountStatus             @default(PENDING)
   onboardingStatus    OnboardingStatus          @default(NOT_STARTED) @map("onboarding_status")

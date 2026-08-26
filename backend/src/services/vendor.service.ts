@@ -62,36 +62,19 @@ export async function getOnboarding(vendorId: string) {
 async function ensureVendorCode(vendorId: string): Promise<void> {
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
-    select: { id: true, vendorCode: true, supplierId: true },
+    select: { id: true, vendorCode: true },
   });
   if (!vendor) throw ApiError.notFound('Vendor not found');
   if (vendor.vendorCode) return;
 
-  // A row a build from before the rename created carries the reference under the
-  // old name and nothing under the new one. It is the same number, so it is
-  // adopted rather than replaced: a vendor's reference is on their paperwork and
-  // in their inbox, and must not move underneath them.
-  if (vendor.supplierId) {
-    await prisma.vendor.update({
-      where: { id: vendorId },
-      data: { vendorCode: vendor.supplierId },
-    });
-    return;
-  }
-
-  // Either column counts as a reference already handed out, so that a number
-  // allocated by the older build is never handed to somebody else as well.
-  const taken = await prisma.vendor.count({
-    where: { OR: [{ vendorCode: { not: null } }, { supplierId: { not: null } }] },
-  });
+  const taken = await prisma.vendor.count({ where: { vendorCode: { not: null } } });
 
   for (let attempt = 0; attempt < 25; attempt += 1) {
     const candidate = `${VENDOR_CODE_PREFIX}${VENDOR_CODE_BASE + taken + attempt}`;
     try {
       await prisma.vendor.update({
         where: { id: vendorId },
-        // Written under both names: see the note on `supplierId` in the schema.
-        data: { vendorCode: candidate, supplierId: candidate },
+        data: { vendorCode: candidate },
       });
       return;
     } catch (error) {
@@ -108,17 +91,6 @@ async function ensureVendorCode(vendorId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Company and contacts
 // ---------------------------------------------------------------------------
-
-/**
- * The value the superseded `tradingName` column should hold.
- *
- * Nothing reads that column here any more, but a deployed build from before
- * trading names became a list still does, so it is kept correct rather than
- * left to rot. It goes when the column goes.
- */
-export function legacyTradingName(tradingNames: string[]): string | null {
-  return tradingNames[0] ?? null;
-}
 
 export interface CompanyInput {
   companyName: string | null;
@@ -144,7 +116,6 @@ export async function updateCompany(vendorId: string, data: CompanyInput) {
       // empty keeps the one already stored rather than blanking it.
       ...(data.companyName ? { companyName: data.companyName } : {}),
       tradingNames: data.tradingNames,
-      tradingName: legacyTradingName(data.tradingNames),
       legalName: data.legalName,
       abn: data.abn,
       acn: data.acn,

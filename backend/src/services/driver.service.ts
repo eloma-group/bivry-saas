@@ -57,8 +57,6 @@ export async function updatePersonal(
       lastName: data.lastName,
       dateOfBirth: data.dateOfBirth,
       country: data.country,
-      // Written under both names: see the note on `nationality` in the schema.
-      nationality: data.country,
       phone: data.phone,
     },
   });

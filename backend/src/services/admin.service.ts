@@ -45,8 +45,6 @@ const DRIVER_LIST_FIELDS = {
   lastName: true,
   dateOfBirth: true,
   country: true,
-  // Still selected so a frontend from before the rename keeps reading it.
-  nationality: true,
   status: true,
   onboardingStatus: true,
   onboardingStep: true,
@@ -298,8 +296,6 @@ export async function createDriver(input: CreateDriverInput) {
       lastName: input.lastName,
       dateOfBirth: input.dateOfBirth,
       country: input.country,
-      // Written under both names: see the note on `nationality` in the schema.
-      nationality: input.country,
       // An admin created account is usable straight away; the driver still has
       // to complete onboarding before it can be approved.
       status: input.status ?? 'ACTIVE',
@@ -334,11 +330,6 @@ export async function updateDriver(driverId: string, input: UpdateDriverInput) {
 
   const { email, ...rest } = input;
   const data: Prisma.DriverUpdateInput = { ...rest };
-
-  // Written under both names: see the note on `nationality` in the schema. Only
-  // when the caller actually sent one, so a patch that leaves the country alone
-  // does not blank the legacy column.
-  if (rest.country !== undefined) data.nationality = rest.country;
 
   if (email !== undefined) {
     const normalised = email.trim().toLowerCase();
@@ -746,7 +737,6 @@ export async function createVendor(input: CreateVendorInput) {
       phone: input.phone,
       companyName: input.companyName,
       tradingNames: input.tradingNames,
-      tradingName: vendorService.legacyTradingName(input.tradingNames),
       legalName: input.legalName,
       contactPerson: input.contactPerson,
       abn: input.abn,
@@ -777,12 +767,6 @@ export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
 
   const { email, ...rest } = input;
   const data: Prisma.VendorUpdateInput = { ...rest };
-
-  // See legacyTradingName: the superseded column is kept in step for as long as
-  // a deployed build might still be reading it.
-  if (rest.tradingNames !== undefined) {
-    data.tradingName = vendorService.legacyTradingName(rest.tradingNames);
-  }
 
   if (email !== undefined) {
     const normalised = email.trim().toLowerCase();
