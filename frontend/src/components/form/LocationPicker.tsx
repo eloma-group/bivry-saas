@@ -91,7 +91,7 @@ export function LocationPicker({ onPick, label, className }: LocationPickerProps
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
-  async function useMyLocation() {
+  async function fillFromMyLocation() {
     setLocating(true);
     try {
       onPick(await locateCurrentAddress());
@@ -194,7 +194,7 @@ export function LocationPicker({ onPick, label, className }: LocationPickerProps
         variant="outline"
         size="sm"
         className="h-10 shrink-0"
-        onClick={() => void useMyLocation()}
+        onClick={() => void fillFromMyLocation()}
         disabled={locating}
         aria-label={`Use my current location for the ${label}`}
       >

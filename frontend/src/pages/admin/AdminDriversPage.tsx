@@ -147,7 +147,10 @@ export function AdminDriversPage() {
     void load();
   }, [load]);
 
-  const rows = result?.rows ?? [];
+  // Memoised because of the `?? []`: while nothing is loaded that literal is a
+  // new array on every render, and the memo below takes it as a dependency, so
+  // the filter would run every time and memoise nothing.
+  const rows = useMemo(() => result?.rows ?? [], [result]);
 
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.has(row.id)),

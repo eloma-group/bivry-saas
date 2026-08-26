@@ -30,6 +30,10 @@ export function DocumentSourceProvider({
   // `useDocumentUrl` only re-runs on a changed id, so an unstable source would
   // silently go stale rather than refetch. Memoising on the two functions keeps
   // the identity steady for as long as they are.
+  //
+  // Depending on `source` itself is the thing being avoided: a caller that
+  // builds the object inline hands over a new reference every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const value = useMemo(() => source, [source.link, source.blob]);
   return <DocumentSourceContext.Provider value={value}>{children}</DocumentSourceContext.Provider>;
 }

@@ -30,6 +30,9 @@ function escapeXml(value: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;")
     // Control characters are not legal in XML 1.0 and Excel refuses the file.
+    // Matching them is the point here, so the rule that warns about finding
+    // them in a pattern has nothing to say.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
 }
 

@@ -139,7 +139,7 @@ export function AddressSection() {
    * lookup actually answered are written, so a correction already typed into a
    * field the lookup cannot see is never wiped by an empty result.
    */
-  async function useMyLocation() {
+  async function fillFromMyLocation() {
     setLocating(true);
     try {
       const found = await locateCurrentAddress();
@@ -202,7 +202,7 @@ export function AddressSection() {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => void useMyLocation()}
+          onClick={() => void fillFromMyLocation()}
           disabled={locating}
         >
           {locating ? (
