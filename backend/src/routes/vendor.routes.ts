@@ -24,7 +24,7 @@ import {
 
 const router = Router();
 
-// Everything below belongs to the signed in supplier and nobody else.
+// Everything below belongs to the signed in vendor and nobody else.
 router.use(authenticate, requireRole('vendor'));
 
 router.get('/dashboard', (req, res) => {

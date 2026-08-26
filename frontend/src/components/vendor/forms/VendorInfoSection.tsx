@@ -8,7 +8,7 @@ import { TextField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
 import { LogoUpload } from "@/components/vendor/LogoUpload";
 import { ABN_LENGTH, ACN_LENGTH, rules } from "@/utils/validation";
-import { abnStatusLine, lookupAbn } from "@/services/abnLookup";
+import { abnStatusLine, gstLine, lookupAbn } from "@/services/abnLookup";
 import { ApiRequestError } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import type { VendorFormValues } from "@/types/vendor";
@@ -16,7 +16,7 @@ import type { VendorFormValues } from "@/types/vendor";
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 /** The fields the Business Register can answer for. All plain strings. */
-type RegisterFilled = "companyName" | "legalName" | "acn" | "abnStatus" | "entityType";
+type RegisterFilled = "companyName" | "legalName" | "acn" | "abnStatus" | "entityType" | "gst";
 
 /**
  * The fields a lookup can leave empty and that are better marked than blank.
@@ -35,7 +35,7 @@ type RegisterBlank = "abnStatus" | "entityType" | "websiteAddress";
 /** What goes in a field the register could not answer. */
 const NOT_ON_REGISTER = "N/A";
 
-export function SupplierInfoSection() {
+export function VendorInfoSection() {
   const { user } = useAuth();
   const { control, getValues, setValue, trigger } = useFormContext<VendorFormValues>();
   const tradingNames = useFieldArray({ control, name: "tradingNames" });
@@ -45,12 +45,12 @@ export function SupplierInfoSection() {
    * Fills the section from the Australian Business Register.
    *
    * Everything it writes stays editable. The register holds the registered
-   * truth about a company, so a supplier who asked for it gets it in full
+   * truth about a company, so a vendor who asked for it gets it in full
    * rather than only in the gaps, but the last word is still theirs.
    *
    * What it cannot answer for is marked N/A rather than left blank, so the
    * section says the register was asked and had nothing, instead of looking
-   * like nobody got round to it. A mark never lands on a field the supplier
+   * like nobody got round to it. A mark never lands on a field the vendor
    * has already filled in, and it can be typed over like anything else here.
    */
   async function fillFromRegister() {
@@ -76,7 +76,7 @@ export function SupplierInfoSection() {
       };
 
       // Marks a field the register had nothing for, without writing over one
-      // the supplier has already filled in themselves.
+      // the vendor has already filled in themselves.
       const markIfEmpty = (field: RegisterBlank) => {
         if ((getValues(field) ?? "").trim()) return;
         setValue(field, NOT_ON_REGISTER, { shouldDirty: true, shouldValidate: true });
@@ -90,7 +90,7 @@ export function SupplierInfoSection() {
 
       // A company can trade under several names and the register lists every
       // one of them. All of them come back, newest first as it orders them, and
-      // the supplier drops the ones that do not apply. This is the only way the
+      // the vendor drops the ones that do not apply. This is the only way the
       // list ever grows past one: a second trading name is a matter of public
       // record, not something anyone should be typing in by hand.
       if (found.businessNames.length > 0) {
@@ -102,6 +102,7 @@ export function SupplierInfoSection() {
       }
       fill("abnStatus", abnStatusLine(found));
       fill("entityType", found.entityTypeName);
+      fill("gst", gstLine(found));
 
       // Anything the register could not answer for is marked, so a thin record
       // reads as answered rather than as a lookup that never ran.
@@ -127,7 +128,7 @@ export function SupplierInfoSection() {
   return (
     <SectionCard
       index={1}
-      id="step-supplier"
+      id="step-vendor"
       icon={Building2}
       title="Company Information"
       description="How your business is registered and how we identify it."
@@ -180,6 +181,12 @@ export function SupplierInfoSection() {
           placeholder="Look up the ABN to fill this"
           readOnly
           hint="What the register calls this business. Only a company has an ACN."
+        />
+        <TextField
+          name="gst"
+          label="GST"
+          placeholder="Look up the ABN to fill this"
+          hint="What the register holds. Type over it if you know better."
         />
         <TextField
           name="acn"
@@ -251,8 +258,8 @@ export function SupplierInfoSection() {
           hint="The register does not hold this one. Type it in if you have a site."
         />
         <TextField
-          name="supplierId"
-          label="Supplier ID"
+          name="vendorCode"
+          label="Vendor ID"
           placeholder="Assigned automatically"
           readOnly
           hint="Assigned by BIVRY. It cannot be changed."

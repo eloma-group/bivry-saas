@@ -66,7 +66,8 @@ const VENDOR_LIST_FIELDS = {
   acn: true,
   abnStatus: true,
   entityType: true,
-  supplierId: true,
+  gst: true,
+  vendorCode: true,
   websiteAddress: true,
   contactPerson: true,
   status: true,
@@ -176,7 +177,7 @@ export async function getDashboard() {
     /** The modules the Onboarding menu offers. Only the built ones are usable. */
     modules: [
       { slug: 'driver', label: 'Driver', ready: true, records: drivers },
-      { slug: 'supplier', label: 'Supplier', ready: true, records: vendors },
+      { slug: 'vendor', label: 'Vendor', ready: true, records: vendors },
       { slug: 'vehicle', label: 'Vehicle', ready: false, records: 0 },
       { slug: 'customer', label: 'Customer', ready: false, records: 0 },
       { slug: 'user', label: 'User', ready: false, records: 0 },
@@ -618,7 +619,7 @@ export async function openDriverDocument(driverId: string, documentId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Suppliers (vendors) - read
+// Vendors - read
 // ---------------------------------------------------------------------------
 
 export interface VendorListQuery {
@@ -643,7 +644,7 @@ export async function listVendors(query: VendorListQuery) {
       // A scalar list has no substring filter, so a trading name matches only
       // in full. Company and legal name still answer a partial search.
       { tradingNames: { has: query.search } },
-      { supplierId: contains },
+      { vendorCode: contains },
       { abn: contains },
       { email: contains },
       { phone: contains },
@@ -678,7 +679,7 @@ export async function listVendors(query: VendorListQuery) {
   };
 }
 
-/** One supplier in full, including every onboarding section and document. */
+/** One vendor in full, including every onboarding section and document. */
 export async function getVendor(vendorId: string) {
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
@@ -696,14 +697,14 @@ export async function getVendor(vendorId: string) {
     },
   });
 
-  if (!vendor) throw ApiError.notFound('Supplier not found');
+  if (!vendor) throw ApiError.notFound('Vendor not found');
 
   const { passwordHash: _passwordHash, ...safeVendor } = vendor;
   return safeVendor;
 }
 
 // ---------------------------------------------------------------------------
-// Suppliers - write
+// Vendors - write
 // ---------------------------------------------------------------------------
 
 export interface CreateVendorInput {
@@ -718,6 +719,7 @@ export interface CreateVendorInput {
   acn: string | null;
   abnStatus: string | null;
   entityType: string | null;
+  gst: string | null;
   websiteAddress: string | null;
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 }
@@ -726,7 +728,7 @@ export async function createVendor(input: CreateVendorInput) {
   const email = input.email.trim().toLowerCase();
 
   const existing = await prisma.vendor.findUnique({ where: { email } });
-  if (existing) throw ApiError.conflict('A supplier account with this email already exists.');
+  if (existing) throw ApiError.conflict('A vendor account with this email already exists.');
 
   return prisma.vendor.create({
     data: {
@@ -742,8 +744,9 @@ export async function createVendor(input: CreateVendorInput) {
       acn: input.acn,
       abnStatus: input.abnStatus,
       entityType: input.entityType,
+      gst: input.gst,
       websiteAddress: input.websiteAddress,
-      // An admin created account is usable straight away; the supplier still has
+      // An admin created account is usable straight away; the vendor still has
       // to complete onboarding before it can be approved.
       status: input.status ?? 'ACTIVE',
     },
@@ -754,9 +757,9 @@ export async function createVendor(input: CreateVendorInput) {
 export type UpdateVendorInput = Partial<Omit<CreateVendorInput, 'password'>>;
 
 /**
- * Updates a supplier's account details.
+ * Updates a vendor's account details.
  *
- * The email is editable from here, unlike in the supplier's own profile, for
+ * The email is editable from here, unlike in the vendor's own profile, for
  * the same reason it is on a driver: correcting an address somebody mistyped at
  * signup is a fix only an admin can make.
  */
@@ -778,7 +781,7 @@ export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
       where: { email: normalised, id: { not: vendorId } },
       select: { id: true },
     });
-    if (clash) throw ApiError.conflict('Another supplier account already uses this email.');
+    if (clash) throw ApiError.conflict('Another vendor account already uses this email.');
     data.email = normalised;
   }
 
@@ -789,7 +792,7 @@ export async function updateVendor(vendorId: string, input: UpdateVendorInput) {
   });
 }
 
-/** Replaces a supplier's password. See setDriverPassword: same rules. */
+/** Replaces a vendor's password. See setDriverPassword: same rules. */
 export async function setVendorPassword(vendorId: string, password: string) {
   await assertVendorExists(vendorId);
 
@@ -813,9 +816,9 @@ export async function setVendorPassword(vendorId: string, password: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Suppliers - the onboarding record
+// Vendors - the onboarding record
 //
-// The same arrangement as the driver equivalents above: the supplier portal
+// The same arrangement as the driver equivalents above: the vendor portal
 // already knows how to write every one of these sections, so these delegate to
 // it and add the admin 404 and the surviving verification decision.
 // ---------------------------------------------------------------------------
@@ -926,7 +929,7 @@ export async function deleteVendorDocument(vendorId: string, documentId: string)
  * Permanent delete. The row goes, and with it every vendor_* record hanging off
  * it, every session, every reset link and every file in blob storage. Nothing
  * is left behind a flag, so the email and phone are free again and the same
- * supplier can sign up with them later.
+ * vendor can sign up with them later.
  *
  * There is no undo, and the confirmation in the Admin portal says so.
  */
@@ -959,10 +962,10 @@ export async function deleteVendor(vendorId: string) {
 }
 
 /**
- * Verification decision on a supplier's whole application.
+ * Verification decision on a vendor's whole application.
  *
  * Unlike the driver flow this does not insist the application was submitted
- * first: a supplier's compliance pack is long, and an admin who has seen the
+ * first: a vendor's compliance pack is long, and an admin who has seen the
  * paperwork elsewhere is allowed to sign it off without waiting for the last
  * upload to land.
  */
@@ -1001,7 +1004,7 @@ export async function reviewVendor(
   return updated;
 }
 
-/** The supplier sections an admin can verify one at a time. */
+/** The vendor sections an admin can verify one at a time. */
 export type ReviewableVendorSection =
   | 'accreditation'
   | 'productLiability'
@@ -1047,7 +1050,7 @@ export async function reviewVendorSection(
         });
 
   if (result.count === 0) {
-    throw ApiError.notFound('This supplier has not filled in that section yet.');
+    throw ApiError.notFound('This vendor has not filled in that section yet.');
   }
 
   return { vendorId, section, status: input.status };
@@ -1058,12 +1061,12 @@ async function assertVendorExists(vendorId: string) {
     where: { id: vendorId, deletedAt: null },
     select: { id: true, onboardingStatus: true },
   });
-  if (!vendor) throw ApiError.notFound('Supplier not found');
+  if (!vendor) throw ApiError.notFound('Vendor not found');
   return vendor;
 }
 
 // ---------------------------------------------------------------------------
-// Supplier documents, read only from here
+// Vendor documents, read only from here
 // ---------------------------------------------------------------------------
 
 async function getVendorDocument(vendorId: string, documentId: string) {
@@ -1074,14 +1077,14 @@ async function getVendorDocument(vendorId: string, documentId: string) {
   return document;
 }
 
-/** Signed link so an admin can open a supplier's file straight from blob storage. */
+/** Signed link so an admin can open a vendor's file straight from blob storage. */
 export async function createVendorDocumentLink(vendorId: string, documentId: string) {
   const document = await getVendorDocument(vendorId, documentId);
   const link = await storage.createSignedLink({
     storageKey: document.storageKey,
     fileName: document.fileName,
     fallbackPath: `/api/admin/vendors/${vendorId}/documents/${document.id}/file`,
-    // A supplier's documents stay in the supplier container whoever reads them.
+    // A vendor's documents stay in the vendor container whoever reads them.
     area: 'vendor',
   });
 

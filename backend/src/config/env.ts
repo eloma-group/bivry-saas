@@ -111,7 +111,7 @@ export const env = {
     accountName: optional('AZURE_STORAGE_ACCOUNT_NAME', ''),
     accountKey: optional('AZURE_STORAGE_ACCOUNT_KEY', ''),
     /**
-     * One container per area, so a driver's documents, a supplier's documents
+     * One container per area, so a driver's documents, a vendor's documents
      * and an admin's own files are never mixed together and can be governed
      * separately (retention, access reviews, deletion on request).
      */
@@ -132,7 +132,7 @@ export const env = {
   },
 
   /**
-   * The Australian Business Register, which a supplier's ABN is looked up
+   * The Australian Business Register, which a vendor's ABN is looked up
    * against so the register fills in the company details it already holds.
    *
    * No credential is needed to run: without ABR_GUID the service reads the

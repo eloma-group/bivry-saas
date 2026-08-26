@@ -43,7 +43,7 @@ import type {
 } from "@/services/vendorService";
 
 /**
- * How each onboarding state reads to the supplier. The colours are tuned for the
+ * How each onboarding state reads to the vendor. The colours are tuned for the
  * navy header the badge sits on, where the light card variants would disappear.
  */
 const STATUS_LABEL: Record<OnboardingStatus, { label: string; className: string }> = {
@@ -233,11 +233,11 @@ function DocumentRow({ doc, source }: { doc: VendorDocument; source: DocumentSou
 interface VendorProfileProps {
   data: VendorOnboardingData;
   /**
-   * Someone other than the supplier is looking (an admin reviewing the record),
+   * Someone other than the vendor is looking (an admin reviewing the record),
    * so the self-service controls and the submission confirmation are left off.
    */
   readOnly?: boolean;
-  /** Signed blob storage link for one of this supplier's documents. */
+  /** Signed blob storage link for one of this vendor's documents. */
   documentUrl?: (documentId: string) => Promise<{ url: string }>;
   /** Authenticated fallback used when links cannot be signed (local dev). */
   documentBlobUrl?: (documentId: string) => Promise<string>;
@@ -257,7 +257,7 @@ export function VendorProfile({
   const [celebrating, setCelebrating] = useState(justSubmitted);
 
   // Whoever is reading, the documents come from the API that will actually let
-  // them: a supplier reads their own, an admin reads them through the admin API.
+  // them: a vendor reads their own, an admin reads them through the admin API.
   const [source] = useState<DocumentSource>(() =>
     documentUrl && documentBlobUrl
       ? { link: documentUrl, blob: documentBlobUrl }
@@ -315,9 +315,9 @@ export function VendorProfile({
                 >
                   {status.label}
                 </span>
-                {data.supplierId && (
+                {data.vendorCode && (
                   <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white/90">
-                    {data.supplierId}
+                    {data.vendorCode}
                   </span>
                 )}
                 {data.submittedAt && (
@@ -350,7 +350,7 @@ export function VendorProfile({
 
       {/* Details. Fills the width on large monitors instead of leaving gutters. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-        <InfoCard icon={Building2} title="Supplier Information">
+        <InfoCard icon={Building2} title="Vendor Information">
           <Row label="Company name">{value(data.companyName)}</Row>
           <Row label="Trading names">{list(data.tradingNames)}</Row>
           <Row label="Legal name">{value(data.legalName)}</Row>
@@ -358,6 +358,7 @@ export function VendorProfile({
           <Row label="ACN">{value(data.acn)}</Row>
           <Row label="ABN status">{value(data.abnStatus)}</Row>
           <Row label="Entity type">{value(data.entityType)}</Row>
+          <Row label="GST">{value(data.gst)}</Row>
           <Row label="Website">{value(data.websiteAddress)}</Row>
           <Row label="Phone">{value(data.phone)}</Row>
           <Row label="Email">
@@ -366,7 +367,7 @@ export function VendorProfile({
               <Badge variant="outline">Account ID</Badge>
             </span>
           </Row>
-          <Row label="Supplier ID">{value(data.supplierId)}</Row>
+          <Row label="Vendor ID">{value(data.vendorCode)}</Row>
         </InfoCard>
 
         <InfoCard icon={Contact} title="Contact Information">

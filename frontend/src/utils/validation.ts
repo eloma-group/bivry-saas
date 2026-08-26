@@ -186,7 +186,7 @@ export const rules = {
       return ABN_RE.test(abn) || `ABN must be exactly ${ABN_LENGTH} digits`;
     },
   },
-  /** An ACN. Optional, because not every supplier is a registered company. */
+  /** An ACN. Optional, because not every vendor is a registered company. */
   acn: {
     validate: (value: unknown) => {
       const acn = typeof value === "string" ? value.trim() : "";

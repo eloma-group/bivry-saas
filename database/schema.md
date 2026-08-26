@@ -113,14 +113,16 @@ look up a column. Every table, column, type, default and relation is below.
 | `acn` | text | NULL |  | Australian Company Number, nine digits. Only a registered company has one,\nso a sole trader carries an ABN here and nothing in this column. |
 | `abn_status` | text | NULL |  | What the Business Register says about the ABN, in its own words:\n"Active from 24 Nov 2025". Filled by the lookup, never typed. |
 | `entity_type` | text | NULL |  | "Australian Private Company", "Individual/Sole Trader". Also from the\nregister, and what says whether an ACN should exist at all. |
+| `gst` | text | NULL |  | Where the business stands on GST, in the register's own words:\n"Registered from 01 Jul 2000". Filled by the lookup, and correctable by\nhand for the rare business the register has nothing on. |
 | `logo_url` | text | NULL |  |  |
-| `supplier_id` | text | NULL |  | unique; Human readable supplier reference (BIVRY-5000). Handed out by the server\non the first onboarding load, never typed in. |
+| `vendor_code` | text | NULL |  | unique; Human readable vendor reference (BIVRY-5000). Handed out by the server\non the first onboarding load, never typed in. |
+| `supplier_id` | text | NULL |  | unique; The same reference under its old name, from when a vendor was called a\nsupplier. Read by no code here any more, and still written, because a\ndeployed build from before the rename reads it: migrations run ahead of\nthe app and again on a rollback, so the column outlives the code by one\nrelease on purpose. Remove it, and this line, once no deployed build\nreads it - the same arrangement `tradingName` below is in. |
 | `trading_name` | text | NULL |  | Superseded by `tradingNames`, and read by no code here any more. It is\nstill written, and still declared, because a deployed build from before\nthat change reads it: migrations run ahead of the app and again on a\nrollback, so the column outlives the code by one release on purpose.\nRemove it, and this line, once no deployed build reads it. |
 | `trading_names` | text | NOT NULL |  | Every name the business trades under. The Business Register lists them\nnewest first and a company can hold several, so this is a list rather\nthan the single name it used to be. The first is the one shown wherever\nonly one will fit. |
 | `legal_name` | text | NULL |  |  |
 | `website_address` | text | NULL |  |  |
 | `billing_same_as_principal` | boolean | NOT NULL | false | Whether the billing address is a copy of the principal one. Stored so the\ntick comes back ticked; both rows are written out either way. |
-| `invoice_preference` | text | NULL |  | How invoices reach this supplier: Mail, Email, Portal. |
+| `invoice_preference` | text | NULL |  | How invoices reach this vendor: Mail, Email, Portal. |
 | `invoice_emails` | text | NOT NULL |  | Which of the contact emails invoices are copied to. |
 | `invoice_other` | text | NULL |  | Free text, used when the preference list above does not cover it. |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
@@ -152,7 +154,7 @@ look up a column. Every table, column, type, default and relation is below.
 
 ### `vendor_contacts`
 
-One contact block per department, as the supplier form asks for them.
+One contact block per department, as the vendor form asks for them.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -176,13 +178,13 @@ One contact block per department, as the supplier form asks for them.
 
 ### `vendor_directors`
 
-Company C-suite. A supplier lists as many directors as it has.
+Company C-suite. A vendor lists as many directors as it has.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
-| `position` | integer | NOT NULL | 0 | Keeps the rows in the order the supplier entered them. |
+| `position` | integer | NOT NULL | 0 | Keeps the rows in the order the vendor entered them. |
 | `designation` | text | NULL |  |  |
 | `email` | text | NULL |  |  |
 | `contact_number` | text | NULL |  |  |
@@ -212,7 +214,7 @@ Company C-suite. A supplier lists as many directors as it has.
 
 ### `vendor_coverages`
 
-Where the supplier operates. Both columns hold several selections.
+Where the vendor operates. Both columns hold several selections.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -249,7 +251,7 @@ Where the supplier operates. Both columns hold several selections.
 
 ### `vendor_yards`
 
-A yard: a site the supplier parks or stages at, kept apart from the\nwarehouses because it is not somewhere freight is collected from or\ndelivered to. Optional, and there can be several.
+A yard: a site the vendor parks or stages at, kept apart from the\nwarehouses because it is not somewhere freight is collected from or\ndelivered to. Optional, and there can be several.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -271,7 +273,7 @@ A yard: a site the supplier parks or stages at, kept apart from the\nwarehouses 
 
 ### `vendor_addresses`
 
-The two addresses a supplier is registered at: where the business is run\nfrom, and where its invoices go. A warehouse is a different thing - a site\nfreight moves through - and keeps its own table.
+The two addresses a vendor is registered at: where the business is run\nfrom, and where its invoices go. A warehouse is a different thing - a site\nfreight moves through - and keeps its own table.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -297,7 +299,7 @@ The two addresses a supplier is registered at: where the business is run\nfrom, 
 
 ### `vendor_accreditations`
 
-Certificate of accreditation. One per supplier, several expiry dates on it.
+Certificate of accreditation. One per vendor, several expiry dates on it.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -322,7 +324,7 @@ Certificate of accreditation. One per supplier, several expiry dates on it.
 
 ### `vendor_insurances`
 
-One row per policy the supplier holds. Work cover carries its own columns.
+One row per policy the vendor holds. Work cover carries its own columns.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -354,7 +356,7 @@ One row per policy the supplier holds. Work cover carries its own columns.
 
 ### `vendor_documents`
 
-Every file a supplier uploads. `category` names the extra compliance rows\nthe supplier adds beyond the fixed list.
+Every file a vendor uploads. `category` names the extra compliance rows\nthe vendor adds beyond the fixed list.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |

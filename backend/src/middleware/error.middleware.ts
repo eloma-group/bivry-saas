@@ -47,6 +47,21 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
         code = 'NOT_FOUND';
         message = 'Record not found';
         break;
+      // The schema and the database have drifted: the code is asking for a
+      // table or a column the database does not have, which normally means a
+      // migration has not been applied yet. Nothing the caller sent caused it
+      // and nothing they can send will avoid it, so it is a 500 rather than a
+      // 400 - which is also what gets it logged below, with the column name
+      // Prisma names in the error. Reported as a 400 it looked like a bad
+      // login, and left no trace on the server to say otherwise.
+      case 'P2021':
+      case 'P2022':
+        statusCode = 500;
+        code = 'SCHEMA_OUT_OF_DATE';
+        message =
+          'The database is missing something this build expects. ' +
+          'Apply the pending migrations (npm run db:deploy) and try again.';
+        break;
       default:
         statusCode = 400;
         code = `DB_${err.code}`;

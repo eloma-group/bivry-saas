@@ -21,7 +21,7 @@ import {
  * The Onboarding section of the Admin portal.
  *
  * The menu offers five record types and this decides what the chosen one shows.
- * Driver and Supplier have a register behind them; the rest say so plainly
+ * Driver and Vendor have a register behind them; the rest say so plainly
  * rather than being unclickable in the menu, which leaves an admin guessing.
  */
 export function AdminOnboardingPage() {
@@ -67,7 +67,7 @@ export function AdminOnboardingPage() {
         ) : (
           <AdminDriversPage />
         )
-      ) : module === "supplier" ? (
+      ) : module === "vendor" ? (
         recordId === "new" ? (
           <AdminVendorEditPage />
         ) : recordId ? (
@@ -90,7 +90,7 @@ export function AdminOnboardingPage() {
                 {current?.label} onboarding is not built yet
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                This module has no records behind it so far. Driver and Supplier
+                This module has no records behind it so far. Driver and Vendor
                 onboarding are live and complete, and the rest follow the same shape.
               </p>
             </div>

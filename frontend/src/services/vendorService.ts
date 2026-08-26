@@ -2,9 +2,9 @@ import { api, request } from "./api";
 import type { DocumentLink, OnboardingStatus, VerificationStatus } from "./driverService";
 
 /**
- * Supplier module API. Every path lives under `/api/vendor`, which the backend
- * locks to an authenticated supplier, so these calls always act on the signed in
- * supplier's own records.
+ * Vendor module API. Every path lives under `/api/vendor`, which the backend
+ * locks to an authenticated vendor, so these calls always act on the signed in
+ * vendor's own records.
  */
 
 export type VendorDocumentType =
@@ -130,6 +130,7 @@ export interface VendorCompanyPayload {
   acn: string | null;
   abnStatus: string | null;
   entityType: string | null;
+  gst: string | null;
   websiteAddress: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -149,7 +150,8 @@ export interface VendorOnboardingData {
   acn: string | null;
   abnStatus: string | null;
   entityType: string | null;
-  supplierId: string | null;
+  gst: string | null;
+  vendorCode: string | null;
   websiteAddress: string | null;
   contactPerson: string | null;
   logoUrl: string | null;

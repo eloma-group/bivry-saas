@@ -30,7 +30,7 @@ import { logger } from '../utils/logger';
  */
 
 /**
- * Which container a file belongs in. Driver documents, supplier documents and
+ * Which container a file belongs in. Driver documents, vendor documents and
  * an admin's own files are kept apart, so each can be governed on its own terms.
  */
 export type StorageArea = 'driver' | 'vendor' | 'admin';

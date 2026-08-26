@@ -4,7 +4,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
-import { SupplierInfoSection } from "@/components/vendor/forms/SupplierInfoSection";
+import { VendorInfoSection } from "@/components/vendor/forms/VendorInfoSection";
 import { TextField } from "@/components/form/Fields";
 import { rules } from "@/utils/validation";
 import { ContactInfoSection } from "@/components/vendor/forms/ContactInfoSection";
@@ -52,10 +52,10 @@ function passwordProblem(value: string): string | null {
 }
 
 /**
- * One supplier's whole record, created or edited by an admin.
+ * One vendor's whole record, created or edited by an admin.
  *
  * The counterpart of AdminDriverEditPage, and built the same way: this is the
- * supplier's own onboarding form rendered for somebody else's record, so there
+ * vendor's own onboarding form rendered for somebody else's record, so there
  * is one set of fields and one set of rules whoever is filling them in.
  */
 export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
@@ -98,7 +98,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
       setStatus(fresh.status);
       methods.reset(toFormValues(fresh));
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Could not load this supplier");
+      setError(err instanceof ApiRequestError ? err.message : "Could not load this vendor");
     } finally {
       setLoading(false);
     }
@@ -154,6 +154,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
               acn: values.acn.trim() || null,
               abnStatus: values.abnStatus.trim() || null,
               entityType: values.entityType.trim() || null,
+              gst: values.gst.trim() || null,
               websiteAddress: values.websiteAddress.trim() || null,
               phone: values.phone.trim() || null,
               status,
@@ -176,8 +177,8 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
       setPasswordError(null);
 
       if (creating) {
-        toast.success("Supplier created", { description: email });
-        navigate(`/admin/onboarding/supplier/${id}`);
+        toast.success("Vendor created", { description: email });
+        navigate(`/admin/onboarding/vendor/${id}`);
         return;
       }
 
@@ -185,9 +186,9 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
       setData(fresh);
       setStatus(fresh.status);
       methods.reset(toFormValues(fresh));
-      toast.success("Supplier saved", { description: fresh.email });
+      toast.success("Vendor saved", { description: fresh.email });
     } catch (err) {
-      toast.error(creating ? "Could not create this supplier" : "Could not save this supplier", {
+      toast.error(creating ? "Could not create this vendor" : "Could not save this vendor", {
         description:
           err instanceof ApiRequestError
             ? err.message
@@ -198,13 +199,13 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
     }
   }
 
-  if (loading) return <PanelLoader label="Loading supplier" />;
+  if (loading) return <PanelLoader label="Loading vendor" />;
   if (error || (!creating && !data)) {
     return <PanelError message={error ?? "Not found"} onRetry={() => void load()} />;
   }
 
   const name = data ? data.companyName || data.email : "";
-  const saveLabel = creating ? "Create supplier" : "Save all changes";
+  const saveLabel = creating ? "Create vendor" : "Save all changes";
   const busyLabel = creating ? "Creating" : "Saving";
 
   const saveButton = (type: "button" | "submit") => (
@@ -231,9 +232,9 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link
-            to={creating ? "/admin/onboarding/supplier" : `/admin/onboarding/supplier/${vendorId}`}
+            to={creating ? "/admin/onboarding/vendor" : `/admin/onboarding/vendor/${vendorId}`}
           >
-            <ArrowLeft className="h-4 w-4" /> {creating ? "All suppliers" : `Back to ${name}`}
+            <ArrowLeft className="h-4 w-4" /> {creating ? "All vendors" : `Back to ${name}`}
           </Link>
         </Button>
 
@@ -242,24 +243,24 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {creating ? "New supplier" : `Edit ${name}`}
+          {creating ? "New vendor" : `Edit ${name}`}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {creating
             ? "The whole record in one place. Only an email, a company name and a password are needed to create the account; everything else can be filled in now or later."
-            : "Every field on this supplier's record, including the ones they would normally fill in themselves. Changes you make here keep whatever verification decision each section already has."}
+            : "Every field on this vendor's record, including the ones they would normally fill in themselves. Changes you make here keep whatever verification decision each section already has."}
         </p>
       </div>
 
       {/* Both blocks below read the same form. The account is not part of the
           onboarding record, but the email it signs in with is a field on it. */}
       <FormProvider {...methods}>
-        {/* The account: whether this supplier can sign in, and with what. */}
+        {/* The account: whether this vendor can sign in, and with what. */}
         <section className="mb-6 rounded-3xl border border-border/70 bg-card p-6 shadow-card">
         <header className="mb-4">
           <h2 className="text-base font-semibold tracking-tight text-foreground">Account</h2>
           <p className="text-sm text-muted-foreground">
-            Whether this supplier can sign in, and what they sign in with.
+            Whether this vendor can sign in, and what they sign in with.
           </p>
         </header>
 
@@ -271,7 +272,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
             placeholder="accounts@company.com"
             required
             rules={rules.email}
-            hint="What this supplier signs in with. Correcting it here is the only way it changes."
+            hint="What this vendor signs in with. Correcting it here is the only way it changes."
           />
 
           <div className="space-y-2">
@@ -289,7 +290,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Suspended and Deactivated both stop this supplier signing in.
+              Suspended and Deactivated both stop this vendor signing in.
             </p>
           </div>
 
@@ -314,7 +315,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
             ) : (
               <p className="text-xs text-muted-foreground">
                 {creating
-                  ? "Set it now and pass it on to the supplier yourself. They can change it later."
+                  ? "Set it now and pass it on to the vendor yourself. They can change it later."
                   : "Leave blank to keep the current password. Setting a new one signs every existing session out."}
               </p>
             )}
@@ -322,7 +323,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
         </div>
         </section>
 
-        {/* The onboarding record: the supplier's own form, for somebody else. */}
+        {/* The onboarding record: the vendor's own form, for somebody else. */}
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -330,7 +331,7 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
           }}
           className="space-y-6"
         >
-          <SupplierInfoSection />
+          <VendorInfoSection />
           <ContactInfoSection />
           <BankDetailsSection />
           <AddressSection />
@@ -347,8 +348,8 @@ export function AdminVendorEditPage({ vendorId }: { vendorId?: string }) {
               onClick={() =>
                 navigate(
                   creating
-                    ? "/admin/onboarding/supplier"
-                    : `/admin/onboarding/supplier/${vendorId}`,
+                    ? "/admin/onboarding/vendor"
+                    : `/admin/onboarding/vendor/${vendorId}`,
                 )
               }
               disabled={saving}

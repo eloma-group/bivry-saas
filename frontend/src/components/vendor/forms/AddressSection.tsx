@@ -175,12 +175,12 @@ function AddressTools({ path, label }: { path: AddressPath; label: string }) {
 }
 
 /**
- * A list of sites the supplier operates: the yards, and the warehouses.
+ * A list of sites the vendor operates: the yards, and the warehouses.
  *
  * Both lists ask for exactly the same address and carry the same location
  * tools, so they are the same component twice over. The fields for a site only
  * appear once one has been added, which is what keeps the yards out of the way
- * of a supplier who has none.
+ * of a vendor who has none.
  */
 function SiteList({
   name,

@@ -60,6 +60,15 @@ const ROLE_FIELDS: Record<RoleSlug, FieldDef[]> = {
   ],
 };
 
+/**
+ * The portals that insist on a phone number at signup.
+ *
+ * A vendor is a business the fleet has to be able to reach, so the number is
+ * asked for here rather than left to the onboarding form. `auth.validator.ts`
+ * states the same rule, so the form asks for exactly what the API insists on.
+ */
+const PHONE_REQUIRED: ReadonlySet<RoleSlug> = new Set<RoleSlug>(["vendor"]);
+
 interface RegisterPageProps {
   role: RoleSlug;
 }
@@ -71,6 +80,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
   const { isSubmitting, formError, fieldErrors, submit } = useAuthForm();
 
   const fields = ROLE_FIELDS[role];
+  const phoneRequired = PHONE_REQUIRED.has(role);
   const [values, setValues] = useState<Record<string, string>>({});
 
   function setValue(name: string, value: string) {
@@ -143,11 +153,12 @@ export function RegisterPage({ role }: RegisterPageProps) {
           label="Phone number"
           type="tel"
           autoComplete="tel"
-          placeholder="Optional"
+          placeholder={phoneRequired ? "+61 412345678" : "Optional"}
           maxLength={PHONE_MAX}
           value={values.phone ?? ""}
           onChange={(event) => setValue("phone", event.target.value)}
           error={fieldErrors.phone}
+          required={phoneRequired}
         />
 
         <PasswordField

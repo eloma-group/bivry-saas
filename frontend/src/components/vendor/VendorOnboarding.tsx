@@ -6,7 +6,7 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Stepper } from "@/components/driver/Stepper";
 import { VendorSummaryCard } from "./summary/VendorSummaryCard";
-import { SupplierInfoSection } from "./forms/SupplierInfoSection";
+import { VendorInfoSection } from "./forms/VendorInfoSection";
 import { ContactInfoSection } from "./forms/ContactInfoSection";
 import { DirectorsSection } from "./forms/DirectorsSection";
 import { BankDetailsSection } from "./forms/BankDetailsSection";
@@ -36,7 +36,7 @@ function text(value: unknown): string {
 }
 
 /**
- * The identity the supplier already gave when the account was created. Nobody
+ * The identity the vendor already gave when the account was created. Nobody
  * should have to type their company name, email and phone a second time, so the
  * form opens with them filled in. Only the company name is still typed here;
  * the email and the phone ride along from the account.
@@ -84,7 +84,7 @@ function OnboardingBody({
       >
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {editing ? "Edit Your Profile" : "Supplier Onboarding"}
+            {editing ? "Edit Your Profile" : "Vendor Onboarding"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {editing
@@ -112,7 +112,7 @@ function OnboardingBody({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="space-y-6">
-          <SupplierInfoSection />
+          <VendorInfoSection />
           <ContactInfoSection />
           <BankDetailsSection />
           <AddressSection />
@@ -137,7 +137,7 @@ function OnboardingBody({
 }
 
 interface VendorOnboardingProps {
-  /** Everything already saved for this supplier, or null for a blank wizard. */
+  /** Everything already saved for this vendor, or null for a blank wizard. */
   initial: VendorOnboardingData | null;
 }
 
@@ -147,7 +147,7 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
   const identity = useMemo(() => accountIdentity(user), [user]);
 
   // Saved details win: they are the same account, only more complete. The
-  // identity below fills the gaps for a supplier who has not saved anything yet.
+  // identity below fills the gaps for a vendor who has not saved anything yet.
   const methods = useForm<VendorFormValues>({
     defaultValues: initial ? toFormValues(initial) : { ...emptyFormValues(), ...identity },
     mode: "onTouched",
@@ -180,15 +180,15 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
   /**
    * Writes everything typed so far without asking the form to be complete.
    *
-   * The supplier pack is long and the certificates behind it are not always to
-   * hand, so a supplier has to be able to stop half way and pick it up later.
+   * The vendor pack is long and the certificates behind it are not always to
+   * hand, so a vendor has to be able to stop half way and pick it up later.
    * This runs no validation on purpose: a half filled section is exactly what a
    * draft is. Only the submit at the end insists on the whole thing.
    */
   async function saveDraft() {
     if (!user) {
       toast.success("Nothing to save", {
-        description: "Sign in as a supplier to save this to an account.",
+        description: "Sign in as a vendor to save this to an account.",
       });
       return;
     }
@@ -225,7 +225,7 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
     // against, so the form only reports what it would have sent.
     if (!user) {
       toast.success("Form complete", {
-        description: "Sign in as a supplier to save this to an account.",
+        description: "Sign in as a vendor to save this to an account.",
       });
       return;
     }
@@ -256,11 +256,11 @@ export function VendorOnboarding({ initial }: VendorOnboardingProps) {
 
     setSubmitting(false);
 
-    // The profile is addressed by the supplier's own id.
+    // The profile is addressed by the vendor's own id.
     const profilePath = `/vendor/${user.id}`;
 
     if (firstSubmission) {
-      // The supplier is done with the form now, so they land on their profile
+      // The vendor is done with the form now, so they land on their profile
       // rather than sitting in the wizard they just completed.
       navigate(profilePath, { replace: true, state: { justSubmitted: true } });
     } else {

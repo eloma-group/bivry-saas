@@ -1,7 +1,7 @@
 import type { UploadedFile } from "@/types/driver";
 
 /**
- * The supplier onboarding form, in the shapes the inputs need: plain strings,
+ * The vendor onboarding form, in the shapes the inputs need: plain strings,
  * yyyy-MM-dd dates and files held as data URLs until they are uploaded.
  */
 
@@ -48,7 +48,7 @@ export interface VendorAddressBlock {
 }
 
 /**
- * One site the supplier operates, warehouse or yard.
+ * One site the vendor operates, warehouse or yard.
  *
  * An address plus a key, so a list of them can be added to and removed from
  * without the rows losing their place.
@@ -87,11 +87,11 @@ export type InsuranceKey =
 /** A row in the compliance documents table. */
 export interface ComplianceDocRow {
   id: string;
-  /** The stored document type. Extra rows the supplier adds are ADDITIONAL. */
+  /** The stored document type. Extra rows the vendor adds are ADDITIONAL. */
   docType: string;
   /** What the row is called on screen, and what an extra row is saved as. */
   label: string;
-  /** False for the rows a supplier added themselves, which can be removed. */
+  /** False for the rows a vendor added themselves, which can be removed. */
   fixed: boolean;
   file: UploadedFile | null;
   /** yyyy-MM-dd. */
@@ -99,7 +99,7 @@ export interface ComplianceDocRow {
 }
 
 export interface VendorFormValues {
-  /* Section 1 - Supplier information */
+  /* Section 1 - Vendor information */
   companyName: string;
   /** At least one, and the first is the one shown wherever only one will fit. */
   tradingNames: TradingNameRow[];
@@ -110,10 +110,12 @@ export interface VendorFormValues {
   abnStatus: string;
   /** "Australian Private Company". Also straight from the register. */
   entityType: string;
+  /** "Registered from 01 Jul 2000", or "Not registered". Also from the register. */
+  gst: string;
   legalName: string;
   websiteAddress: string;
   /** Handed out by the server, shown read only. */
-  supplierId: string;
+  vendorCode: string;
   email: string;
   phone: string;
   companyLogo: UploadedFile | null;
@@ -145,7 +147,7 @@ export interface VendorFormValues {
    */
   billingSameAsPrincipal: boolean;
   /**
-   * Yards: sites the supplier parks or stages at. Optional, and there can be
+   * Yards: sites the vendor parks or stages at. Optional, and there can be
    * several, so the fields only appear once one is added.
    */
   yards: SiteRow[];

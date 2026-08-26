@@ -3,7 +3,7 @@ import { prisma } from '../config/prisma';
 /**
  * Expiry notifications.
  *
- * A driver's compliance documents and a supplier's policies each carry an expiry
+ * A driver's compliance documents and a vendor's policies each carry an expiry
  * date. Anything already past, or falling due inside the warning window, has to
  * reach both the account it belongs to (so they can renew it) and the admin (so
  * they can chase it). Every audience asks the same question of the same rows, so
@@ -35,7 +35,7 @@ export interface ExpiryNotification {
   id: string;
   /** Which portal the record belongs to, so a link can be built for it. */
   subjectType: 'driver' | 'vendor';
-  /** The driver or supplier the expiring record belongs to. */
+  /** The driver or vendor the expiring record belongs to. */
   subjectId: string;
   subjectName: string;
   subjectEmail: string;
@@ -310,10 +310,10 @@ export async function getExpiryNotifications(driverId?: string): Promise<Notific
 }
 
 /**
- * Supplier accreditations, policies and compliance documents expired or
+ * Vendor accreditations, policies and compliance documents expired or
  * expiring within the warning window.
  *
- * @param vendorId scope to one supplier, or leave undefined for every supplier.
+ * @param vendorId scope to one vendor, or leave undefined for every vendor.
  */
 export async function getVendorExpiryNotifications(vendorId?: string): Promise<NotificationFeed> {
   const today = startOfToday();
@@ -337,7 +337,7 @@ export async function getVendorExpiryNotifications(vendorId?: string): Promise<N
   return toFeed(buildFeed(rows, 'vendor', owners, today));
 }
 
-/** Everything across the fleet, drivers and suppliers together. Admin only. */
+/** Everything across the fleet, drivers and vendors together. Admin only. */
 export async function getAllExpiryNotifications(): Promise<NotificationFeed> {
   const [drivers, vendors] = await Promise.all([
     getExpiryNotifications(),

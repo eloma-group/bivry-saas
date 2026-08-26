@@ -4,7 +4,7 @@ import type { RoleSlug } from "@/types/auth";
 /**
  * Expiry notifications.
  *
- * The same feed from three angles: a driver sees their own documents, a supplier
+ * The same feed from three angles: a driver sees their own documents, a vendor
  * sees their own policies, and an admin sees everyone's. Nothing is stored server
  * side - the list is derived from the expiry dates on each read, so it cannot go
  * stale.

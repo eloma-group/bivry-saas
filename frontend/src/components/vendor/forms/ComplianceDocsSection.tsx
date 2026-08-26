@@ -13,7 +13,7 @@ import type { VendorFormValues } from "@/types/vendor";
  * The compliance pack.
  *
  * The eight rows the fleet always asks for come pre-listed and cannot be
- * removed; a supplier adds their own rows underneath. Each row carries the date
+ * removed; a vendor adds their own rows underneath. Each row carries the date
  * the document was issued.
  *
  * The layout is one row per document on a wide screen and a stacked card on a

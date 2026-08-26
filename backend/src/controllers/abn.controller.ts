@@ -6,7 +6,7 @@ import { lookupAbn } from '../services/abn.service';
 /**
  * The Australian Business Register, proxied.
  *
- * Public data, and the same call whoever asks for it, so both the supplier's
+ * Public data, and the same call whoever asks for it, so both the vendor's
  * own onboarding form and an admin editing that form mount this handler. It
  * reads nothing from the account and writes nothing, and the register itself
  * decides what comes back.

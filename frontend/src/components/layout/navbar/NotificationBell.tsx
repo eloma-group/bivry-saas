@@ -32,16 +32,16 @@ const SECTION_ANCHOR: Partial<Record<NotificationSection, string>> = {
 };
 
 function targetFor(item: ExpiryNotification, role: RoleSlug | null): string {
+  // The portal slug and the admin module slug are the same word, so one lookup
+  // answers both.
+  const module = item.subjectType === "vendor" ? "vendor" : "driver";
+
   // An admin goes to the record whose document it is; everybody else goes to the
   // part of their own form that fixes it.
-  if (role === "admin") {
-    const module = item.subjectType === "vendor" ? "supplier" : "driver";
-    return `/admin/onboarding/${module}/${item.subjectId}`;
-  }
+  if (role === "admin") return `/admin/onboarding/${module}/${item.subjectId}`;
 
-  const portal = item.subjectType === "vendor" ? "vendor" : "driver";
   const anchor = SECTION_ANCHOR[item.section];
-  return anchor ? `/${portal}/onboarding#${anchor}` : `/${portal}/onboarding`;
+  return anchor ? `/${module}/onboarding#${anchor}` : `/${module}/onboarding`;
 }
 
 function timing(item: ExpiryNotification): string {
@@ -57,7 +57,7 @@ function timing(item: ExpiryNotification): string {
  * The notifications tab in the header.
  *
  * Every portal gets the same panel: a driver sees their own documents, a
- * supplier their own policies, an admin sees everyone's. The badge counts what
+ * vendor their own policies, an admin sees everyone's. The badge counts what
  * is actually wrong, so an empty bell genuinely means nothing needs doing.
  */
 export function NotificationBell({ role }: { role: RoleSlug | null }) {

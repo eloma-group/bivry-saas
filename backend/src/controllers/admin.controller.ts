@@ -21,7 +21,7 @@ export const adminController = {
     sendSuccess(res, data, 'Dashboard loaded');
   }),
 
-  /** Expiring and expired documents across every driver and supplier. */
+  /** Expiring and expired documents across every driver and vendor. */
   notifications: asyncHandler(async (_req, res) => {
     const data = await getAllExpiryNotifications();
     sendSuccess(res, data, 'Notifications loaded');
@@ -269,7 +269,7 @@ export const adminController = {
     }),
 
   // -------------------------------------------------------------------------
-  // Suppliers (vendors)
+  // Vendors
   // -------------------------------------------------------------------------
 
   listVendors: asyncHandler(async (req, res) => {
@@ -282,27 +282,27 @@ export const adminController = {
       sortBy: query.sortBy,
       sortDir: query.sortDir,
     });
-    sendSuccess(res, data, 'Suppliers loaded');
+    sendSuccess(res, data, 'Vendors loaded');
   }),
 
   getVendor: asyncHandler(async (req, res) => {
     const data = await adminService.getVendor(req.params.id);
-    sendSuccess(res, data, 'Supplier loaded');
+    sendSuccess(res, data, 'Vendor loaded');
   }),
 
   createVendor: asyncHandler(async (req, res) => {
     const data = await adminService.createVendor(req.body);
-    sendCreated(res, data, 'Supplier created');
+    sendCreated(res, data, 'Vendor created');
   }),
 
   updateVendor: asyncHandler(async (req, res) => {
     const data = await adminService.updateVendor(req.params.id, req.body);
-    sendSuccess(res, data, 'Supplier updated');
+    sendSuccess(res, data, 'Vendor updated');
   }),
 
   deleteVendor: asyncHandler(async (req, res) => {
     const data = await adminService.deleteVendor(req.params.id);
-    sendSuccess(res, data, 'Supplier removed');
+    sendSuccess(res, data, 'Vendor removed');
   }),
 
   reviewVendor: asyncHandler(async (req, res) => {
@@ -327,8 +327,8 @@ export const adminController = {
   }),
 
   // -------------------------------------------------------------------------
-  // A supplier's onboarding record, written by an admin. One route per section,
-  // the same split the supplier portal uses.
+  // A vendor's onboarding record, written by an admin. One route per section,
+  // the same split the vendor portal uses.
   // -------------------------------------------------------------------------
 
   updateVendorCompany: asyncHandler(async (req, res) => {

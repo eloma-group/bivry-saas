@@ -34,7 +34,7 @@ import {
   uploadDocumentSchema,
   visaSectionSchema,
 } from '../validators/driver.validator';
-// Same argument for the supplier sections. Aliased because the driver file
+// Same argument for the vendor sections. Aliased because the driver file
 // exports two schemas by the same names for its own document routes.
 import {
   accreditationSectionSchema,
@@ -169,7 +169,7 @@ router.patch(
 );
 router.delete('/drivers/:id/documents/:documentId', adminController.deleteDriverDocument);
 
-// Suppliers: the same shape as drivers, backed by the vendor tables.
+// Vendors: the same shape as drivers, backed by the vendor tables.
 router.get('/vendors', adminController.listVendors);
 router.post('/vendors', validateBody(createVendorSchema), adminController.createVendor);
 router.get('/vendors/:id', adminController.getVendor);
@@ -184,15 +184,15 @@ router.post(
   adminController.reviewVendorSection,
 );
 
-// The account password, replaceable by an admin when a supplier is locked out.
+// The account password, replaceable by an admin when a vendor is locked out.
 router.put('/vendors/:id/password', validateBody(setPasswordSchema), adminController.setVendorPassword);
 
-// The same Business Register lookup the supplier's own form uses, because an
+// The same Business Register lookup the vendor's own form uses, because an
 // admin filling that form in on their behalf needs it just as much.
 router.get('/abn-lookup', abnLookupLimiter, abnController.lookup);
 
-// A supplier's onboarding record, section by section. Same split as the
-// supplier's own routes in vendor.routes.ts.
+// A vendor's onboarding record, section by section. Same split as the
+// vendor's own routes in vendor.routes.ts.
 router.put(
   '/vendors/:id/onboarding/company',
   validateBody(companySectionSchema),
@@ -244,7 +244,7 @@ router.put(
   adminController.updateVendorInsurances,
 );
 
-// A supplier's files, same shape as the driver's.
+// A vendor's files, same shape as the driver's.
 router.post(
   '/vendors/:id/documents',
   upload.single('file'),

@@ -6,7 +6,7 @@ import type { RoleSlug } from "@/types/auth";
  *
  * The register publishes no CORS headers, so the browser cannot call it
  * directly however public the data is. The backend proxies it, and mounts the
- * same handler on both portals: a supplier filling in their own form and an
+ * same handler on both portals: a vendor filling in their own form and an
  * admin filling it in for them ask the same question.
  */
 export interface AbnLookupResult {
@@ -29,7 +29,7 @@ export interface AbnLookupResult {
 
 export function lookupAbn(abn: string, role: RoleSlug | undefined): Promise<AbnLookupResult> {
   // Only these two portals mount the route. Anything else is the development
-  // auth bypass, which stands in a supplier's shoes.
+  // auth bypass, which stands in a vendor's shoes.
   const portal = role === "admin" ? "admin" : "vendor";
 
   return request<AbnLookupResult>({
@@ -48,4 +48,15 @@ export function lookupAbn(abn: string, role: RoleSlug | undefined): Promise<AbnL
 export function abnStatusLine(found: AbnLookupResult): string {
   if (!found.abnStatus) return "";
   return found.abnStatusFrom ? `${found.abnStatus} from ${found.abnStatusFrom}` : found.abnStatus;
+}
+
+/**
+ * Where the business stands on GST, worded the way the register words it.
+ *
+ * The register publishes a date and nothing else, so a date means registered
+ * and no date means not. Both readings are stated in full rather than left as a
+ * bare date, because "01 Jul 2000" on its own says nothing about GST.
+ */
+export function gstLine(found: AbnLookupResult): string {
+  return found.gstFrom ? `Registered from ${found.gstFrom}` : "Not registered";
 }

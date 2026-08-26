@@ -39,7 +39,7 @@ function passwordProblem(value: string): string | null {
  * One customer or employee, created or edited by an admin.
  *
  * Creating and editing are the same screen, as they are for drivers and
- * suppliers. There is no onboarding form behind either of these, so the fields
+ * vendors. There is no onboarding form behind either of these, so the fields
  * come from the module config rather than from a set of section components.
  */
 export function AdminSimpleAccountEditPage({

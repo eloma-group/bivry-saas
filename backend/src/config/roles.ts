@@ -123,7 +123,7 @@ export const ROLES: Record<RoleSlug, RoleDefinition> = {
         legalName: account.legalName,
         contactPerson: account.contactPerson,
         abn: account.abn,
-        supplierId: account.supplierId,
+        vendorCode: account.vendorCode,
         websiteAddress: account.websiteAddress,
         logoUrl: account.logoUrl,
         onboardingStatus: account.onboardingStatus,

@@ -35,7 +35,7 @@ import {
 } from "@/constants/adminStatus";
 import { INSURANCE_POLICIES } from "@/constants/vendorOptions";
 
-/** Where a supplier section's review currently stands, or null if never filled in. */
+/** Where a vendor section's review currently stands, or null if never filled in. */
 function sectionStatus(
   data: VendorOnboardingData,
   slug: ReviewableVendorSection,
@@ -75,7 +75,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
       setError(
         caught instanceof ApiRequestError
           ? caught.message
-          : "Could not load that supplier. Please try again.",
+          : "Could not load that vendor. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
   async function decide(decision: "APPROVED" | "REJECTED" | "UNDER_REVIEW") {
     if (decision === "REJECTED" && reason.trim() === "") {
       toast.error("Say what needs fixing", {
-        description: "The supplier sees this note on their profile.",
+        description: "The vendor sees this note on their profile.",
       });
       return;
     }
@@ -103,7 +103,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
       await adminService.reviewVendor(vendorId, decision, reason.trim() || null);
       toast.success(
         decision === "APPROVED"
-          ? "Supplier approved"
+          ? "Vendor approved"
           : decision === "REJECTED"
             ? "Changes requested"
             : "Marked as under review",
@@ -138,10 +138,10 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
     setDeleting(true);
     try {
       await adminService.deleteVendor(vendorId);
-      toast.success("Supplier removed");
-      navigate("/admin/onboarding/supplier", { replace: true });
+      toast.success("Vendor removed");
+      navigate("/admin/onboarding/vendor", { replace: true });
     } catch (caught) {
-      toast.error("Could not remove that supplier", {
+      toast.error("Could not remove that vendor", {
         description:
           caught instanceof ApiRequestError ? caught.message : "Please try again in a moment.",
       });
@@ -149,7 +149,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
     }
   }
 
-  if (loading) return <PanelLoader label="Loading supplier" />;
+  if (loading) return <PanelLoader label="Loading vendor" />;
   if (error || !data) {
     return <PanelError message={error ?? "Not found"} onRetry={() => void load()} />;
   }
@@ -162,14 +162,14 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/admin/onboarding/supplier">
-            <ArrowLeft className="h-4 w-4" /> All suppliers
+          <Link to="/admin/onboarding/vendor">
+            <ArrowLeft className="h-4 w-4" /> All vendors
           </Link>
         </Button>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild>
-            <Link to={`/admin/onboarding/supplier/${vendorId}/edit`}>
+            <Link to={`/admin/onboarding/vendor/${vendorId}/edit`}>
               <Pencil className="h-4 w-4" /> Edit details
             </Link>
           </Button>
@@ -186,7 +186,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
 
       {/* Verification panel. The decision an admin comes here to make sits above
           the record itself. Unlike the driver flow it is never locked out: a
-          supplier's pack is long, and an admin who has seen the paperwork
+          vendor's pack is long, and an admin who has seen the paperwork
           elsewhere can sign it off without waiting for the last upload. */}
       <section className="mb-6 rounded-3xl border border-border/70 bg-card p-6 shadow-card">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -196,7 +196,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
             </h2>
             <p className="text-sm text-muted-foreground">
               {notSubmitted
-                ? "This supplier has not submitted yet. You can still approve or send it back."
+                ? "This vendor has not submitted yet. You can still approve or send it back."
                 : "Approve the application, or send it back with a note."}
             </p>
           </div>
@@ -209,7 +209,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
               htmlFor="reason"
               className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground"
             >
-              Note to the supplier (required when requesting changes)
+              Note to the vendor (required when requesting changes)
             </Label>
             <Input
               id="reason"
@@ -313,7 +313,7 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
         </div>
       </section>
 
-      {/* The supplier's own record, read only, with their documents. */}
+      {/* The vendor's own record, read only, with their documents. */}
       <VendorProfile
         data={data}
         readOnly
@@ -333,9 +333,9 @@ export function AdminVendorDetailPage({ vendorId }: AdminVendorDetailPageProps) 
       <ConfirmDialog
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
-        title="Remove this supplier?"
+        title="Remove this vendor?"
         description={`${data.email} will be deleted permanently, along with their documents. This cannot be undone. The email address becomes free to sign up with again.`}
-        confirmLabel="Remove supplier"
+        confirmLabel="Remove vendor"
         destructive
         busy={deleting}
         onConfirm={confirmDelete}

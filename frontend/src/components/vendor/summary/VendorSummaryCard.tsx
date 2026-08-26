@@ -58,7 +58,7 @@ export function VendorSummaryCard({
     useDocumentSource(vendorDocuments),
   );
   const logoUrl = logo ? logo.dataUrl || storedLogoUrl : null;
-  const name = v?.companyName || "New Supplier";
+  const name = v?.companyName || "New Vendor";
 
   const docs: { label: string; file: UploadedFile | null }[] = [
     { label: "Accreditation", file: v?.accreditationFile ?? null },
@@ -112,7 +112,7 @@ export function VendorSummaryCard({
             <div className="min-w-0">
               <p className="truncate text-base font-semibold">{name}</p>
               <p className="text-sm text-white/60">
-                {v?.supplierId ? v.supplierId : "Supplier Onboarding"}
+                {v?.vendorCode ? v.vendorCode : "Vendor Onboarding"}
               </p>
             </div>
           </div>

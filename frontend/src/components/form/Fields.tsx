@@ -27,7 +27,7 @@ import {
  * The shared field kit.
  *
  * Every input here is bound by field path rather than by a typed key, so the
- * same components serve the driver wizard and the supplier wizard without
+ * same components serve the driver wizard and the vendor wizard without
  * either of them knowing about the other's value shape.
  */
 

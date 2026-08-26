@@ -58,7 +58,7 @@ function SortableHeader({
 }
 
 /**
- * The supplier register.
+ * The vendor register.
  *
  * Scrolls inside its own container so a wide table never makes the page scroll
  * sideways, and the header row stays put while the body scrolls.
@@ -86,12 +86,12 @@ export function VendorTable({
                 <Checkbox
                   checked={allSelected ? true : someSelected ? "indeterminate" : false}
                   onCheckedChange={onToggleAll}
-                  aria-label="Select every supplier on this page"
+                  aria-label="Select every vendor on this page"
                 />
               </th>
               <SortableHeader
                 column="companyName"
-                label="Supplier"
+                label="Vendor"
                 sortBy={sortBy}
                 sortDir={sortDir}
                 onSort={onSort}
@@ -157,13 +157,13 @@ export function VendorTable({
 
                   <td className="px-4 py-3">
                     <Link
-                      to={`/admin/onboarding/supplier/${row.id}`}
+                      to={`/admin/onboarding/vendor/${row.id}`}
                       className="font-medium text-foreground hover:text-primary hover:underline"
                     >
                       {row.companyName}
                     </Link>
                     <p className="text-xs text-muted-foreground">
-                      {row.supplierId ?? "No supplier ID"}
+                      {row.vendorCode ?? "No vendor ID"}
                       {row.abn ? ` - ABN ${row.abn}` : ""}
                     </p>
                   </td>
@@ -223,7 +223,7 @@ export function VendorTable({
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Button asChild variant="ghost" size="sm">
-                        <Link to={`/admin/onboarding/supplier/${row.id}`}>Open</Link>
+                        <Link to={`/admin/onboarding/vendor/${row.id}`}>Open</Link>
                       </Button>
                       <Button
                         type="button"
@@ -246,7 +246,7 @@ export function VendorTable({
 
       {rows.length === 0 && (
         <p className="px-6 py-12 text-center text-sm text-muted-foreground">
-          No suppliers match this view.
+          No vendors match this view.
         </p>
       )}
     </div>

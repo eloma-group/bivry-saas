@@ -59,7 +59,7 @@ export const VENDOR_DOCUMENT_TYPES = [
 
 /**
  * Every field below is optional on purpose: a half filled form is exactly what
- * a draft is, and the supplier has to be able to save and come back. Only the
+ * a draft is, and the vendor has to be able to save and come back. Only the
  * submit at the end insists on the whole thing (see vendor.service).
  */
 export const companySectionSchema = z.object({
@@ -70,6 +70,7 @@ export const companySectionSchema = z.object({
   acn: optionalText(30),
   abnStatus: optionalText(100),
   entityType: optionalText(100),
+  gst: optionalText(100),
   websiteAddress: optionalText(200),
   phone: optionalPhoneNumber(),
   contactPerson: optionalPersonName('Contact person'),

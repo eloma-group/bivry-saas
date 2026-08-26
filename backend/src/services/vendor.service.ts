@@ -4,29 +4,30 @@ import { logger } from '../utils/logger';
 import * as storage from './storage.service';
 import type {
   Prisma,
+  VendorAddress,
   VendorAddressType,
   VendorContactType,
   VendorDocumentType,
   VendorInsuranceType,
 } from '@prisma/client';
 
-/** Supplier documents live in their own container, away from driver files. */
+/** Vendor documents live in their own container, away from driver files. */
 const VENDOR_AREA = 'vendor' as const;
 
 /**
- * Where the generated supplier reference starts counting from. The first
- * supplier is BIVRY-5000 and it runs on from there, one per supplier.
+ * Where the generated vendor reference starts counting from. The first
+ * vendor is BIVRY-5000 and it runs on from there, one per vendor.
  *
  * Changing either of these renumbers nothing on its own: the references already
  * handed out are rewritten by a migration, and this only decides what the next
  * one looks like. Keep the two in step.
  */
-const SUPPLIER_ID_PREFIX = 'BIVRY-';
-const SUPPLIER_ID_BASE = 5000;
+const VENDOR_CODE_PREFIX = 'BIVRY-';
+const VENDOR_CODE_BASE = 5000;
 
 /** Everything the onboarding wizard needs to render and resume. */
 export async function getOnboarding(vendorId: string) {
-  await ensureSupplierId(vendorId);
+  await ensureVendorCode(vendorId);
 
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
@@ -44,36 +45,53 @@ export async function getOnboarding(vendorId: string) {
     },
   });
 
-  if (!vendor) throw ApiError.notFound('Supplier not found');
+  if (!vendor) throw ApiError.notFound('Vendor not found');
 
   const { passwordHash: _passwordHash, ...safeVendor } = vendor;
   return safeVendor;
 }
 
 /**
- * Hands this supplier its reference number the first time they open the form.
+ * Hands this vendor its reference number the first time they open the form.
  *
- * The number is derived from how many suppliers already hold one, so it reads
+ * The number is derived from how many vendors already hold one, so it reads
  * as a running count rather than a random string. Two accounts opening the form
  * at the same instant can land on the same candidate, which the unique index
  * refuses - so a clash simply tries the next one.
  */
-async function ensureSupplierId(vendorId: string): Promise<void> {
+async function ensureVendorCode(vendorId: string): Promise<void> {
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
-    select: { id: true, supplierId: true },
+    select: { id: true, vendorCode: true, supplierId: true },
   });
-  if (!vendor) throw ApiError.notFound('Supplier not found');
-  if (vendor.supplierId) return;
+  if (!vendor) throw ApiError.notFound('Vendor not found');
+  if (vendor.vendorCode) return;
 
-  const taken = await prisma.vendor.count({ where: { supplierId: { not: null } } });
+  // A row a build from before the rename created carries the reference under the
+  // old name and nothing under the new one. It is the same number, so it is
+  // adopted rather than replaced: a vendor's reference is on their paperwork and
+  // in their inbox, and must not move underneath them.
+  if (vendor.supplierId) {
+    await prisma.vendor.update({
+      where: { id: vendorId },
+      data: { vendorCode: vendor.supplierId },
+    });
+    return;
+  }
+
+  // Either column counts as a reference already handed out, so that a number
+  // allocated by the older build is never handed to somebody else as well.
+  const taken = await prisma.vendor.count({
+    where: { OR: [{ vendorCode: { not: null } }, { supplierId: { not: null } }] },
+  });
 
   for (let attempt = 0; attempt < 25; attempt += 1) {
-    const candidate = `${SUPPLIER_ID_PREFIX}${SUPPLIER_ID_BASE + taken + attempt}`;
+    const candidate = `${VENDOR_CODE_PREFIX}${VENDOR_CODE_BASE + taken + attempt}`;
     try {
       await prisma.vendor.update({
         where: { id: vendorId },
-        data: { supplierId: candidate },
+        // Written under both names: see the note on `supplierId` in the schema.
+        data: { vendorCode: candidate, supplierId: candidate },
       });
       return;
     } catch (error) {
@@ -84,7 +102,7 @@ async function ensureSupplierId(vendorId: string): Promise<void> {
   }
 
   // Not fatal: the form works without a reference, and the next load tries again.
-  logger.warn(`Could not allocate a supplier id for vendor ${vendorId}`);
+  logger.warn(`Could not allocate a vendor code for vendor ${vendorId}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +128,7 @@ export interface CompanyInput {
   acn: string | null;
   abnStatus: string | null;
   entityType: string | null;
+  gst: string | null;
   websiteAddress: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -131,6 +150,7 @@ export async function updateCompany(vendorId: string, data: CompanyInput) {
       acn: data.acn,
       abnStatus: data.abnStatus,
       entityType: data.entityType,
+      gst: data.gst,
       websiteAddress: data.websiteAddress,
       phone: data.phone,
       contactPerson: data.contactPerson,
@@ -193,7 +213,7 @@ export interface DirectorInput {
  * Replaces the whole list in one transaction.
  *
  * These rows have no meaning on their own - they are the section as the
- * supplier last left it - so rewriting them is both simpler and more correct
+ * vendor last left it - so rewriting them is both simpler and more correct
  * than trying to match a row on screen back to one in the table.
  */
 export async function updateDirectors(vendorId: string, directors: DirectorInput[]) {
@@ -227,7 +247,7 @@ export interface AddressInput {
 }
 
 export interface AddressesInput {
-  /** Whether the supplier ticked the billing address as a copy. */
+  /** Whether the vendor ticked the billing address as a copy. */
   billingSameAsPrincipal: boolean;
   principal: AddressInput;
   billing: AddressInput;
@@ -281,7 +301,7 @@ export async function updateWarehouses(vendorId: string, warehouses: WarehouseIn
  * The yards, replaced wholesale in the order they were entered.
  *
  * Same shape as the warehouses and the same wholesale replace, but a table of
- * its own: a yard is a site the supplier parks or stages at, not somewhere
+ * its own: a yard is a site the vendor parks or stages at, not somewhere
  * freight is collected from or delivered to.
  */
 export async function updateYards(vendorId: string, yards: WarehouseInput[]) {
@@ -348,7 +368,7 @@ export async function updateAccreditation(
   data: AccreditationInput,
   options: { resetVerification?: boolean } = {},
 ) {
-  // A supplier editing their own section invalidates whatever decision was made
+  // A vendor editing their own section invalidates whatever decision was made
   // on it, so it goes back in the queue. An admin editing it is the person who
   // makes that decision, so their correction leaves the verification alone.
   const resetVerification = options.resetVerification ?? true;
@@ -414,7 +434,7 @@ export async function saveProgress(vendorId: string, step: number) {
 // Submission
 // ---------------------------------------------------------------------------
 
-/** The compliance documents every supplier has to hand in, in the form's order. */
+/** The compliance documents every vendor has to hand in, in the form's order. */
 export const REQUIRED_COMPLIANCE_DOCS: Array<{ docType: VendorDocumentType; label: string }> = [
   { docType: 'COMPLIANCE_DRUG', label: 'Drug' },
   { docType: 'COMPLIANCE_ALCOHOL_POLICY', label: 'Alcohol Policy' },
@@ -426,18 +446,37 @@ export const REQUIRED_COMPLIANCE_DOCS: Array<{ docType: VendorDocumentType; labe
   { docType: 'COMPLIANCE_WHS_POLICY', label: 'Work Health & Safety Policy' },
 ];
 
+/**
+ * Whether a registered address has everything the form asks for.
+ *
+ * Street 2 is left out on purpose: it carries a unit, a level or a building
+ * name, and plenty of addresses have none. `useVendorProgress` on the frontend
+ * judges an address the same way, so a form that reads as complete is one this
+ * will accept.
+ */
+function isWholeAddress(address: VendorAddress | undefined): boolean {
+  return Boolean(
+    address?.street1 &&
+      address.suburb &&
+      address.state &&
+      address.country &&
+      address.postCode,
+  );
+}
+
 export async function submitOnboarding(vendorId: string) {
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
     include: {
       bankDetail: true,
+      addresses: true,
       warehouses: true,
       accreditation: true,
       documents: { where: { deletedAt: null }, select: { docType: true } },
     },
   });
 
-  if (!vendor) throw ApiError.notFound('Supplier not found');
+  if (!vendor) throw ApiError.notFound('Vendor not found');
   if (vendor.onboardingStatus === 'SUBMITTED' || vendor.onboardingStatus === 'UNDER_REVIEW') {
     throw ApiError.badRequest('Your application has already been submitted.');
   }
@@ -445,6 +484,14 @@ export async function submitOnboarding(vendorId: string) {
   const missing: string[] = [];
   if (!vendor.abn) missing.push('ABN');
   if (!vendor.bankDetail?.accountNumber) missing.push('Bank account number');
+
+  // Both registered addresses are asked for. The billing one is sent as a copy
+  // of the principal when the form's tick says they match, so there is always a
+  // row for each and nothing here has to follow the flag.
+  const addresses = new Map(vendor.addresses.map((address) => [address.type, address]));
+  if (!isWholeAddress(addresses.get('PRINCIPAL'))) missing.push('Principal address');
+  if (!isWholeAddress(addresses.get('BILLING'))) missing.push('Billing address');
+
   if (vendor.warehouses.length === 0) missing.push('Warehouse address');
   if (!vendor.accreditation?.accreditationNumber) missing.push('Accreditation number');
 
@@ -502,7 +549,7 @@ export async function addDocument(
   });
 
   // Single slot document types replace whatever was there before. The extra
-  // compliance rows a supplier adds themselves are the one type that stacks.
+  // compliance rows a vendor adds themselves are the one type that stacks.
   const replaced =
     input.docType === 'COMPLIANCE_ADDITIONAL'
       ? []

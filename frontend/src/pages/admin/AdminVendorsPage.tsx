@@ -33,13 +33,13 @@ import type { OnboardingStatus } from "@/services/driverService";
 type SortBy = "createdAt" | "submittedAt" | "companyName" | "email" | "onboardingStatus";
 
 const PAGE_SIZE = 25;
-/** One request is enough for a whole-table export at any realistic supplier count. */
+/** One request is enough for a whole-table export at any realistic vendor count. */
 const EXPORT_PAGE_SIZE = 1000;
 const ALL = "ALL";
 
 /** The columns an export carries. Same order as the table reads. */
 const EXPORT_COLUMNS: SheetColumn<AdminVendorRow>[] = [
-  { header: "Supplier ID", value: (row) => row.supplierId, width: 16 },
+  { header: "Vendor ID", value: (row) => row.vendorCode, width: 16 },
   { header: "Company name", value: (row) => row.companyName, width: 26 },
   { header: "Trading names", value: (row) => row.tradingNames.join(", "), width: 24 },
   { header: "Legal name", value: (row) => row.legalName, width: 24 },
@@ -87,7 +87,7 @@ const EXPORT_COLUMNS: SheetColumn<AdminVendorRow>[] = [
   { header: "Created", value: (row) => prettyDate(row.createdAt), width: 16 },
 ];
 
-/** The Supplier module: the register, its filters, and the export. */
+/** The Vendor module: the register, its filters, and the export. */
 export function AdminVendorsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -140,7 +140,7 @@ export function AdminVendorsPage() {
       setError(
         caught instanceof ApiRequestError
           ? caught.message
-          : "Could not load the suppliers. Please try again.",
+          : "Could not load the vendors. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -217,19 +217,19 @@ export function AdminVendorsPage() {
       }
 
       if (exportRows.length === 0) {
-        toast.error("Nothing to export", { description: "No suppliers match this view." });
+        toast.error("Nothing to export", { description: "No vendors match this view." });
         return;
       }
 
       downloadWorkbook({
-        fileName: stampedFileName(scope === "selected" ? "suppliers-selected" : "suppliers"),
-        sheet: "Suppliers",
+        fileName: stampedFileName(scope === "selected" ? "vendors-selected" : "vendors"),
+        sheet: "Vendors",
         columns: EXPORT_COLUMNS,
         rows: exportRows,
       });
 
       toast.success(
-        `Exported ${exportRows.length} supplier${exportRows.length === 1 ? "" : "s"}`,
+        `Exported ${exportRows.length} vendor${exportRows.length === 1 ? "" : "s"}`,
         { description: "Saved as an Excel workbook." },
       );
     } catch (caught) {
@@ -247,7 +247,7 @@ export function AdminVendorsPage() {
     setDeleting(true);
     try {
       await adminService.deleteVendor(pendingDelete.id);
-      toast.success("Supplier removed", {
+      toast.success("Vendor removed", {
         description: `${pendingDelete.email} is deleted permanently and can sign up again.`,
       });
       setSelected((current) => {
@@ -258,7 +258,7 @@ export function AdminVendorsPage() {
       setPendingDelete(null);
       await load();
     } catch (caught) {
-      toast.error("Could not remove that supplier", {
+      toast.error("Could not remove that vendor", {
         description:
           caught instanceof ApiRequestError ? caught.message : "Please try again in a moment.",
       });
@@ -275,10 +275,10 @@ export function AdminVendorsPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Supplier Onboarding
+            Vendor Onboarding
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Every supplier account, their verification status and their compliance pack.
+            Every vendor account, their verification status and their compliance pack.
           </p>
         </div>
 
@@ -310,8 +310,8 @@ export function AdminVendorsPage() {
             Export all
           </Button>
           <Button asChild>
-            <Link to="/admin/onboarding/supplier/new">
-              <Plus className="h-4 w-4" /> New supplier
+            <Link to="/admin/onboarding/vendor/new">
+              <Plus className="h-4 w-4" /> New vendor
             </Link>
           </Button>
         </div>
@@ -324,9 +324,9 @@ export function AdminVendorsPage() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search company, supplier ID, ABN, email or phone"
+            placeholder="Search company, vendor ID, ABN, email or phone"
             className="pl-10"
-            aria-label="Search suppliers"
+            aria-label="Search vendors"
           />
         </div>
 
@@ -362,7 +362,7 @@ export function AdminVendorsPage() {
       </div>
 
       {loading && !result ? (
-        <PanelLoader label="Loading suppliers" />
+        <PanelLoader label="Loading vendors" />
       ) : error ? (
         <PanelError message={error} onRetry={() => void load()} />
       ) : total === 0 && !debouncedSearch && status === ALL ? (
@@ -372,14 +372,14 @@ export function AdminVendorsPage() {
               <Building2 className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-base font-semibold text-foreground">No suppliers yet</p>
+              <p className="text-base font-semibold text-foreground">No vendors yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Create one here, or wait for a supplier to register themselves.
+                Create one here, or wait for a vendor to register themselves.
               </p>
             </div>
             <Button asChild>
-              <Link to="/admin/onboarding/supplier/new">
-                <Plus className="h-4 w-4" /> New supplier
+              <Link to="/admin/onboarding/vendor/new">
+                <Plus className="h-4 w-4" /> New vendor
               </Link>
             </Button>
           </div>
@@ -399,7 +399,7 @@ export function AdminVendorsPage() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
             <p>
-              {total} supplier{total === 1 ? "" : "s"}
+              {total} vendor{total === 1 ? "" : "s"}
               {selected.size > 0 ? ` - ${selected.size} selected` : ""}
               {loading ? " - refreshing" : ""}
             </p>
@@ -434,13 +434,13 @@ export function AdminVendorsPage() {
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
-        title="Remove this supplier?"
+        title="Remove this vendor?"
         description={
           pendingDelete
             ? `${pendingDelete.email} will be deleted permanently, along with their documents. This cannot be undone. The email address becomes free to sign up with again.`
             : ""
         }
-        confirmLabel="Remove supplier"
+        confirmLabel="Remove vendor"
         destructive
         busy={deleting}
         onConfirm={confirmDelete}

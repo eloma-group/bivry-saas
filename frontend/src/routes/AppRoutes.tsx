@@ -98,7 +98,7 @@ export function AppRoutes() {
         <Route path=":driverId" element={<DriverProfilePage />} />
       </Route>
 
-      {/* Supplier portal, the same shape as the driver one. */}
+      {/* Vendor portal, the same shape as the driver one. */}
       <Route path="/vendor" element={<ProtectedRoute role="vendor" />}>
         <Route index element={<OnboardingHome />} />
         <Route path="onboarding" element={<VendorOnboardingPage />} />

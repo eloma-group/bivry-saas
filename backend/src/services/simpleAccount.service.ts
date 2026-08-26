@@ -6,7 +6,7 @@ import type { Prisma } from '@prisma/client';
 /**
  * Customers and employees, as the Admin portal governs them.
  *
- * Unlike drivers and suppliers these are plain accounts: no onboarding record,
+ * Unlike drivers and vendors these are plain accounts: no onboarding record,
  * no documents, no verification decisions. The whole record is the row itself,
  * so there is nothing here to delegate to a portal service and the five
  * operations are written out once against a shared shape.
@@ -161,7 +161,7 @@ export async function create(slug: KindSlug, input: Record<string, unknown>) {
       email,
       passwordHash: await hashPassword(String(password)),
       // An admin created account is usable straight away unless the admin says
-      // otherwise, which matches how drivers and suppliers are created.
+      // otherwise, which matches how drivers and vendors are created.
       status: (rest.status as AccountStatus) ?? 'ACTIVE',
       emailVerifiedAt: new Date(),
     },
@@ -192,7 +192,7 @@ export async function update(slug: KindSlug, id: string, input: Record<string, u
 }
 
 /**
- * Permanent delete, the same contract as a driver or a supplier: the row goes
+ * Permanent delete, the same contract as a driver or a vendor: the row goes
  * and the email is free again. Neither of these has child records or files, so
  * there is nothing to cascade beyond the sessions.
  */

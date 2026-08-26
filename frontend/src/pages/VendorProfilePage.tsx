@@ -11,10 +11,10 @@ import { useVendorOnboarding } from "@/hooks/useVendorOnboarding";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The signed in supplier's own profile: everything they have given us so far.
+ * The signed in vendor's own profile: everything they have given us so far.
  *
- * The URL carries the supplier's id. The API only ever answers for whoever is
- * signed in, so an id belonging to somebody else would show this supplier's own
+ * The URL carries the vendor's id. The API only ever answers for whoever is
+ * signed in, so an id belonging to somebody else would show this vendor's own
  * details under a stranger's URL. Rather than let the address lie, another id
  * redirects to the one it can actually show.
  */
@@ -46,14 +46,14 @@ export function VendorProfilePage() {
             </span>
             <div>
               <p className="text-base font-semibold text-foreground">
-                No supplier signed in
+                No vendor signed in
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Sign in to a supplier account to see its profile.
+                Sign in to a vendor account to see its profile.
               </p>
             </div>
             <Button asChild variant="outline">
-              <Link to="/vendor/login">Go to supplier login</Link>
+              <Link to="/vendor/login">Go to vendor login</Link>
             </Button>
           </div>
         </div>

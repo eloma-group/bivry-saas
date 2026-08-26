@@ -5,7 +5,7 @@ import * as vendorService from '../services/vendor.service';
 import { getVendorExpiryNotifications } from '../services/notification.service';
 import type { VendorDocumentType } from '@prisma/client';
 
-/** The signed in supplier's id. `authenticate` guarantees it is present. */
+/** The signed in vendor's id. `authenticate` guarantees it is present. */
 function vendorId(req: { auth?: { id: string } }): string {
   return req.auth!.id;
 }
@@ -16,7 +16,7 @@ export const vendorController = {
     sendSuccess(res, data, 'Onboarding loaded');
   }),
 
-  /** This supplier's own policies and documents that have expired or are about to. */
+  /** This vendor's own policies and documents that have expired or are about to. */
   notifications: asyncHandler(async (req, res) => {
     const data = await getVendorExpiryNotifications(vendorId(req));
     sendSuccess(res, data, 'Notifications loaded');
@@ -24,7 +24,7 @@ export const vendorController = {
 
   updateCompany: asyncHandler(async (req, res) => {
     const data = await vendorService.updateCompany(vendorId(req), req.body);
-    sendSuccess(res, data, 'Supplier information saved');
+    sendSuccess(res, data, 'Vendor information saved');
   }),
 
   updateContacts: asyncHandler(async (req, res) => {

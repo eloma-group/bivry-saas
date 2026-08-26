@@ -5,7 +5,7 @@ import { ApiError } from '../utils/apiError';
 /**
  * ABN lookup against the Australian Business Register (abr.business.gov.au).
  *
- * A supplier types their ABN on the onboarding form and the register fills in
+ * A vendor types their ABN on the onboarding form and the register fills in
  * the company details it already holds. It is proxied through the API rather
  * than called from the browser: the ABR GUID is a credential that must never
  * ship to the client, the browser could not reach the register anyway (no CORS
@@ -134,7 +134,7 @@ export async function lookupAbn(rawAbn: string): Promise<AbnLookupResult> {
 
 /**
  * One GET at the register, with a timeout and every failure turned into the
- * same advice: the supplier can always type the details in by hand.
+ * same advice: the vendor can always type the details in by hand.
  */
 async function fetchText(url: URL, accept: string): Promise<string> {
   const controller = new AbortController();
@@ -250,7 +250,7 @@ async function lookupViaPublicPage(abn: string): Promise<AbnLookupResult> {
     // The register answers 200 with an "Invalid ABN" page for anything it does
     // not hold, so a genuine miss has to be told apart from a parse failure.
     // Without this check a redesigned page would report every ABN as unknown,
-    // sending the supplier off to re-check a number that was right all along.
+    // sending the vendor off to re-check a number that was right all along.
     // Two distinct miss pages: "ABN not found" for a well formed number the
     // register does not hold, "Invalid ABN" for one that fails its check digits.
     if (/ABN not found|No record found matching ABN|is not a valid ABN|Invalid ABN/i.test(html)) {

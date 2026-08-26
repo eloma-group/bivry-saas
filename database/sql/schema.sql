@@ -102,7 +102,9 @@ CREATE TABLE "vendors" (
     "acn" TEXT,
     "abn_status" TEXT,
     "entity_type" TEXT,
+    "gst" TEXT,
     "logo_url" TEXT,
+    "vendor_code" TEXT,
     "supplier_id" TEXT,
     "trading_name" TEXT,
     "trading_names" TEXT[],
@@ -585,6 +587,9 @@ CREATE UNIQUE INDEX "vendors_email_key" ON "vendors"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "vendors_phone_key" ON "vendors"("phone");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "vendors_vendor_code_key" ON "vendors"("vendor_code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "vendors_supplier_id_key" ON "vendors"("supplier_id");

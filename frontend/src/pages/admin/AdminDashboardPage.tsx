@@ -125,16 +125,16 @@ export function AdminDashboardPage() {
             />
             <StatCard
               icon={Building2}
-              label="Suppliers"
+              label="Vendors"
               value={data.vendors.total}
               hint={`${data.vendors.pendingReview} waiting for review`}
-              to="/admin/onboarding/supplier"
+              to="/admin/onboarding/vendor"
             />
             <StatCard
               icon={Hourglass}
               label="Waiting for review"
               value={data.drivers.pendingReview + data.vendors.pendingReview}
-              hint="Drivers and suppliers together"
+              hint="Drivers and vendors together"
               tone="warning"
               to="/admin/onboarding/driver?status=SUBMITTED"
             />
@@ -213,19 +213,19 @@ export function AdminDashboardPage() {
               )}
             </section>
 
-            {/* Recent suppliers */}
+            {/* Recent vendors */}
             <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-card xl:col-start-1">
               <header className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold tracking-tight text-foreground">
-                    Latest supplier accounts
+                    Latest vendor accounts
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     The six most recently created.
                   </p>
                 </div>
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/admin/onboarding/supplier">
+                  <Link to="/admin/onboarding/vendor">
                     View all <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -233,7 +233,7 @@ export function AdminDashboardPage() {
 
               {data.recentVendors.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
-                  No suppliers yet.
+                  No vendors yet.
                 </p>
               ) : (
                 <ul className="divide-y divide-border/60">
@@ -242,7 +242,7 @@ export function AdminDashboardPage() {
                     return (
                       <li key={vendor.id}>
                         <Link
-                          to={`/admin/onboarding/supplier/${vendor.id}`}
+                          to={`/admin/onboarding/vendor/${vendor.id}`}
                           className="flex items-center justify-between gap-4 py-3 transition-colors hover:bg-secondary/40"
                         >
                           <div className="min-w-0">
@@ -250,7 +250,7 @@ export function AdminDashboardPage() {
                               {vendor.companyName}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {vendor.supplierId ? `${vendor.supplierId} - ` : ""}
+                              {vendor.vendorCode ? `${vendor.vendorCode} - ` : ""}
                               {vendor.email} - joined {prettyDate(vendor.createdAt)}
                             </p>
                           </div>

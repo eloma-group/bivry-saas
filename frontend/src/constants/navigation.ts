@@ -22,12 +22,12 @@ import type { RoleSlug } from "@/types/auth";
  * renders realistically but stays disabled until its feature work lands.
  */
 
-/** The five records the Onboarding menu covers. Driver and Supplier are built. */
+/** The five records the Onboarding menu covers. Driver and Vendor are built. */
 export const ONBOARDING_MODULES = [
   { slug: "vehicle", label: "Vehicle", ready: false },
   { slug: "customer", label: "Customer", ready: true },
   { slug: "user", label: "User", ready: true },
-  { slug: "supplier", label: "Supplier", ready: true },
+  { slug: "vendor", label: "Vendor", ready: true },
   { slug: "driver", label: "Driver", ready: true },
 ] as const;
 
@@ -93,7 +93,7 @@ function adminNav(): NavItem[] {
  * Menu for a self-service portal: their own onboarding form and nothing else.
  * `ownModule` is the one entry that goes anywhere.
  */
-function selfServiceNav(ownModule: "Driver" | "Supplier", href: string): NavItem[] {
+function selfServiceNav(ownModule: "Driver" | "Vendor", href: string): NavItem[] {
   return [
     { label: "Dashboard", icon: LayoutDashboard },
     {
@@ -140,7 +140,7 @@ function selfServiceNav(ownModule: "Driver" | "Supplier", href: string): NavItem
 
 export function navItemsFor(role: RoleSlug | null): NavItem[] {
   if (role === "admin") return adminNav();
-  if (role === "vendor") return selfServiceNav("Supplier", "/vendor/onboarding");
+  if (role === "vendor") return selfServiceNav("Vendor", "/vendor/onboarding");
   return selfServiceNav("Driver", "/driver/onboarding");
 }
 

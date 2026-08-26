@@ -10,7 +10,7 @@ interface VendorOnboardingState {
 }
 
 /**
- * Everything saved for the signed in supplier, shared by the onboarding wizard
+ * Everything saved for the signed in vendor, shared by the onboarding wizard
  * and the profile page.
  *
  * With no session (the development auth bypass) there is nothing to load and no

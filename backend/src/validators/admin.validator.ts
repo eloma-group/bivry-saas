@@ -33,8 +33,8 @@ const patchText = (max = 150) =>
     .transform((value) => (value === '' ? null : value));
 
 /**
- * A list of short strings, empty entries dropped. Same helper as the supplier's
- * own validator: an admin writes the same shapes the supplier portal writes.
+ * A list of short strings, empty entries dropped. Same helper as the vendor's
+ * own validator: an admin writes the same shapes the vendor portal writes.
  */
 const textList = (max = 150) =>
   z
@@ -146,7 +146,7 @@ export const sectionParamSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Suppliers (vendors)
+// Vendors
 // ---------------------------------------------------------------------------
 
 export const vendorListQuerySchema = z.object({
@@ -175,6 +175,7 @@ export const createVendorSchema = z.object({
   acn: optionalText(30),
   abnStatus: optionalText(100),
   entityType: optionalText(100),
+  gst: optionalText(100),
   websiteAddress: optionalText(200),
   status: z.enum(ACCOUNT_STATUSES).optional(),
 });
@@ -198,6 +199,7 @@ export const updateVendorSchema = z
     acn: patchText(30),
     abnStatus: patchText(100),
     entityType: patchText(100),
+    gst: patchText(100),
     websiteAddress: patchText(200),
     status: z.enum(ACCOUNT_STATUSES).optional(),
   })
@@ -213,7 +215,7 @@ export const reviewVendorSchema = z
     reason: optionalText(500),
   })
   .refine((data) => data.decision !== 'REJECTED' || Boolean(data.reason), {
-    message: 'Tell the supplier what needs fixing',
+    message: 'Tell the vendor what needs fixing',
     path: ['reason'],
   });
 

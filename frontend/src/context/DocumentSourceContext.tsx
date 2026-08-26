@@ -6,7 +6,7 @@ import { ownDocuments, type DocumentSource } from "@/hooks/useDocumentUrl";
  *
  * The onboarding forms are built from small field components that sit several
  * levels deep, and any one of them may need to show a file uploaded earlier. A
- * driver reads those through the driver API and a supplier through the supplier
+ * driver reads those through the driver API and a vendor through the vendor
  * API; an admin editing either has to read them through the admin API, which
  * checks a different permission. Threading a source prop down through every
  * section to reach an avatar would be noise in nine files, so it travels by
@@ -15,7 +15,7 @@ import { ownDocuments, type DocumentSource } from "@/hooks/useDocumentUrl";
  * The context holds null when nothing has provided one, which is how
  * `useDocumentSource` can tell "no provider" apart from "a provider that chose
  * the default". The two portals have different defaults, so that difference
- * matters: a supplier component left to itself must fall back to the supplier
+ * matters: a vendor component left to itself must fall back to the vendor
  * API, not the driver one.
  */
 const DocumentSourceContext = createContext<DocumentSource | null>(null);

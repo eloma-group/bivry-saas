@@ -82,6 +82,10 @@ export const registerSchemas: Record<RoleSlug, z.ZodTypeAny> = {
   }),
   vendor: z.object({
     ...baseRegister,
+    // A vendor is a business we have to be able to reach, so the number is asked
+    // for at signup rather than left to the onboarding form. Every other portal
+    // keeps it optional.
+    phone: phoneNumber(),
     companyName: businessName('Company name'),
     contactPerson: optionalPersonName('Contact person'),
     abn: z.string().trim().max(30).optional(),

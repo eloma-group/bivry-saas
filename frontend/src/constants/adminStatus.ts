@@ -70,7 +70,7 @@ export const REVIEWABLE_SECTIONS = [
   { slug: "drugTest", label: "Drug test" },
 ] as const;
 
-/** The supplier equivalent: the accreditation and each policy on its own. */
+/** The vendor equivalent: the accreditation and each policy on its own. */
 export const REVIEWABLE_VENDOR_SECTIONS = [
   { slug: "accreditation", label: "Certificate of accreditation" },
   { slug: "productLiability", label: "Product liability" },

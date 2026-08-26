@@ -73,7 +73,7 @@ export interface AdminModuleSummary {
   records: number;
 }
 
-/** A supplier as the list endpoint returns them: enough for a table row. */
+/** A vendor as the list endpoint returns them: enough for a table row. */
 export interface AdminVendorRow {
   id: string;
   email: string;
@@ -85,7 +85,8 @@ export interface AdminVendorRow {
   acn: string | null;
   abnStatus: string | null;
   entityType: string | null;
-  supplierId: string | null;
+  gst: string | null;
+  vendorCode: string | null;
   websiteAddress: string | null;
   contactPerson: string | null;
   status: AccountStatus;
@@ -238,6 +239,7 @@ export interface CreateVendorInput {
   acn?: string | null;
   abnStatus?: string | null;
   entityType?: string | null;
+  gst?: string | null;
   websiteAddress?: string | null;
   status?: AccountStatus;
 }
@@ -249,7 +251,7 @@ export interface CreateVendorInput {
  */
 export type UpdateVendorInput = Partial<Omit<CreateVendorInput, "password">>;
 
-/** Supplier sections an admin can verify one at a time. */
+/** Vendor sections an admin can verify one at a time. */
 export type ReviewableVendorSection =
   | "accreditation"
   | "productLiability"
@@ -430,14 +432,14 @@ export const adminService = {
   },
 
   // -------------------------------------------------------------------------
-  // Suppliers
+  // Vendors
   // -------------------------------------------------------------------------
 
   listVendors(params: VendorListParams = {}): Promise<VendorListResult> {
     return request<VendorListResult>({ url: "/admin/vendors", method: "GET", params });
   },
 
-  /** One supplier in full: the same shape the supplier sees of themselves. */
+  /** One vendor in full: the same shape the vendor sees of themselves. */
   getVendor(vendorId: string): Promise<VendorOnboardingData> {
     return request<VendorOnboardingData>({ url: `/admin/vendors/${vendorId}`, method: "GET" });
   },
@@ -458,7 +460,7 @@ export const adminService = {
     return request({ url: `/admin/vendors/${vendorId}`, method: "DELETE" });
   },
 
-  /** Replaces a supplier's password and signs every one of their sessions out. */
+  /** Replaces a vendor's password and signs every one of their sessions out. */
   setVendorPassword(vendorId: string, password: string) {
     return request<{ id: string; email: string }>({
       url: `/admin/vendors/${vendorId}/password`,
@@ -468,9 +470,9 @@ export const adminService = {
   },
 
   /**
-   * The onboarding record of one supplier, written by an admin. Shaped to match
+   * The onboarding record of one vendor, written by an admin. Shaped to match
    * `vendorService` method for method so it satisfies `VendorOnboardingGateway`,
-   * which is what lets the Admin portal reuse the supplier's own form.
+   * which is what lets the Admin portal reuse the vendor's own form.
    */
   vendorOnboarding(vendorId: string): VendorOnboardingGateway {
     const base = `/admin/vendors/${vendorId}`;
@@ -544,7 +546,7 @@ export const adminService = {
     });
   },
 
-  /** Short lived blob storage link for one of a supplier's documents. */
+  /** Short lived blob storage link for one of a vendor's documents. */
   vendorDocumentLink(vendorId: string, documentId: string) {
     return request<{ url: string; expiresAt: string | null; fileName: string; mimeType: string }>({
       url: `/admin/vendors/${vendorId}/documents/${documentId}/url`,

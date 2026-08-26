@@ -6,7 +6,7 @@ import { z } from 'zod';
  *
  * They are here rather than repeated per validator because "everywhere" is the
  * whole point of them. A driver signing themselves up, an admin creating an
- * employee and a supplier correcting a contact all reach a different schema
+ * employee and a vendor correcting a contact all reach a different schema
  * file, and the moment one of those files carries its own copy of the rule it
  * becomes the loose one that lets bad data in.
  *

@@ -24,7 +24,7 @@ import type {
 } from "@/types/vendor";
 
 /**
- * The bridge between the supplier onboarding wizard and the vendor API.
+ * The bridge between the vendor onboarding wizard and the vendor API.
  *
  * The form works in the shapes the inputs need (plain strings, yyyy-MM-dd
  * dates, files held as data URLs). The API works in the shapes the database
@@ -57,7 +57,7 @@ function emptyInsurances(): Record<InsuranceKey, InsuranceRow> {
   ) as Record<InsuranceKey, InsuranceRow>;
 }
 
-/** The eight rows every supplier fills in, blank. Extra rows are appended after. */
+/** The eight rows every vendor fills in, blank. Extra rows are appended after. */
 function emptyComplianceDocs(): ComplianceDocRow[] {
   return REQUIRED_COMPLIANCE_DOCS.map((doc) => ({
     id: doc.docType,
@@ -69,7 +69,7 @@ function emptyComplianceDocs(): ComplianceDocRow[] {
   }));
 }
 
-/** An address with nothing in it. Australia leads, as most suppliers are here. */
+/** An address with nothing in it. Australia leads, as most vendors are here. */
 function emptyAddress(): VendorAddressBlock {
   return {
     street1: "",
@@ -112,7 +112,7 @@ function addressOfType(
   };
 }
 
-/** A blank wizard, used before anything is loaded and by a brand new supplier. */
+/** A blank wizard, used before anything is loaded and by a brand new vendor. */
 export function emptyFormValues(): VendorFormValues {
   return {
     companyName: "",
@@ -121,9 +121,10 @@ export function emptyFormValues(): VendorFormValues {
     acn: "",
     abnStatus: "",
     entityType: "",
+    gst: "",
     legalName: "",
     websiteAddress: "",
-    supplierId: "",
+    vendorCode: "",
     email: "",
     phone: "",
     companyLogo: null,
@@ -236,7 +237,7 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     };
   }
 
-  // The eight fixed rows first, then whatever the supplier added themselves.
+  // The eight fixed rows first, then whatever the vendor added themselves.
   const complianceDocs: ComplianceDocRow[] = REQUIRED_COMPLIANCE_DOCS.map((required) => {
     const stored = documents.find((doc) => doc.docType === required.docType);
     return {
@@ -263,7 +264,7 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
 
   return {
     companyName: data.companyName,
-    // The form always shows a row, so a supplier with nothing saved still has
+    // The form always shows a row, so a vendor with nothing saved still has
     // somewhere to type.
     tradingNames:
       data.tradingNames.length > 0
@@ -273,9 +274,10 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     acn: data.acn ?? "",
     abnStatus: data.abnStatus ?? "",
     entityType: data.entityType ?? "",
+    gst: data.gst ?? "",
     legalName: data.legalName ?? "",
     websiteAddress: data.websiteAddress ?? "",
-    supplierId: data.supplierId ?? "",
+    vendorCode: data.vendorCode ?? "",
     email: data.email,
     phone: data.phone ?? "",
     companyLogo: storedFileOfType(documents, "COMPANY_LOGO"),
@@ -331,12 +333,12 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
  * document store in line with what the form is now holding.
  *
  * Sequential on purpose: a failure part way through leaves the earlier sections
- * saved, which is what the supplier expects from a form that saves as a whole.
+ * saved, which is what the vendor expects from a form that saves as a whole.
  */
 /**
- * The set of calls saving a supplier onboarding record needs. The supplier
- * portal passes `vendorService`, which writes the signed in supplier's own
- * record; the Admin portal passes a gateway bound to whichever supplier is
+ * The set of calls saving a vendor onboarding record needs. The vendor
+ * portal passes `vendorService`, which writes the signed in vendor's own
+ * record; the Admin portal passes a gateway bound to whichever vendor is
  * being edited. Derived from `vendorService` rather than restated, so a change
  * to a payload breaks the admin gateway at compile time.
  */
@@ -384,6 +386,7 @@ export async function saveOnboarding(
     acn: trimmedOrNull(values.acn),
     abnStatus: trimmedOrNull(values.abnStatus),
     entityType: trimmedOrNull(values.entityType),
+    gst: trimmedOrNull(values.gst),
     websiteAddress: trimmedOrNull(values.websiteAddress),
     phone: trimmedOrNull(values.phone),
     // The operations contact is the person we deal with day to day, so that is
@@ -474,7 +477,7 @@ export async function saveOnboarding(
 }
 
 /**
- * Uploads what is new, removes what the supplier took out, and leaves untouched
+ * Uploads what is new, removes what the vendor took out, and leaves untouched
  * files alone. A single slot upload replaces its predecessor server side, so
  * only removals have to be deleted here.
  */
@@ -510,7 +513,7 @@ async function syncDocuments(
   }
 
   // Compliance rows. The eight fixed ones are single slot too; the extras the
-  // supplier added are keyed by their own document id.
+  // vendor added are keyed by their own document id.
   const keptAdditionalIds = new Set(
     values.complianceDocs
       .filter((row) => !row.fixed)

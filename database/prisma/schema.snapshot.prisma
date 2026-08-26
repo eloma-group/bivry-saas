@@ -70,9 +70,20 @@ model Vendor {
   /// "Australian Private Company", "Individual/Sole Trader". Also from the
   /// register, and what says whether an ACN should exist at all.
   entityType             String?              @map("entity_type")
+  /// Where the business stands on GST, in the register's own words:
+  /// "Registered from 01 Jul 2000". Filled by the lookup, and correctable by
+  /// hand for the rare business the register has nothing on.
+  gst                    String?              @map("gst")
   logoUrl                String?              @map("logo_url")
-  /// Human readable supplier reference (BIVRY-5000). Handed out by the server
+  /// Human readable vendor reference (BIVRY-5000). Handed out by the server
   /// on the first onboarding load, never typed in.
+  vendorCode             String?              @unique @map("vendor_code")
+  /// The same reference under its old name, from when a vendor was called a
+  /// supplier. Read by no code here any more, and still written, because a
+  /// deployed build from before the rename reads it: migrations run ahead of
+  /// the app and again on a rollback, so the column outlives the code by one
+  /// release on purpose. Remove it, and this line, once no deployed build
+  /// reads it - the same arrangement `tradingName` below is in.
   supplierId             String?              @unique @map("supplier_id")
   /// Superseded by `tradingNames`, and read by no code here any more. It is
   /// still written, and still declared, because a deployed build from before
@@ -90,7 +101,7 @@ model Vendor {
   /// Whether the billing address is a copy of the principal one. Stored so the
   /// tick comes back ticked; both rows are written out either way.
   billingSameAsPrincipal Boolean              @default(false) @map("billing_same_as_principal")
-  /// How invoices reach this supplier: Mail, Email, Portal.
+  /// How invoices reach this vendor: Mail, Email, Portal.
   invoicePreference      String?              @map("invoice_preference")
   /// Which of the contact emails invoices are copied to.
   invoiceEmails          String[]             @map("invoice_emails")
@@ -126,7 +137,7 @@ model Vendor {
   @@map("vendors")
 }
 
-/// One contact block per department, as the supplier form asks for them.
+/// One contact block per department, as the vendor form asks for them.
 model VendorContact {
   id            String            @id @default(uuid()) @db.Uuid
   vendorId      String            @map("vendor_id") @db.Uuid
@@ -143,11 +154,11 @@ model VendorContact {
   @@map("vendor_contacts")
 }
 
-/// Company C-suite. A supplier lists as many directors as it has.
+/// Company C-suite. A vendor lists as many directors as it has.
 model VendorDirector {
   id            String   @id @default(uuid()) @db.Uuid
   vendorId      String   @map("vendor_id") @db.Uuid
-  /// Keeps the rows in the order the supplier entered them.
+  /// Keeps the rows in the order the vendor entered them.
   position      Int      @default(0)
   designation   String?
   email         String?
@@ -174,7 +185,7 @@ model VendorBankDetail {
   @@map("vendor_bank_details")
 }
 
-/// Where the supplier operates. Both columns hold several selections.
+/// Where the vendor operates. Both columns hold several selections.
 model VendorCoverage {
   id                 String   @id @default(uuid()) @db.Uuid
   vendorId           String   @unique @map("vendor_id") @db.Uuid
@@ -206,7 +217,7 @@ model VendorWarehouse {
   @@map("vendor_warehouses")
 }
 
-/// A yard: a site the supplier parks or stages at, kept apart from the
+/// A yard: a site the vendor parks or stages at, kept apart from the
 /// warehouses because it is not somewhere freight is collected from or
 /// delivered to. Optional, and there can be several.
 model VendorYard {
@@ -228,7 +239,7 @@ model VendorYard {
   @@map("vendor_yards")
 }
 
-/// The two addresses a supplier is registered at: where the business is run
+/// The two addresses a vendor is registered at: where the business is run
 /// from, and where its invoices go. A warehouse is a different thing - a site
 /// freight moves through - and keeps its own table.
 model VendorAddress {
@@ -249,7 +260,7 @@ model VendorAddress {
   @@map("vendor_addresses")
 }
 
-/// Certificate of accreditation. One per supplier, several expiry dates on it.
+/// Certificate of accreditation. One per vendor, several expiry dates on it.
 model VendorAccreditation {
   id                   String             @id @default(uuid()) @db.Uuid
   vendorId             String             @unique @map("vendor_id") @db.Uuid
@@ -271,7 +282,7 @@ model VendorAccreditation {
   @@map("vendor_accreditations")
 }
 
-/// One row per policy the supplier holds. Work cover carries its own columns.
+/// One row per policy the vendor holds. Work cover carries its own columns.
 model VendorInsurance {
   id                 String              @id @default(uuid()) @db.Uuid
   vendorId           String              @map("vendor_id") @db.Uuid
@@ -297,8 +308,8 @@ model VendorInsurance {
   @@map("vendor_insurances")
 }
 
-/// Every file a supplier uploads. `category` names the extra compliance rows
-/// the supplier adds beyond the fixed list.
+/// Every file a vendor uploads. `category` names the extra compliance rows
+/// the vendor adds beyond the fixed list.
 model VendorDocument {
   id          String             @id @default(uuid()) @db.Uuid
   vendorId    String             @map("vendor_id") @db.Uuid
@@ -658,7 +669,7 @@ enum AddressType {
   @@map("address_type")
 }
 
-/// Which of a supplier's two registered addresses a row holds.
+/// Which of a vendor's two registered addresses a row holds.
 enum VendorAddressType {
   PRINCIPAL
   BILLING
@@ -693,7 +704,7 @@ enum DriverDocumentType {
   @@map("driver_document_type")
 }
 
-/// The departments a supplier gives a contact for.
+/// The departments a vendor gives a contact for.
 enum VendorContactType {
   OPERATIONS
   COMPLIANCE
@@ -715,7 +726,7 @@ enum VendorInsuranceType {
 }
 
 /// Every slot holds a single file, except COMPLIANCE_ADDITIONAL, which is the
-/// supplier's own extra rows and holds as many as they add.
+/// vendor's own extra rows and holds as many as they add.
 enum VendorDocumentType {
   COMPANY_LOGO
   ACCREDITATION

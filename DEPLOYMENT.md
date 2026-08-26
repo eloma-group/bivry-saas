@@ -241,12 +241,12 @@ Storage account -> **Data storage > Containers** -> **+ Container**, once per ro
 | Name | Holds | Setting it comes from |
 | --- | --- | --- |
 | `driver-documents` | driver licences, medicals, police checks | `AZURE_STORAGE_CONTAINER` |
-| `vendor` | supplier accreditations, policies, compliance pack | `AZURE_STORAGE_CONTAINER_VENDOR` |
+| `vendor` | vendor accreditations, policies, compliance pack | `AZURE_STORAGE_CONTAINER_VENDOR` |
 | `admin` | an admin's own profile photo | `AZURE_STORAGE_CONTAINER_ADMIN` |
 
 Set every one to **Private (no anonymous access)**.
 
-Private is the whole point. Driver licences, medicals and a supplier's bank and
+Private is the whole point. Driver licences, medicals and a vendor's bank and
 insurance paperwork must never be reachable by guessing a URL. The API hands out
 a signature that expires after 15 minutes instead.
 
@@ -409,7 +409,7 @@ which is why there is no `.env` file in production.
 | `JWT_REFRESH_EXPIRES_IN` | `7d` | |
 | `AZURE_STORAGE_CONNECTION_STRING` | from step 3.3 | |
 | `AZURE_STORAGE_CONTAINER` | `driver-documents` | |
-| `AZURE_STORAGE_CONTAINER_VENDOR` | `vendor` | supplier documents, kept apart from driver files |
+| `AZURE_STORAGE_CONTAINER_VENDOR` | `vendor` | vendor documents, kept apart from driver files |
 | `AZURE_STORAGE_CONTAINER_ADMIN` | `admin` | an admin's own profile photo |
 | `AZURE_STORAGE_SAS_TTL_MINUTES` | `15` | |
 | `MAX_UPLOAD_SIZE_MB` | `15` | |

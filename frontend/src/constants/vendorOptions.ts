@@ -1,7 +1,7 @@
 import type { InsuranceKey, VendorStepDef } from "@/types/vendor";
 import { AU_STATES } from "@/constants/options";
 
-/** How invoices reach a supplier. */
+/** How invoices reach a vendor. */
 export const INVOICE_PREFERENCES = ["Mail", "Email", "Portal", "EDI"];
 
 /**
@@ -17,10 +17,10 @@ export const INVOICE_EMAIL_TARGETS = [
   "Other",
 ];
 
-/** Where a supplier is willing to run. Australia's states and territories. */
+/** Where a vendor is willing to run. Australia's states and territories. */
 export const COVERAGE_AREAS = AU_STATES;
 
-/** What the supplier actually does. Drives which compliance pack applies. */
+/** What the vendor actually does. Drives which compliance pack applies. */
 export const BUSINESS_OPERATIONS = [
   "General Freight",
   "Refrigerated Freight",
@@ -56,7 +56,7 @@ export const CONTACT_BLOCKS = [
 ] as const;
 
 /**
- * The six policies a supplier carries.
+ * The six policies a vendor carries.
  *
  * Work cover is the odd one out: it is keyed by an employer number and a
  * validity window rather than a policy number and a single expiry, so it gets
@@ -105,7 +105,7 @@ export const INSURANCE_POLICIES: Array<{
 ];
 
 /**
- * The compliance documents every supplier hands in. All eight are required
+ * The compliance documents every vendor hands in. All eight are required
  * before the application can be submitted, and each carries an issue date and
  * an expiry date so the fleet knows when to chase a renewal.
  */
@@ -133,7 +133,7 @@ export const ADDITIONAL_COMPLIANCE_CATEGORIES = [
 /** Horizontal stepper definition - completion drives the progress percentage. */
 export const VENDOR_STEPS: VendorStepDef[] = [
   {
-    id: "supplier",
+    id: "vendor",
     label: "Company Info",
     requires: ["abn", "companyName", "tradingNames", "legalName"],
   },

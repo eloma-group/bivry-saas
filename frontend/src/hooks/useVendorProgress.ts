@@ -11,7 +11,7 @@ import type {
 /**
  * Whether a value counts as answered.
  *
- * The supplier form holds more shapes than the driver one: contact blocks,
+ * The vendor form holds more shapes than the driver one: contact blocks,
  * multi selects, repeating rows and the compliance table each mean something
  * different by "filled in", so they are judged on their own terms.
  */
@@ -20,7 +20,7 @@ import type {
  *
  * Street 2 is left out on purpose: it carries a unit or a level, and plenty of
  * addresses have none, so asking for it would leave the section stuck at short
- * of complete for the suppliers who are already finished.
+ * of complete for the vendors who are already finished.
  */
 function isWholeAddress(address: Partial<VendorAddressBlock>): boolean {
   return Boolean(
@@ -83,6 +83,22 @@ function isFilled(value: unknown): boolean {
   return true;
 }
 
+/**
+ * The value a step's requirement is judged on.
+ *
+ * The billing address is the one exception. Ticked as a copy, its own fields
+ * stay empty and off screen and the principal address is what gets saved as the
+ * billing one, so judging the empty block would leave the Addresses step short
+ * of complete for everybody who ticked the box.
+ */
+function valueFor(
+  values: VendorFormValues | undefined,
+  key: keyof VendorFormValues,
+): unknown {
+  if (key === "billingAddress" && values?.billingSameAsPrincipal) return values.principalAddress;
+  return values?.[key];
+}
+
 /** Derives stepper completion + overall percentage from live form values. */
 export function useVendorProgress(): DriverProgress {
   const { control } = useFormContext<VendorFormValues>();
@@ -95,7 +111,7 @@ export function useVendorProgress(): DriverProgress {
     if (step.requires.length === 0) {
       return { id: step.id, label: step.label, complete: false, ratio: 0 };
     }
-    const filled = step.requires.filter((key) => isFilled(values?.[key])).length;
+    const filled = step.requires.filter((key) => isFilled(valueFor(values, key))).length;
     filledTotal += filled;
     requiredTotal += step.requires.length;
     return {
