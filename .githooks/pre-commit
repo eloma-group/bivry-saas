@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Keeps database/ in step with backend/prisma/schema.prisma.
+#
+# The backend workflow fails the build when the two drift, and a failed build
+# means the deploy job never runs: no migration is applied and App Service goes
+# on serving the previous package. Nothing looks broken from the outside, so the
+# cheapest place to catch it is here, before the commit exists.
+#
+# This hook only ever regenerates and stages database/. It never touches the
+# database, never edits source, and never blocks a commit: if anything at all
+# goes wrong it warns and lets the commit through, because a hook that can jam
+# every commit is worse than the problem it solves.
+#
+# It lives here, tracked, rather than in .git/hooks, which git does not clone.
+# `npm install` at the repo root points git at this directory (see the prepare
+# script), so anybody who sets the project up gets it without being told.
+
+# Only relevant when the schema itself is part of this commit.
+if ! git diff --cached --name-only | grep -q '^backend/prisma/schema.prisma$'; then
+  exit 0
+fi
+
+root=$(git rev-parse --show-toplevel) || exit 0
+cd "$root/backend" || exit 0
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node is not on PATH, skipping the database/ check" >&2
+  exit 0
+fi
+
+echo "pre-commit: schema.prisma changed, regenerating database/"
+
+# Refresh the client first so schema.md is built from the current data model.
+# It fails with EPERM while a dev server holds the query engine on Windows; that
+# is survivable, because schema.sql is read straight from the schema file and
+# the already generated client is usually current anyway. CI regenerates from
+# scratch and is the real gate.
+if ! npx --no-install prisma generate >/dev/null 2>&1; then
+  echo "pre-commit: prisma generate failed (a dev server may hold the engine)," >&2
+  echo "            carrying on with the client already generated" >&2
+fi
+
+if ! node scripts/export-schema.mjs; then
+  echo "pre-commit: could not regenerate database/. Run 'npm run db:sql --prefix backend'" >&2
+  echo "            and commit the result, or CI will reject this push." >&2
+  exit 0
+fi
+
+cd "$root" || exit 0
+
+if [ -n "$(git status --porcelain -- database)" ]; then
+  git add database
+  echo "pre-commit: database/ was out of date and has been added to this commit:"
+  git diff --cached --stat -- database
+fi
+
+exit 0

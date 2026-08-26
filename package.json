@@ -10,6 +10,7 @@
     "build": "npm run build --prefix backend && npm run build --prefix frontend",
     "start": "npm run start --prefix backend",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "prepare": "git config core.hooksPath .githooks || true",
     "typecheck": "npm run typecheck --prefix backend && npm run typecheck --prefix frontend",
     "db:generate": "npm run db:generate --prefix backend",
     "db:migrate": "npm run db:migrate --prefix backend",
