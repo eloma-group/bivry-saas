@@ -1,6 +1,14 @@
 import { COUNTRIES } from "@/constants/options";
 import { matchState } from "@/constants/regions";
+import { isGoogleAuthFailed, loadGoogleMaps } from "./googleMaps";
 import type { AddressBlock } from "@/types/driver";
+
+/**
+ * When set, address search answers from Google Places rather than OpenStreetMap.
+ * It is a browser key inlined into the bundle, so it must be restricted by HTTP
+ * referrer in the Google Cloud Console. Left unset, the free OSM lookup is used.
+ */
+const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
 /**
  * Turns the browser's location into a street address.
@@ -149,8 +157,23 @@ export interface AddressSuggestion {
   id: string;
   /** The one line the register prints, which is what the box shows. */
   label: string;
-  /** The same place split into the fields a form asks for. */
-  address: AddressBlock;
+  /**
+   * The same place split into the fields a form asks for. OpenStreetMap parses
+   * it up front, so it is here; Google resolves it on pick, so it is not, and
+   * `resolve` is used instead. `resolveSuggestion` reads whichever one is set.
+   */
+  address?: AddressBlock;
+  /** Fetches the split address when the provider only has it on demand. */
+  resolve?: () => Promise<AddressBlock>;
+}
+
+/** The split address behind a suggestion, however its provider holds it. */
+export async function resolveSuggestion(
+  suggestion: AddressSuggestion,
+): Promise<AddressBlock | null> {
+  if (suggestion.address) return suggestion.address;
+  if (suggestion.resolve) return suggestion.resolve();
+  return null;
 }
 
 /**
@@ -169,8 +192,36 @@ export async function searchAddresses(
   signal?: AbortSignal,
 ): Promise<AddressSuggestion[]> {
   const trimmed = query.trim();
-  if (trimmed.length < 3) return [];
+  // As little as a single character is enough to start suggesting: the inline
+  // address fields search from the first letter typed.
+  if (trimmed.length < 1) return [];
 
+  // Google when it is configured and working; OpenStreetMap otherwise. A Google
+  // failure - key rejected, Places API off, billing off - latches so the rest of
+  // the session goes straight to the fallback instead of stalling on it.
+  if (GOOGLE_KEY && !googleBroken && !isGoogleAuthFailed()) {
+    try {
+      return await googleSearch(trimmed, signal);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
+      googleBroken = true;
+      console.warn(
+        "[address search] Google Places is not answering; using OpenStreetMap instead.",
+        error,
+      );
+    }
+  }
+
+  return nominatimSearch(trimmed, signal);
+}
+
+/** Latches once Google has failed, so the fallback is used from then on. */
+let googleBroken = false;
+
+async function nominatimSearch(
+  trimmed: string,
+  signal?: AbortSignal,
+): Promise<AddressSuggestion[]> {
   const url = new URL(NOMINATIM_SEARCH_URL);
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("addressdetails", "1");
@@ -193,4 +244,145 @@ export async function searchAddresses(
       label: row.display_name as string,
       address: toAddressBlock(row.address as NominatimAddress),
     }));
+}
+
+// ---------------------------------------------------------------------------
+// Google Places
+// ---------------------------------------------------------------------------
+
+/**
+ * The Google services, made once and kept.
+ *
+ * The autocomplete and the details lookup are billed as one session when they
+ * share a session token, so a token is held across a search and the pick that
+ * follows it, then rotated once the details have been fetched.
+ */
+let googleServices: {
+  autocomplete: google.maps.places.AutocompleteService;
+  places: google.maps.places.PlacesService;
+} | null = null;
+let sessionToken: google.maps.places.AutocompleteSessionToken | null = null;
+
+async function ensureGoogle() {
+  const maps = await loadGoogleMaps(GOOGLE_KEY as string);
+  if (!googleServices) {
+    googleServices = {
+      autocomplete: new maps.maps.places.AutocompleteService(),
+      // A PlacesService needs a node to attribute results to; nothing is drawn.
+      places: new maps.maps.places.PlacesService(document.createElement("div")),
+    };
+  }
+  if (!sessionToken) sessionToken = new maps.maps.places.AutocompleteSessionToken();
+  return googleServices;
+}
+
+/** How long a Google call is given before it is treated as a failure. */
+const GOOGLE_TIMEOUT_MS = 4_000;
+
+/** Rejects if the wrapped Google call has not answered in time. */
+function withTimeout<T>(run: (settle: (value: T) => void, fail: (error: Error) => void) => void) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error("Google Maps request timed out.")),
+      GOOGLE_TIMEOUT_MS,
+    );
+    run(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function googleSearch(
+  trimmed: string,
+  signal?: AbortSignal,
+): Promise<AddressSuggestion[]> {
+  const services = await ensureGoogle();
+  if (signal?.aborted) return [];
+
+  const predictions = await withTimeout<google.maps.places.AutocompletePrediction[]>(
+    (resolve, reject) => {
+      services.autocomplete.getPlacePredictions(
+        {
+          input: trimmed,
+          // Addresses and places, not businesses, which is what a form asks for.
+          types: ["geocode"],
+          sessionToken: sessionToken ?? undefined,
+        },
+        (result, status) => {
+          const ok = google.maps.places.PlacesServiceStatus.OK;
+          const none = google.maps.places.PlacesServiceStatus.ZERO_RESULTS;
+          if (status === ok && result) resolve(result);
+          else if (status === none) resolve([]);
+          // Anything else - REQUEST_DENIED, OVER_QUERY_LIMIT - is a real failure,
+          // so it is raised and the caller falls back rather than showing nothing.
+          else reject(new Error(`Google Places returned ${status}.`));
+        },
+      );
+    },
+  );
+
+  if (signal?.aborted) return [];
+
+  return predictions.map((prediction) => ({
+    id: prediction.place_id,
+    label: prediction.description,
+    resolve: () => googleResolve(prediction.place_id),
+  }));
+}
+
+async function googleResolve(placeId: string): Promise<AddressBlock> {
+  const services = await ensureGoogle();
+
+  const place = await withTimeout<google.maps.places.PlaceResult | null>((resolve) => {
+    services.places.getDetails(
+      {
+        placeId,
+        fields: ["address_components"],
+        sessionToken: sessionToken ?? undefined,
+      },
+      (result, status) => {
+        resolve(status === google.maps.places.PlacesServiceStatus.OK ? result : null);
+      },
+    );
+  });
+
+  // The details call closes the billing session, so the next search starts a new
+  // one.
+  sessionToken = null;
+
+  const components = place?.address_components ?? [];
+  return componentsToAddressBlock(components);
+}
+
+/** Turns Google's address components into the fields a form asks for. */
+function componentsToAddressBlock(
+  components: google.maps.GeocoderAddressComponent[],
+): AddressBlock {
+  const pick = (type: string): string =>
+    components.find((component) => component.types.includes(type))?.long_name ?? "";
+
+  const country = matchCountry(pick("country"));
+  const rawState = pick("administrative_area_level_1");
+  const suburb =
+    pick("locality") ||
+    pick("postal_town") ||
+    pick("sublocality") ||
+    pick("sublocality_level_1") ||
+    pick("administrative_area_level_2");
+
+  return {
+    houseNumber: pick("street_number"),
+    street: pick("route"),
+    suburb,
+    state: matchState(country, rawState),
+    country,
+    postCode: pick("postal_code"),
+  };
 }

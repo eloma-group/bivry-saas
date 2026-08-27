@@ -127,6 +127,10 @@ jobs:
           # inlines VITE_* at build time. Without this the bundle ships with no
           # API host and falls back to its own origin, where there is no API.
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # Optional. Set, the address fields suggest from Google Places; unset,
+          # they fall back to OpenStreetMap. A browser key, so it ships in the
+          # bundle - keep it referrer restricted in the Google Cloud Console.
+          VITE_GOOGLE_MAPS_API_KEY: ${{ vars.VITE_GOOGLE_MAPS_API_KEY }}
         with:
           # The generated secret stays as a fallback: resetting the deployment
           # token in the portal invalidates whichever value is older.

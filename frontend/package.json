@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@types/google.maps": "^3.66.0",
     "@types/node": "^22.20.1",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

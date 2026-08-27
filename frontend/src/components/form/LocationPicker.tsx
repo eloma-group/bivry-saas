@@ -3,7 +3,7 @@ import { Loader2, LocateFixed, MapPin, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { locateCurrentAddress, searchAddresses } from "@/services/geocode";
+import { locateCurrentAddress, resolveSuggestion, searchAddresses } from "@/services/geocode";
 import { cn } from "@/lib/utils";
 import type { AddressSuggestion } from "@/services/geocode";
 import type { AddressBlock } from "@/types/driver";
@@ -108,14 +108,22 @@ export function LocationPicker({ onPick, label, className }: LocationPickerProps
     }
   }
 
-  function choose(suggestion: AddressSuggestion) {
-    onPick(suggestion.address);
+  async function choose(suggestion: AddressSuggestion) {
     setQuery("");
     setResults([]);
     setOpen(false);
-    toast.success("Address filled in", {
-      description: "Check every field, and add anything the search could not answer.",
-    });
+    try {
+      const address = await resolveSuggestion(suggestion);
+      if (!address) return;
+      onPick(address);
+      toast.success("Address filled in", {
+        description: "Check every field, and add anything the search could not answer.",
+      });
+    } catch {
+      toast.error("Could not fetch that address", {
+        description: "Please pick another, or fill it in yourself.",
+      });
+    }
   }
 
   return (
@@ -173,7 +181,7 @@ export function LocationPicker({ onPick, label, className }: LocationPickerProps
                 <li key={suggestion.id} role="option" aria-selected={false}>
                   <button
                     type="button"
-                    onClick={() => choose(suggestion)}
+                    onClick={() => void choose(suggestion)}
                     className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm leading-relaxed text-foreground transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
                   >
                     <MapPin

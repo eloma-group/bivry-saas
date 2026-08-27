@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, LocateFixed, MapPin } from "lucide-react";
-import { useFormContext, useWatch } from "react-hook-form";
+import {
+  useFormContext,
+  useWatch,
+  type UseFormSetValue,
+  type UseFormTrigger,
+} from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, SelectField } from "@/components/form/Fields";
+import { AddressAutocompleteField } from "@/components/form/AddressAutocompleteField";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -75,8 +81,39 @@ function StateField({
   );
 }
 
+/**
+ * Writes a found address onto one block's fields.
+ *
+ * The country is written first, so the State field has already switched to that
+ * country's own divisions by the time the state lands in it. Only fields the
+ * lookup answered are written, so a correction already typed into one it cannot
+ * see is never wiped by an empty result.
+ */
+function applyFoundAddress(
+  prefix: AddressPrefix,
+  found: AddressBlockValues,
+  setValue: UseFormSetValue<DriverFormValues>,
+  trigger: UseFormTrigger<DriverFormValues>,
+) {
+  const order: (keyof AddressBlockValues)[] = [
+    "country",
+    "state",
+    "houseNumber",
+    "street",
+    "suburb",
+    "postCode",
+  ];
+
+  for (const key of order) {
+    if (!found[key]) continue;
+    setValue(`${prefix}.${key}`, found[key], { shouldDirty: true });
+  }
+
+  void trigger(prefix);
+}
+
 function AddressBlock({ prefix }: { prefix: AddressPrefix }) {
-  const { getValues } = useFormContext<DriverFormValues>();
+  const { getValues, setValue, trigger } = useFormContext<DriverFormValues>();
 
   // The permanent block leaves the screen when it matches the current one, but
   // its fields stay registered, so the rule has to ask whether it is on show.
@@ -92,12 +129,13 @@ function AddressBlock({ prefix }: { prefix: AddressPrefix }) {
         required
         rules={required("House number")}
       />
-      <TextField
+      <AddressAutocompleteField
         name={`${prefix}.street`}
         label="Street"
-        placeholder="Payne Street"
+        placeholder="Start typing an address"
         required
         rules={required("Street")}
+        onPickAddress={(found) => applyFoundAddress(prefix, found, setValue, trigger)}
       />
       <TextField
         name={`${prefix}.suburb`}

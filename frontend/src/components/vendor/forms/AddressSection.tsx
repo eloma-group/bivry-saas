@@ -1,10 +1,17 @@
 import { useEffect, useRef } from "react";
 import { MapPin, Plus, Tractor, Trash2, Warehouse } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import {
+  useFieldArray,
+  useFormContext,
+  useWatch,
+  type UseFormSetValue,
+  type UseFormTrigger,
+} from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, SelectField } from "@/components/form/Fields";
+import { AddressAutocompleteField } from "@/components/form/AddressAutocompleteField";
 import { LocationPicker } from "@/components/form/LocationPicker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -81,10 +88,44 @@ function StateField({ path, rules: fieldRules }: { path: AddressPath; rules: Fie
 }
 
 /**
+ * Writes a found address onto one block's fields.
+ *
+ * The lookup splits the street number off the street; this form keeps them on
+ * one line, so they are put back together on the way in. The country is written
+ * first, so the State field has already switched to that country's own divisions
+ * by the time the state lands in it. Only fields the lookup answered are written,
+ * so a correction already typed into one it cannot see is never wiped by an empty
+ * result. Street 2 is never written: no lookup knows which unit anybody is in.
+ */
+function applyFoundAddress(
+  path: AddressPath,
+  found: FoundAddress,
+  setValue: UseFormSetValue<VendorFormValues>,
+  trigger: UseFormTrigger<VendorFormValues>,
+) {
+  const street1 = [found.houseNumber, found.street].filter(Boolean).join(" ").trim();
+  const filled: Array<[string, string]> = [
+    ["country", found.country],
+    ["state", found.state],
+    ["street1", street1],
+    ["suburb", found.suburb],
+    ["postCode", found.postCode],
+  ];
+
+  for (const [key, value] of filled) {
+    if (!value) continue;
+    setValue(`${path}.${key}` as `${AddressPath}.street1`, value, { shouldDirty: true });
+  }
+
+  void trigger(path);
+}
+
+/**
  * The six fields every address here asks for.
  *
- * Street 2 is the only optional one. It carries a unit, a level or a building
- * name, and plenty of addresses have none.
+ * Street 1 suggests real addresses as it is typed; picking one fills the rest of
+ * the block. Street 2 is the only optional field. It carries a unit, a level or a
+ * building name, and plenty of addresses have none.
  */
 function AddressFields({
   path,
@@ -94,16 +135,18 @@ function AddressFields({
   /** Whether this block is on screen and therefore being asked for. */
   asked: () => boolean;
 }) {
+  const { setValue, trigger } = useFormContext<VendorFormValues>();
   const required = (label: string) => rules.requiredWhen(label, asked);
 
   return (
     <div className={GRID}>
-      <TextField
+      <AddressAutocompleteField
         name={`${path}.street1`}
         label="Street 1"
-        placeholder="12 Payne Street"
+        placeholder="Start typing an address"
         required
         rules={required("Street 1")}
+        onPickAddress={(found) => applyFoundAddress(path, found, setValue, trigger)}
       />
       <TextField
         name={`${path}.street2`}
@@ -138,40 +181,18 @@ function AddressFields({
 }
 
 /**
- * The location tools over one address block.
- *
- * A fix from the browser and a search both come back in the shape the driver
- * form asks for, which splits the street number off the street. This form keeps
- * them on one line, so they are put back together on the way in. Street 2 is
- * never written: no lookup knows which unit anybody is in.
- *
- * The country is written first, so the State field has already switched to that
- * country's own divisions by the time the state lands in it. Only fields the
- * lookup answered are written, so a correction already typed into one it cannot
- * see is never wiped by an empty result.
+ * The location tools over one address block: a fix from the browser, and a
+ * worldwide search. Both fill the same fields the inline Street 1 field does.
  */
 function AddressTools({ path, label }: { path: AddressPath; label: string }) {
   const { setValue, trigger } = useFormContext<VendorFormValues>();
-
-  function apply(found: FoundAddress) {
-    const street1 = [found.houseNumber, found.street].filter(Boolean).join(" ").trim();
-    const filled: Array<[string, string]> = [
-      ["country", found.country],
-      ["state", found.state],
-      ["street1", street1],
-      ["suburb", found.suburb],
-      ["postCode", found.postCode],
-    ];
-
-    for (const [key, value] of filled) {
-      if (!value) continue;
-      setValue(`${path}.${key}` as `${AddressPath}.street1`, value, { shouldDirty: true });
-    }
-
-    void trigger(path);
-  }
-
-  return <LocationPicker label={label} onPick={apply} className="mb-4" />;
+  return (
+    <LocationPicker
+      label={label}
+      onPick={(found) => applyFoundAddress(path, found, setValue, trigger)}
+      className="mb-4"
+    />
+  );
 }
 
 /**

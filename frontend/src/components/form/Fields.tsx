@@ -46,7 +46,7 @@ interface BaseFieldProps {
 }
 
 /** Floating-style label shell shared by every field, with inline error slot. */
-function FieldShell({
+export function FieldShell({
   label,
   htmlFor,
   required,
