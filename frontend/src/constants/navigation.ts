@@ -138,9 +138,90 @@ function selfServiceNav(ownModule: "Driver" | "Vendor", href: string): NavItem[]
   ];
 }
 
+/**
+ * Menu for the Vendor portal.
+ *
+ * Dashboard, Bookings, Management, Reports and Onboarding read as live; the
+ * operational trio (Operations, Dispatch, Accounts) stays faded until its
+ * feature work lands. Items marked clickable without an `href` light up and
+ * respond to hover but do not navigate yet - the pages are still to come.
+ */
+function vendorNav(): NavItem[] {
+  return [
+    { label: "Dashboard", icon: LayoutDashboard, enabled: true },
+    {
+      label: "Bookings",
+      icon: CalendarDays,
+      enabled: true,
+      children: [
+        { label: "Existing Bookings", enabled: true },
+        { label: "Manage Bookings", enabled: true },
+        // Kept from before, faded until their feature work lands.
+        { label: "All Bookings" },
+        { label: "Create Booking" },
+        { label: "Calendar" },
+      ],
+    },
+    {
+      label: "Operations",
+      icon: Truck,
+      enabled: false,
+      children: [{ label: "Live Map" }, { label: "Routes" }, { label: "Jobs" }],
+    },
+    {
+      label: "Dispatch",
+      icon: Send,
+      enabled: false,
+      children: [{ label: "Assign" }, { label: "Queue" }],
+    },
+    {
+      label: "Accounts",
+      icon: Wallet,
+      enabled: false,
+      children: [{ label: "Invoices" }, { label: "Payments" }, { label: "Payroll" }],
+    },
+    {
+      label: "Management",
+      icon: Users2,
+      enabled: true,
+      children: [
+        { label: "Invoices", enabled: true },
+        { label: "Compliance", enabled: true },
+        { label: "Fines", enabled: true },
+        { label: "Non compliances", enabled: true },
+        // Kept from before, faded until their feature work lands.
+        { label: "Teams" },
+        { label: "Roles" },
+        { label: "Assets" },
+      ],
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      enabled: true,
+      children: [{ label: "Overview" }, { label: "Compliance" }, { label: "Exports" }],
+    },
+    {
+      label: "Onboarding",
+      icon: UserPlus,
+      enabled: true,
+      children: ONBOARDING_MODULES.map((module) => {
+        if (module.label === "Vendor") {
+          return { label: module.label, enabled: true, href: "/vendor/onboarding" };
+        }
+        // Vehicle and Driver read as clickable now; the pages are still to come.
+        if (module.label === "Vehicle" || module.label === "Driver") {
+          return { label: module.label, enabled: true };
+        }
+        return { label: module.label };
+      }),
+    },
+  ];
+}
+
 export function navItemsFor(role: RoleSlug | null): NavItem[] {
   if (role === "admin") return adminNav();
-  if (role === "vendor") return selfServiceNav("Vendor", "/vendor/onboarding");
+  if (role === "vendor") return vendorNav();
   return selfServiceNav("Driver", "/driver/onboarding");
 }
 

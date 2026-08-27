@@ -76,6 +76,25 @@ function TopItem({
     return enabled ? button : <DisabledWrap>{button}</DisabledWrap>;
   }
 
+  // A dropdown whose parent is switched off stays faded and never opens.
+  if (item.enabled === false) {
+    const button = (
+      <button
+        type="button"
+        disabled
+        className={cn(
+          "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+          "cursor-not-allowed text-slate-400 opacity-70"
+        )}
+      >
+        <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" />
+        <span>{item.label}</span>
+        <Lock className="h-3.5 w-3.5 opacity-50" />
+      </button>
+    );
+    return <DisabledWrap>{button}</DisabledWrap>;
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
