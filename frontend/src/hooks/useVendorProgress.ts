@@ -49,11 +49,12 @@ function isFilled(value: unknown): boolean {
       return named.some((row) => typeof row.name === "string" && row.name.trim() !== "");
     }
 
-    // The compliance table: nothing is pre-listed, so a row exists only because
-    // somebody added it, and it counts once it carries its file.
+    // The policies table is optional: every policy is listed for a vendor to
+    // attach where they have it, and none is required, so the step never holds
+    // completion back. It counts as answered as soon as it is present.
     const rows = value as ComplianceDocRow[];
     if (typeof rows[0] === "object" && rows[0] !== null && "docType" in rows[0]) {
-      return rows.every((row) => row.file !== null);
+      return true;
     }
 
     // Warehouses: every address in the list has to be a whole address.

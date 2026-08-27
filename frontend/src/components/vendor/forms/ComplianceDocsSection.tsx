@@ -2,19 +2,34 @@ import { FileCheck2, Plus, Trash2 } from "lucide-react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "@/components/form/SectionCard";
-import { SelectField } from "@/components/form/Fields";
+import { TextField } from "@/components/form/Fields";
 import { FormUpload } from "@/components/upload/FormUpload";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { COMPLIANCE_DOCUMENT_TYPES } from "@/constants/vendorOptions";
-import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
+import {
+  COMPLIANCE_DOCUMENT_TYPES,
+  policyDisplayName,
+} from "@/constants/vendorOptions";
+import { ACCEPT_DOCUMENT } from "@/utils/validation";
+import { australianDate, todayAustralian } from "@/utils/date";
+import type { UploadedFile } from "@/types/driver";
 import type { VendorFormValues } from "@/types/vendor";
+
+/** How many rows at the top are the listed policies rather than added ones. */
+const LISTED_COUNT = COMPLIANCE_DOCUMENT_TYPES.length;
+
+const COLUMNS =
+  "lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,10rem)_2.5rem]";
+
+const ROW_GRID = `grid grid-cols-1 items-start gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 sm:grid-cols-2 ${COLUMNS} lg:items-center lg:py-4`;
 
 /**
  * The policies a vendor holds.
  *
- * Nothing is pre-listed: a vendor adds the policies that apply to them and
- * names each one from the offered list. A row only exists because somebody
- * added it, so every row needs its file and every row can be taken off again.
+ * Every policy is listed on its own row rather than picked from a dropdown, so
+ * a vendor attaches each one where they have it. Nothing here is required. The
+ * "Add Document" button adds an extra named row for a policy not in the list,
+ * and only those added rows can be renamed or taken off again.
  *
  * The layout is one row per document on a wide screen and a stacked card on a
  * narrow one - every cell carries its own label, so it reads either way.
@@ -30,12 +45,12 @@ export function ComplianceDocsSection() {
       id="step-documents"
       icon={FileCheck2}
       title="Policies"
-      description="Add the policies that apply to your business, naming each one from the list."
+      description="Attach the policies that apply to your business. All optional - add what you have."
     >
       <div className="space-y-3">
         {/* Column headings, wide screens only: each cell is labelled below. */}
-        <div className="hidden gap-4 px-5 lg:grid lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_2.5rem]">
-          {["Policy", "Attach File", ""].map((heading) => (
+        <div className={`hidden gap-4 px-5 lg:grid ${COLUMNS}`}>
+          {["Policy", "Attach File", "Upload Date", ""].map((heading) => (
             <span
               key={heading || "actions"}
               className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground"
@@ -47,7 +62,16 @@ export function ComplianceDocsSection() {
 
         <AnimatePresence initial={false}>
           {fields.map((field, index) => {
+            const listed = index < LISTED_COUNT;
             const label = rowValues?.[index]?.label ?? "";
+            // The upload date is the day the file was stored: a saved file
+            // carries that day, a file just picked is dated today.
+            const file = rowValues?.[index]?.file as UploadedFile | null | undefined;
+            const uploadDate = file
+              ? file.uploadedAt
+                ? australianDate(file.uploadedAt)
+                : todayAustralian()
+              : "";
 
             return (
               <motion.div
@@ -56,16 +80,25 @@ export function ComplianceDocsSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.25 }}
-                className="grid grid-cols-1 items-start gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_2.5rem] lg:items-center lg:py-4"
+                className={ROW_GRID}
               >
-                <SelectField
-                  name={`complianceDocs.${index}.label`}
-                  label="Policy"
-                  options={COMPLIANCE_DOCUMENT_TYPES}
-                  required
-                  rules={rules.required("Policy")}
-                  className="lg:[&>label]:sr-only"
-                />
+                {listed ? (
+                  <div className="min-w-0">
+                    <span className="block text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground lg:hidden">
+                      Policy
+                    </span>
+                    <p className="text-sm font-medium text-foreground">
+                      {policyDisplayName(label)}
+                    </p>
+                  </div>
+                ) : (
+                  <TextField
+                    name={`complianceDocs.${index}.label`}
+                    label="Policy Name"
+                    placeholder="Name this policy"
+                    className="lg:[&>label]:sr-only"
+                  />
+                )}
 
                 <div className="min-w-0">
                   <span className="mb-1.5 block text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground lg:hidden">
@@ -76,32 +109,41 @@ export function ComplianceDocsSection() {
                     label="Upload"
                     accept={ACCEPT_DOCUMENT}
                     compact
-                    rules={rules.requiredFile(`${label || "This"} document`)}
                   />
                 </div>
 
+                <div className="min-w-0">
+                  <span className="mb-1.5 block text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground lg:hidden">
+                    Upload Date
+                  </span>
+                  <Input
+                    value={uploadDate}
+                    readOnly
+                    aria-readonly
+                    placeholder="DD/MM/YYYY"
+                    className="cursor-not-allowed bg-secondary/70 text-muted-foreground"
+                  />
+                </div>
+
+                {/* Only the added rows can be removed; the listed policies stay. */}
                 <div className="flex justify-end lg:justify-center">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => remove(index)}
-                    aria-label={`Remove ${label}`}
-                    className="text-muted-foreground hover:bg-red-50 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {listed ? null : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => remove(index)}
+                      aria-label={`Remove ${label || "policy"}`}
+                      className="text-muted-foreground hover:bg-red-50 hover:text-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
-
-        {fields.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-border bg-secondary/30 px-5 py-6 text-center text-sm text-muted-foreground">
-            No policies added yet. Add the ones that apply to you.
-          </p>
-        )}
 
         <Button
           type="button"
@@ -110,7 +152,7 @@ export function ComplianceDocsSection() {
             append({
               id: crypto.randomUUID(),
               docType: "COMPLIANCE_ADDITIONAL",
-              label: COMPLIANCE_DOCUMENT_TYPES[0],
+              label: "",
               file: null,
             })
           }

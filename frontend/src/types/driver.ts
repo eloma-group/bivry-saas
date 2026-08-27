@@ -13,6 +13,12 @@ export interface UploadedFile {
   dataUrl: string;
   /** Set once the file lives in the driver's document store. */
   documentId?: string;
+  /**
+   * When the file was stored, as an ISO timestamp. Only a file already in the
+   * document store carries one; a freshly picked file is dated as today where it
+   * needs a date. See the insurance "Date Of Document Upload" field.
+   */
+  uploadedAt?: string;
 }
 
 export type LicenceType =

@@ -1,10 +1,15 @@
 import { ShieldCheck } from "lucide-react";
+import { useFormContext, useWatch } from "react-hook-form";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, DateField } from "@/components/form/Fields";
 import { FormUpload } from "@/components/upload/FormUpload";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { INSURANCE_POLICIES } from "@/constants/vendorOptions";
 import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
+import { australianDate, daysUntil, expiryLabel, todayAustralian } from "@/utils/date";
+import type { UploadedFile } from "@/types/driver";
+import type { InsuranceKey, VendorFormValues } from "@/types/vendor";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -20,13 +25,51 @@ function PolicyFields({
   workCover,
   minimumLiability,
 }: {
-  policyKey: string;
+  policyKey: InsuranceKey;
   label: string;
   workCover?: boolean;
   /** The least cover accepted, shown under Sum Assured. */
   minimumLiability?: string;
 }) {
   const prefix = `insurances.${policyKey}`;
+  const { control } = useFormContext<VendorFormValues>();
+
+  // The upload date is not typed: it is the day the document was stored. A file
+  // already in the store carries that day; a file just picked is dated today.
+  const file = useWatch({
+    control,
+    name: `insurances.${policyKey}.file`,
+  }) as UploadedFile | null;
+  const uploadDate = file
+    ? file.uploadedAt
+      ? australianDate(file.uploadedAt)
+      : todayAustralian()
+    : "";
+
+  // How long the policy still has to run. Work cover expires at the end of its
+  // validity window; every other policy expires on its single expiry date.
+  const expiry = useWatch({
+    control,
+    name: workCover
+      ? `insurances.${policyKey}.validTill`
+      : `insurances.${policyKey}.expiry`,
+  }) as string | undefined;
+  const daysLeft = expiry ? expiryLabel(daysUntil(expiry)) : "";
+
+  const daysLeftField = (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+        Days Left
+      </span>
+      <Input
+        value={daysLeft}
+        readOnly
+        aria-readonly
+        placeholder="Set expiry date"
+        className="cursor-not-allowed bg-secondary/70 text-muted-foreground"
+      />
+    </div>
+  );
 
   return (
     <div>
@@ -67,6 +110,7 @@ function PolicyFields({
               required
               rules={rules.required(`${label} due in days`)}
             />
+            {daysLeftField}
           </>
         ) : (
           <>
@@ -108,6 +152,7 @@ function PolicyFields({
                   : undefined
               }
             />
+            {daysLeftField}
           </>
         )}
 
@@ -120,6 +165,19 @@ function PolicyFields({
             label="Attach Document"
             accept={ACCEPT_DOCUMENT}
             rules={rules.requiredFile(`${label} document`)}
+          />
+        </div>
+
+        <div className="flex flex-col justify-end gap-1.5">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Date Of Document Upload
+          </span>
+          <Input
+            value={uploadDate}
+            readOnly
+            aria-readonly
+            placeholder="DD/MM/YYYY"
+            className="cursor-not-allowed bg-secondary/70 text-muted-foreground"
           />
         </div>
       </div>

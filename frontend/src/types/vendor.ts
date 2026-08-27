@@ -9,6 +9,13 @@ import type { UploadedFile } from "@/types/driver";
 export interface ContactBlock {
   contactPerson: string;
   designation: string;
+  /**
+   * The designation typed by hand when "Other" is picked. Form state only - it
+   * is never stored on its own: on save it becomes the block's `designation`,
+   * and on load a stored value not in the preset list is read back into it with
+   * `designation` set to "Other". See `saveOnboarding` and `contactDetails`.
+   */
+  designationOther: string;
   contactNumber: string;
   email: string;
   /**

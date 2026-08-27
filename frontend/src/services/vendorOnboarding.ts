@@ -3,6 +3,8 @@ import { dataUrlToFile } from "@/utils/validation";
 import {
   COMPLIANCE_DOCUMENT_TYPES,
   CONTACT_BLOCKS,
+  DESIGNATION_OTHER,
+  DESIGNATION_PRESETS,
   INSURANCE_POLICIES,
   PRIMARY_CONTACT,
 } from "@/constants/vendorOptions";
@@ -36,6 +38,7 @@ import type {
 const emptyContact: ContactBlock = {
   contactPerson: "",
   designation: "",
+  designationOther: "",
   contactNumber: "",
   email: "",
   sameAsOperations: false,
@@ -66,8 +69,20 @@ function emptyInsurances(): Record<InsuranceKey, InsuranceRow> {
  * There is no fixed pack: a vendor adds the documents that apply to them, so a
  * form nobody has filled in yet has no rows at all.
  */
+/**
+ * The policies the form lists, one row each. Every policy in the list is shown
+ * individually now rather than picked from a dropdown, so a blank form opens
+ * with all of them present and empty. Extra rows the vendor adds sit after
+ * these. The stored label stays the plain name; the "Policy" wording is added
+ * only for display. See `policyDisplayName`.
+ */
 function emptyComplianceDocs(): ComplianceDocRow[] {
-  return [];
+  return COMPLIANCE_DOCUMENT_TYPES.map((label) => ({
+    id: `policy:${label}`,
+    docType: "COMPLIANCE_ADDITIONAL",
+    label,
+    file: null,
+  }));
 }
 
 /** An address with nothing in it. Australia leads, as most vendors are here. */
@@ -200,6 +215,7 @@ function storedFile(doc: VendorDocument): UploadedFile {
     type: doc.mimeType,
     dataUrl: "",
     documentId: doc.id,
+    uploadedAt: doc.createdAt,
   };
 }
 
@@ -217,9 +233,15 @@ function contactDetails(
   apiType: string,
 ): Omit<ContactBlock, "sameAsOperations"> {
   const stored = contacts.find((row) => row.type === apiType);
+  // A stored designation that is not one of the preset options was typed by
+  // hand, so it comes back as "Other" with the text carried in designationOther.
+  const storedDesignation = stored?.designation ?? "";
+  const isPreset = DESIGNATION_PRESETS.includes(storedDesignation);
+  const isCustom = storedDesignation !== "" && !isPreset;
   return {
     contactPerson: stored?.contactPerson ?? "",
-    designation: stored?.designation ?? "",
+    designation: isCustom ? DESIGNATION_OTHER : storedDesignation,
+    designationOther: isCustom ? storedDesignation : "",
     contactNumber: stored?.contactNumber ?? "",
     email: stored?.email ?? "",
   };
@@ -289,15 +311,28 @@ export function toFormValues(data: VendorOnboardingData): VendorFormValues {
     };
   }
 
-  // Every row is one the vendor added, keyed by its own stored document.
-  const complianceDocs: ComplianceDocRow[] = documents
-    .filter((doc) => doc.docType === "COMPLIANCE_ADDITIONAL")
+  // The policies are shown one row each. Every listed policy gets its row back,
+  // carrying its stored file where one was uploaded; anything stored under a name
+  // not in the list is a document the vendor added, and follows after.
+  const additional = documents.filter((doc) => doc.docType === "COMPLIANCE_ADDITIONAL");
+  const listedDocs: ComplianceDocRow[] = COMPLIANCE_DOCUMENT_TYPES.map((label) => {
+    const match = additional.find((doc) => (doc.category ?? "") === label);
+    return {
+      id: match?.id ?? `policy:${label}`,
+      docType: "COMPLIANCE_ADDITIONAL",
+      label,
+      file: match ? storedFile(match) : null,
+    };
+  });
+  const extraDocs: ComplianceDocRow[] = additional
+    .filter((doc) => !COMPLIANCE_DOCUMENT_TYPES.includes(doc.category ?? ""))
     .map((doc) => ({
       id: doc.id,
       docType: "COMPLIANCE_ADDITIONAL",
-      label: doc.category ?? COMPLIANCE_DOCUMENT_TYPES[0],
+      label: doc.category ?? "",
       file: storedFile(doc),
     }));
+  const complianceDocs: ComplianceDocRow[] = [...listedDocs, ...extraDocs];
 
   return {
     companyName: data.companyName,
@@ -436,10 +471,16 @@ export async function saveOnboarding(
   const contacts: VendorContactPayload[] = CONTACT_BLOCKS.map((block) => {
     const copied = block.key !== PRIMARY_CONTACT.key && values[block.key].sameAsOperations;
     const source = copied ? values[PRIMARY_CONTACT.key] : values[block.key];
+    // "Other" is a UI-only choice: what gets stored is the text typed alongside
+    // it, so the API only ever sees a real designation.
+    const designation =
+      source.designation === DESIGNATION_OTHER
+        ? source.designationOther
+        : source.designation;
     return {
       type: block.apiType,
       contactPerson: trimmedOrNull(source.contactPerson),
-      designation: trimmedOrNull(source.designation),
+      designation: trimmedOrNull(designation),
       contactNumber: trimmedOrNull(source.contactNumber),
       email: trimmedOrNull(source.email),
     };
@@ -548,11 +589,10 @@ async function syncDocuments(
     if (!slot.value && existing) await gateway.deleteDocument(existing.id);
   }
 
-  // Compliance rows. The eight fixed ones are single slot too; the extras the
-  // vendor added are keyed by their own document id.
-  // A row the vendor took off the form is a document to delete. Every row is
-  // one they added, so a stored policy with no row still holding its id is one
-  // that is gone.
+  // Compliance rows. Each policy is one row, listed or added by the vendor, and
+  // keyed by its own stored document id once it holds a file.
+  // A row the vendor cleared or took off the form is a document to delete: a
+  // stored policy with no row still holding its id is one that is gone.
   const keptIds = new Set(
     values.complianceDocs
       .map((row) => row.file?.documentId)
@@ -569,7 +609,7 @@ async function syncDocuments(
       await gateway.uploadDocument({
         file: dataUrlToFile(row.file),
         docType: row.docType as VendorDocumentType,
-        category: row.label || COMPLIANCE_DOCUMENT_TYPES[0],
+        category: row.label || undefined,
       });
       continue;
     }
@@ -627,13 +667,10 @@ export function submissionBlockers(values: VendorFormValues): string[] {
     missing.push("Billing address");
   }
   if (values.warehouses.length === 0) missing.push("Warehouse address");
-  if (!values.accreditationNumber.trim()) missing.push("Accreditation number");
-
-  // Nothing is demanded of every vendor alike any more, but a row somebody
-  // added with no file behind it is an unfinished answer.
-  for (const row of values.complianceDocs) {
-    if (!row.file) missing.push(row.label);
-  }
+  // The Certificate of Accreditation section is optional - nothing in it blocks
+  // a submit; a vendor can add it later.
+  // The Policies section is optional too: every policy is listed for a vendor to
+  // attach where they have it, and none of them gate the submit.
 
   return missing;
 }

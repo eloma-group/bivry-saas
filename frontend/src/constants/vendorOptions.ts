@@ -21,6 +21,9 @@ export const BUSINESS_OPERATIONS = [
   "Regional Deliveries",
 ];
 
+/** The value that opens the free-text box for a designation not in the list. */
+export const DESIGNATION_OTHER = "Other";
+
 export const DESIGNATIONS = [
   "CEO",
   "Director",
@@ -30,8 +33,13 @@ export const DESIGNATIONS = [
   "Fleet Manager",
   "Accounts Manager",
   "Dispatch Manager",
-  "Other",
+  DESIGNATION_OTHER,
 ];
+
+/** Everything the dropdown offers except the "Other" escape hatch. */
+export const DESIGNATION_PRESETS = DESIGNATIONS.filter(
+  (value) => value !== DESIGNATION_OTHER,
+);
 
 export const WAREHOUSE_STATES = AU_STATES;
 
@@ -138,10 +146,19 @@ export const INSURANCE_POLICIES: Array<{
  * BUSINESS_OPERATIONS above. It is also why the list needs no database change
  * to grow: these are text, not enum values.
  */
+/**
+ * A policy name as it reads in the form: every one ends in "Policy". Several of
+ * the names below already do, so the word is only added where it is missing -
+ * "Environmental Policy" stays as it is, "Chain of Responsibility" becomes
+ * "Chain of Responsibility Policy".
+ */
+export function policyDisplayName(name: string): string {
+  return /\bpolicy$/i.test(name.trim()) ? name : `${name} Policy`;
+}
+
 export const COMPLIANCE_DOCUMENT_TYPES = [
   "Marine COC",
   "PL COC",
-  "Chain of Responsibility",
   "Driver Fatigue Management Policy",
   "Driver Medical Currency Verification Process",
   "Drug & Alcohol Policy",
@@ -157,8 +174,6 @@ export const COMPLIANCE_DOCUMENT_TYPES = [
   "Modern Slavery Policy",
   "Payment System",
   "Roadside Assistance Policy",
-  "Speed Doc",
-  "Vendor Agreement",
 ];
 
 /** Horizontal stepper definition - completion drives the progress percentage. */
@@ -196,7 +211,9 @@ export const VENDOR_STEPS: VendorStepDef[] = [
   {
     id: "accreditation",
     label: "Accreditation",
-    requires: ["accreditationNumber", "nhvasExpiry", "accreditationFile", "insurances"],
+    // The accreditation fields themselves are optional now, so the step tracks
+    // only the insurance policies it also covers.
+    requires: ["insurances"],
   },
   {
     id: "documents",

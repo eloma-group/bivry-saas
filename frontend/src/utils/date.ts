@@ -53,6 +53,30 @@ export function prettyDate(value?: string | null): string {
   return d ? format(d, "dd MMM yyyy") : "-";
 }
 
+/**
+ * A date written the Australian way, dd/MM/yyyy, on the Australian calendar.
+ *
+ * The timezone is pinned to Australia/Sydney so "the day it was uploaded" is the
+ * local day here rather than the viewer's, which is what a fleet run out of
+ * Australia means by the date on a document. Takes an ISO timestamp or a Date.
+ */
+export function australianDate(value?: string | Date | null): string {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Sydney",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+}
+
+/** Today's date on the Australian calendar, dd/MM/yyyy. */
+export function todayAustralian(): string {
+  return australianDate(new Date());
+}
+
 export function expiryLabel(days: number | null): string {
   if (days === null) return "No date";
   if (days < 0) return `Expired ${Math.abs(days)}d ago`;

@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   CONTACT_BLOCKS,
+  DESIGNATION_OTHER,
   DESIGNATIONS,
   PRIMARY_CONTACT,
 } from "@/constants/vendorOptions";
@@ -27,9 +28,11 @@ type ContactKey = (typeof CONTACT_BLOCKS)[number]["key"];
  * nobody was asked. The check is read at validation time, never captured.
  */
 function ContactBlockFields({ prefix, label }: { prefix: ContactKey; label: string }) {
-  const { getValues } = useFormContext<VendorFormValues>();
+  const { getValues, control } = useFormContext<VendorFormValues>();
   const asked = () =>
     prefix === PRIMARY_CONTACT.key || !getValues(`${prefix}.sameAsOperations`);
+  const designation = useWatch({ control, name: `${prefix}.designation` });
+  const isOther = designation === DESIGNATION_OTHER;
 
   return (
     <div className={GRID}>
@@ -48,6 +51,19 @@ function ContactBlockFields({ prefix, label }: { prefix: ContactKey; label: stri
         required
         rules={rules.requiredWhen(`${label} designation`, asked)}
       />
+      {isOther && (
+        <TextField
+          name={`${prefix}.designationOther`}
+          label="Other Designation"
+          placeholder="Type the designation"
+          required
+          maxLength={NAME_MAX}
+          rules={rules.requiredWhen(
+            `${label} designation`,
+            () => asked() && isOther,
+          )}
+        />
+      )}
       <TextField
         name={`${prefix}.contactNumber`}
         label="Contact Number"
