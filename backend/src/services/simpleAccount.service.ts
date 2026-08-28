@@ -43,7 +43,7 @@ const SHARED_FIELDS = {
   updatedAt: true,
 } as const;
 
-const CUSTOMER_FIELDS = { ...SHARED_FIELDS, companyName: true } as const;
+const CUSTOMER_FIELDS = { ...SHARED_FIELDS, accountNumber: true, companyName: true } as const;
 const EMPLOYEE_FIELDS = {
   ...SHARED_FIELDS,
   employeeCode: true,
@@ -71,6 +71,12 @@ interface AccountKind {
   fields: Record<string, boolean>;
   /** Columns a search box looks through. */
   searchable: string[];
+  /**
+   * A server assigned reference this kind carries, if any. The customer has one
+   * (CAN5000, counting up); the employee does not. When set, `create` allocates
+   * the next number rather than trusting anything the client sent.
+   */
+  reference?: { column: string; prefix: string; base: number };
 }
 
 const CUSTOMER: AccountKind = {
@@ -78,7 +84,8 @@ const CUSTOMER: AccountKind = {
   actorType: 'CUSTOMER',
   delegate: prisma.customer as unknown as AccountKind['delegate'],
   fields: CUSTOMER_FIELDS,
-  searchable: ['firstName', 'lastName', 'email', 'phone', 'companyName'],
+  searchable: ['firstName', 'lastName', 'email', 'phone', 'companyName', 'accountNumber'],
+  reference: { column: 'accountNumber', prefix: 'CAN', base: 5000 },
 };
 
 const EMPLOYEE: AccountKind = {
@@ -155,18 +162,42 @@ export async function create(slug: KindSlug, input: Record<string, unknown>) {
 
   const { password, ...rest } = input;
 
-  return kind.delegate.create({
-    data: {
-      ...rest,
-      email,
-      passwordHash: await hashPassword(String(password)),
-      // An admin created account is usable straight away unless the admin says
-      // otherwise, which matches how drivers and vendors are created.
-      status: (rest.status as AccountStatus) ?? 'ACTIVE',
-      emailVerifiedAt: new Date(),
-    },
-    select: kind.fields,
-  });
+  const baseData = {
+    ...rest,
+    email,
+    passwordHash: await hashPassword(String(password)),
+    // An admin created account is usable straight away unless the admin says
+    // otherwise, which matches how drivers and vendors are created.
+    status: (rest.status as AccountStatus) ?? 'ACTIVE',
+    emailVerifiedAt: new Date(),
+  };
+
+  // Employees carry no reference, so this is the whole of it.
+  if (!kind.reference) {
+    return kind.delegate.create({ data: baseData, select: kind.fields });
+  }
+
+  // Customers get the next number in the CAN series, allocated here rather than
+  // trusted from the client. A concurrent create can take the same one, so this
+  // retries on the unique index refusing it (P2002), moving to the next number.
+  const reference = kind.reference;
+  const taken = await kind.delegate.count({ where: { [reference.column]: { not: null } } });
+
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const candidate = `${reference.prefix}${reference.base + taken + attempt}`;
+    try {
+      return await kind.delegate.create({
+        data: { ...baseData, [reference.column]: candidate },
+        select: kind.fields,
+      });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code !== 'P2002') throw error;
+      // Someone took this number between the count and the insert; try the next.
+    }
+  }
+
+  throw ApiError.internal(`Could not assign a ${kind.label.toLowerCase()} account number`);
 }
 
 export async function update(slug: KindSlug, id: string, input: Record<string, unknown>) {

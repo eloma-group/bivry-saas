@@ -11,6 +11,7 @@ import { ChangePasswordPage } from "@/pages/auth/ChangePasswordPage";
 import { PortalPickerPage } from "@/pages/PortalPickerPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { AdminOnboardingPage } from "@/pages/admin/AdminOnboardingPage";
+import { AdminCreateBookingPage } from "@/pages/admin/AdminCreateBookingPage";
 import { AdminProfilePage } from "@/pages/admin/AdminProfilePage";
 import { PlaceholderDashboardPage } from "@/pages/PlaceholderDashboardPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -109,6 +110,7 @@ export function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute role="admin" />}>
         <Route index element={<AdminDashboardPage />} />
         <Route path="profile" element={<AdminProfilePage />} />
+        <Route path="bookings/new" element={<AdminCreateBookingPage />} />
         <Route path="onboarding" element={<Navigate to="driver" replace />} />
         <Route path="onboarding/:module" element={<AdminOnboardingPage />} />
         <Route path="onboarding/:module/:recordId" element={<AdminOnboardingPage />} />

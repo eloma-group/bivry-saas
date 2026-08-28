@@ -57,6 +57,8 @@ import {
   updateCustomerSchema,
   updateEmployeeSchema,
 } from '../validators/simpleAccount.validator';
+import { bookingController } from '../controllers/booking.controller';
+import { createBookingSchema } from '../validators/booking.validator';
 
 const router = Router();
 
@@ -259,6 +261,12 @@ router.patch(
   adminController.updateVendorDocument,
 );
 router.delete('/vendors/:id/documents/:documentId', adminController.deleteVendorDocument);
+
+// Bookings raised from the Admin portal. On their own tables, so nothing here
+// touches the driver, vendor or account records.
+router.get('/bookings', bookingController.list);
+router.post('/bookings', validateBody(createBookingSchema), bookingController.create);
+router.get('/bookings/:id', bookingController.get);
 
 // Customers and employees. No onboarding record behind either, so the whole of
 // each is the account itself and these five routes are all there is.

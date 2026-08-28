@@ -8,7 +8,7 @@ interface SectionCardProps {
   title: string;
   description?: string;
   icon: LucideIcon;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
   id?: string;
 }

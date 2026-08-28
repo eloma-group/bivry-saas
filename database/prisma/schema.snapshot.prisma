@@ -36,6 +36,9 @@ model Customer {
   email               String        @unique
   phone               String?       @unique
   passwordHash        String        @map("password_hash")
+  /// Human readable customer reference (CAN5000). Assigned by the server when
+  /// the account is created and never typed in; the booking form reads it back.
+  accountNumber       String?       @unique @map("account_number")
   firstName           String        @map("first_name")
   lastName            String?       @map("last_name")
   companyName         String?       @map("company_name")
@@ -742,4 +745,117 @@ enum VendorDocumentType {
   COMPLIANCE_ADDITIONAL
 
   @@map("vendor_document_type")
+}
+
+// ---------------------------------------------------------------------------
+// Bookings
+//
+// A booking raised in the Admin portal. It stands on its own set of tables and
+// holds only ids for the customer and vendor it refers to (no relation, so the
+// account models are left untouched), alongside a snapshot of the name shown at
+// the time. Its pickups and deliveries are rows in booking_stops, its lanes in
+// booking_lanes, and both prices - ours and the vendor's - are columns here.
+// ---------------------------------------------------------------------------
+
+model Booking {
+  id                    String    @id @default(uuid()) @db.Uuid
+  /// Human readable reference, BIVRY-<financial year>-<sequence>.
+  jobNumber             String    @unique @map("job_number")
+  /// The date the booking was received, as typed (YYYY-MM-DD).
+  bookingReceivedDate   String?   @map("booking_received_date")
+  /// Australian financial year the booking falls in, e.g. "26-27".
+  financialYear         String?   @map("financial_year")
+
+  /// The chosen customer. Id only, plus a snapshot of the name and account
+  /// number as they read when the booking was raised.
+  customerId            String?   @map("customer_id") @db.Uuid
+  customerName          String?   @map("customer_name")
+  customerAccountNumber String?   @map("customer_account_number")
+
+  accountStatus         String?   @map("account_status")
+  agreementType         String?   @map("agreement_type")
+  reference             String?
+  cargoType             String?   @map("cargo_type")
+  vehicleType           String?   @map("vehicle_type")
+  trailerCategory       String?   @map("trailer_category")
+
+  // Our price (AUD).
+  priceGrossAmount      Decimal?  @map("price_gross_amount") @db.Decimal(12, 2)
+  priceFuelLevyPct      Decimal?  @map("price_fuel_levy_pct") @db.Decimal(7, 2)
+  priceFuelLevyAmount   Decimal?  @map("price_fuel_levy_amount") @db.Decimal(12, 2)
+  priceGstPct           Decimal?  @map("price_gst_pct") @db.Decimal(7, 2)
+  priceGstAmount        Decimal?  @map("price_gst_amount") @db.Decimal(12, 2)
+  priceNetAmount        Decimal?  @map("price_net_amount") @db.Decimal(12, 2)
+  priceTotalAmount      Decimal?  @map("price_total_amount") @db.Decimal(12, 2)
+
+  // Vendor allotment and its own, separate price (AUD).
+  vendorId              String?   @map("vendor_id") @db.Uuid
+  vendorName            String?   @map("vendor_name")
+  vendorGrossAmount     Decimal?  @map("vendor_gross_amount") @db.Decimal(12, 2)
+  vendorFuelLevyPct     Decimal?  @map("vendor_fuel_levy_pct") @db.Decimal(7, 2)
+  vendorFuelLevyAmount  Decimal?  @map("vendor_fuel_levy_amount") @db.Decimal(12, 2)
+  vendorGstPct          Decimal?  @map("vendor_gst_pct") @db.Decimal(7, 2)
+  vendorGstAmount       Decimal?  @map("vendor_gst_amount") @db.Decimal(12, 2)
+  vendorNetAmount       Decimal?  @map("vendor_net_amount") @db.Decimal(12, 2)
+  vendorTotalAmount     Decimal?  @map("vendor_total_amount") @db.Decimal(12, 2)
+
+  /// Admin id that raised the booking (no FK - a verifier may be an employee later).
+  createdByAdminId      String?   @map("created_by_admin_id") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  stops                 BookingStop[]
+  lanes                 BookingLane[]
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([financialYear])
+  @@map("bookings")
+}
+
+/// One pickup or delivery on a booking. The two share every field, so they are
+/// one table split by `type` and ordered by `position`.
+model BookingStop {
+  id              String          @id @default(uuid()) @db.Uuid
+  bookingId       String          @map("booking_id") @db.Uuid
+  type            BookingStopType
+  /// Order within its own kind: pickup 0, pickup 1, delivery 0, and so on.
+  position        Int
+  clientJobNumber String?         @map("client_job_number")
+  trailer         String?
+  /// When it is scheduled, as typed (YYYY-MM-DDTHH:mm).
+  scheduledAt     String?         @map("scheduled_at")
+  company         String?
+  address         String?
+  city            String?
+  suburb          String?
+  state           String?
+  country         String?
+  instructions    String?
+  booking         Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_stops")
+}
+
+/// A lane worked out from a pickup/delivery pair: the trailer and the
+/// "Pick-Up City - Delivery City" line, kept so a saved booking carries them.
+model BookingLane {
+  id        String  @id @default(uuid()) @db.Uuid
+  bookingId String  @map("booking_id") @db.Uuid
+  position  Int
+  trailer   String?
+  lane      String?
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_lanes")
+}
+
+enum BookingStopType {
+  PICKUP
+  DELIVERY
+
+  @@map("booking_stop_type")
 }

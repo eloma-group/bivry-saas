@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**28 tables, 11 enum types.**
+**31 tables, 12 enum types.**
 
 ## Tables
 
@@ -38,6 +38,9 @@ look up a column. Every table, column, type, default and relation is below.
 - [`refresh_tokens`](#refreshtokens)
 - [`password_reset_tokens`](#passwordresettokens)
 - [`login_attempts`](#loginattempts)
+- [`bookings`](#bookings)
+- [`booking_stops`](#bookingstops)
+- [`booking_lanes`](#bookinglanes)
 
 ## Enum types
 
@@ -54,6 +57,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `vendor_contact_type` | `OPERATIONS`, `COMPLIANCE`, `ADMIN`, `DISPATCH` |
 | `vendor_insurance_type` | `PRODUCT_LIABILITY`, `PUBLIC_LIABILITY`, `WORK_COVER`, `MARINE_GENERAL`, `MARINE_ALCOHOL`, `COC` |
 | `vendor_document_type` | `COMPANY_LOGO`, `ACCREDITATION`, `INSURANCE_PRODUCT_LIABILITY`, `INSURANCE_PUBLIC_LIABILITY`, `INSURANCE_WORK_COVER`, `INSURANCE_MARINE_GENERAL`, `INSURANCE_MARINE_ALCOHOL`, `INSURANCE_COC`, `COMPLIANCE_DRUG`, `COMPLIANCE_ALCOHOL_POLICY`, `COMPLIANCE_PROCEDURE`, `COMPLIANCE_RISK_MANAGEMENT`, `COMPLIANCE_SPEED_POLICY`, `COMPLIANCE_FATIGUE_POLICY`, `COMPLIANCE_GPS_SNAPSHOT`, `COMPLIANCE_WHS_POLICY`, `COMPLIANCE_ADDITIONAL` |
+| `booking_stop_type` | `PICKUP`, `DELIVERY` |
 
 ## Table detail
 
@@ -86,6 +90,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `email` | text | NOT NULL |  | unique |
 | `phone` | text | NULL |  | unique |
 | `password_hash` | text | NOT NULL |  |  |
+| `account_number` | text | NULL |  | unique; Human readable customer reference (CAN5000). Assigned by the server when\nthe account is created and never typed in; the booking form reads it back. |
 | `first_name` | text | NOT NULL |  |  |
 | `last_name` | text | NULL |  |  |
 | `company_name` | text | NULL |  |  |
@@ -688,3 +693,87 @@ Audit trail of every login attempt, used for lockout and security review.
 | `ip_address` | text | NULL |  |  |
 | `user_agent` | text | NULL |  |  |
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
+
+### `bookings`
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `job_number` | text | NOT NULL |  | unique; Human readable reference, BIVRY-<financial year>-<sequence>. |
+| `booking_received_date` | text | NULL |  | The date the booking was received, as typed (YYYY-MM-DD). |
+| `financial_year` | text | NULL |  | Australian financial year the booking falls in, e.g. "26-27". |
+| `customer_id` | uuid | NULL |  | The chosen customer. Id only, plus a snapshot of the name and account\nnumber as they read when the booking was raised. |
+| `customer_name` | text | NULL |  |  |
+| `customer_account_number` | text | NULL |  |  |
+| `account_status` | text | NULL |  |  |
+| `agreement_type` | text | NULL |  |  |
+| `reference` | text | NULL |  |  |
+| `cargo_type` | text | NULL |  |  |
+| `vehicle_type` | text | NULL |  |  |
+| `trailer_category` | text | NULL |  |  |
+| `price_gross_amount` | decimal | NULL |  |  |
+| `price_fuel_levy_pct` | decimal | NULL |  |  |
+| `price_fuel_levy_amount` | decimal | NULL |  |  |
+| `price_gst_pct` | decimal | NULL |  |  |
+| `price_gst_amount` | decimal | NULL |  |  |
+| `price_net_amount` | decimal | NULL |  |  |
+| `price_total_amount` | decimal | NULL |  |  |
+| `vendor_id` | uuid | NULL |  |  |
+| `vendor_name` | text | NULL |  |  |
+| `vendor_gross_amount` | decimal | NULL |  |  |
+| `vendor_fuel_levy_pct` | decimal | NULL |  |  |
+| `vendor_fuel_levy_amount` | decimal | NULL |  |  |
+| `vendor_gst_pct` | decimal | NULL |  |  |
+| `vendor_gst_amount` | decimal | NULL |  |  |
+| `vendor_net_amount` | decimal | NULL |  |  |
+| `vendor_total_amount` | decimal | NULL |  |  |
+| `created_by_admin_id` | uuid | NULL |  | Admin id that raised the booking (no FK - a verifier may be an employee later). |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+| `deleted_at` | timestamp(3) | NULL |  |  |
+
+**Relations**
+
+- many `booking_stops`
+- many `booking_lanes`
+
+### `booking_stops`
+
+One pickup or delivery on a booking. The two share every field, so they are\none table split by `type` and ordered by `position`.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `booking_id` | uuid | NOT NULL |  | FK to `bookings` (cascade delete) |
+| `type` | booking_stop_type | NOT NULL |  |  |
+| `position` | integer | NOT NULL |  | Order within its own kind: pickup 0, pickup 1, delivery 0, and so on. |
+| `client_job_number` | text | NULL |  |  |
+| `trailer` | text | NULL |  |  |
+| `scheduled_at` | text | NULL |  | When it is scheduled, as typed (YYYY-MM-DDTHH:mm). |
+| `company` | text | NULL |  |  |
+| `address` | text | NULL |  |  |
+| `city` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `instructions` | text | NULL |  |  |
+
+**Relations**
+
+- one `bookings`
+
+### `booking_lanes`
+
+A lane worked out from a pickup/delivery pair: the trailer and the\n"Pick-Up City - Delivery City" line, kept so a saved booking carries them.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `booking_id` | uuid | NOT NULL |  | FK to `bookings` (cascade delete) |
+| `position` | integer | NOT NULL |  |  |
+| `trailer` | text | NULL |  |  |
+| `lane` | text | NULL |  |  |
+
+**Relations**
+
+- one `bookings`

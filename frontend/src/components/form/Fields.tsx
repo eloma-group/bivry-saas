@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   useFormContext,
   Controller,
@@ -6,7 +7,7 @@ import {
   type RegisterOptions,
 } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Check, ChevronDown } from "lucide-react";
+import { CalendarClock, CalendarDays, Check, ChevronDown, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -127,6 +128,8 @@ interface TextFieldProps extends BaseFieldProps {
   action?: React.ReactNode;
   /** How much room to keep clear for the action. Defaults to a labelled button. */
   actionSize?: "icon" | "label";
+  /** A fixed adornment parked inside the left of the box - a "$" on a money field. */
+  prefix?: string;
 }
 
 /** Reusable text/email/number input wired to react-hook-form. */
@@ -143,6 +146,7 @@ export function TextField({
   digitsOnly,
   action,
   actionSize = "label",
+  prefix,
   className,
 }: TextFieldProps) {
   const {
@@ -163,6 +167,11 @@ export function TextField({
       className={className}
     >
       <div className="relative">
+        {prefix && (
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+            {prefix}
+          </span>
+        )}
         <Input
           id={name}
           type={type}
@@ -175,6 +184,7 @@ export function TextField({
           className={cn(
             error && "border-red-300 focus-visible:ring-red-500/10",
             readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground",
+            prefix && "pl-7",
             action && (actionSize === "icon" ? "pr-11" : "pr-28")
           )}
           {...field}
@@ -197,33 +207,26 @@ export function TextField({
   );
 }
 
-interface DateFieldProps extends BaseFieldProps {
-  readOnly?: boolean;
-  min?: string;
-  max?: string;
+interface TextAreaFieldProps extends BaseFieldProps {
+  placeholder?: string;
   hint?: string;
-  /**
-   * Drops the decorative leading calendar icon. In a narrow table column the
-   * icon's indent plus the browser's own picker button squeezes the date out of
-   * the box, and the native picker is the only one of the two that does
-   * anything.
-   */
-  compact?: boolean;
+  /** How tall the box opens. Defaults to three lines. */
+  rows?: number;
+  maxLength?: number;
 }
 
-/** Reusable date picker (native, styled) wired to react-hook-form. */
-export function DateField({
+/** Reusable multi-line text box wired to react-hook-form. */
+export function TextAreaField({
   name,
   label,
+  placeholder,
   rules,
   required,
-  readOnly,
-  min,
-  max,
   hint,
-  compact,
+  rows = 3,
+  maxLength,
   className,
-}: DateFieldProps) {
+}: TextAreaFieldProps) {
   const {
     register,
     formState: { errors },
@@ -239,23 +242,125 @@ export function DateField({
       hint={hint}
       className={className}
     >
+      <textarea
+        id={name}
+        rows={rows}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        aria-invalid={!!error}
+        className={cn(
+          "flex w-full resize-y rounded-lg border border-input bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10",
+          error && "border-red-300 focus-visible:ring-red-500/10",
+        )}
+        {...register(name, rules)}
+      />
+    </FieldShell>
+  );
+}
+
+interface DateFieldProps extends BaseFieldProps {
+  readOnly?: boolean;
+  min?: string;
+  max?: string;
+  hint?: string;
+  /**
+   * What the field picks: a date (default), a time of day, or both. A time
+   * field shows its hours in the browser's own 12-hour am/pm form where the
+   * locale uses one.
+   */
+  type?: "date" | "time" | "datetime-local";
+  /**
+   * Drops the decorative leading icon. In a narrow table column the icon's
+   * indent plus the browser's own picker button squeezes the date out of the
+   * box, and the native picker is the only one of the two that does anything.
+   */
+  compact?: boolean;
+}
+
+/** Reusable date/time picker (native, styled) wired to react-hook-form. */
+export function DateField({
+  name,
+  label,
+  rules,
+  required,
+  readOnly,
+  min,
+  max,
+  hint,
+  type = "date",
+  compact,
+  className,
+}: DateFieldProps) {
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext();
+  const error = get(errors, name)?.message as string | undefined;
+  const field = register(name, rules);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // The one icon that opens the picker. A date shows a calendar, a time a clock,
+  // and both together a calendar-clock.
+  const Icon = type === "time" ? Clock : type === "datetime-local" ? CalendarClock : CalendarDays;
+
+  // The left icon is the only way in: the native picker button on the right is
+  // hidden below, so clicking the icon opens the browser's own picker.
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el || readOnly) return;
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        // Some browsers refuse showPicker outside a user gesture; fall back.
+      }
+    }
+    el.focus();
+  }
+
+  return (
+    <FieldShell
+      label={label}
+      htmlFor={name}
+      required={required}
+      error={error}
+      hint={hint}
+      className={className}
+    >
       <div className="relative">
         {!compact && (
-          <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <button
+            type="button"
+            onClick={openPicker}
+            tabIndex={-1}
+            aria-hidden
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          >
+            <Icon className="h-4 w-4" />
+          </button>
         )}
         <Input
           id={name}
-          type="date"
+          type={type}
           readOnly={readOnly}
           min={min}
           max={max}
           aria-invalid={!!error}
+          name={field.name}
+          onChange={field.onChange}
+          onBlur={field.onBlur}
+          ref={(el) => {
+            field.ref(el);
+            inputRef.current = el;
+          }}
           className={cn(
             compact ? "px-3" : "pl-10",
+            // Hide the browser's own picker indicator so only the left icon shows.
+            !compact && "[&::-webkit-calendar-picker-indicator]:hidden",
             error && "border-red-300 focus-visible:ring-red-500/10",
             readOnly && "cursor-not-allowed bg-secondary/70 text-muted-foreground"
           )}
-          {...register(name, rules)}
         />
       </div>
     </FieldShell>

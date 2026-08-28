@@ -247,7 +247,14 @@ export function AdminSimpleAccountEditPage({
                   onChange={(event) => set(field.name, event.target.value)}
                   placeholder={field.placeholder}
                   maxLength={field.maxLength}
+                  readOnly={field.readOnly}
+                  aria-readonly={field.readOnly || undefined}
                   aria-invalid={problems[field.name] ? true : undefined}
+                  className={
+                    field.readOnly
+                      ? "cursor-not-allowed bg-secondary/70 text-muted-foreground"
+                      : undefined
+                  }
                 />
                 {problems[field.name] ? (
                   <p className="text-xs font-medium text-destructive">{problems[field.name]}</p>

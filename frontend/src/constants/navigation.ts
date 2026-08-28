@@ -48,7 +48,12 @@ function adminNav(): NavItem[] {
     {
       label: "Bookings",
       icon: CalendarDays,
-      children: [{ label: "All Bookings" }, { label: "Create Booking" }, { label: "Calendar" }],
+      enabled: true,
+      children: [
+        { label: "All Bookings" },
+        { label: "Create Booking", enabled: true, href: "/admin/bookings/new" },
+        { label: "Calendar" },
+      ],
     },
     {
       label: "Operations",

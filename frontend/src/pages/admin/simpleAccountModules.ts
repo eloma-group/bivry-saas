@@ -21,6 +21,8 @@ export interface AccountField {
   required?: boolean;
   placeholder?: string;
   type?: "text" | "tel" | "email";
+  /** Shown but not editable - a server assigned value like the account number. */
+  readOnly?: boolean;
   /** Included as a column in the list table. */
   inTable?: boolean;
   /** Hard cap on what can be typed. */
@@ -94,6 +96,14 @@ export const SIMPLE_ACCOUNT_MODULES: Record<string, SimpleAccountModule> = {
     plural: "Customers",
     blurb: "Every customer account, and who they book on behalf of.",
     fields: [
+      {
+        name: "accountNumber",
+        label: "Customer Account Number",
+        placeholder: "Assigned automatically",
+        hint: "Assigned by BIVRY (CAN5000 onwards). It cannot be changed.",
+        readOnly: true,
+        inTable: true,
+      },
       ...IDENTITY,
       {
         name: "companyName",
