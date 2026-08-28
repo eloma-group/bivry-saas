@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCircle2, Loader2, RotateCcw, XCircle } from "lucide-react";
 import {
@@ -44,6 +44,34 @@ function targetFor(item: ExpiryNotification, role: RoleSlug | null): string {
   return anchor ? `/${module}/onboarding#${anchor}` : `/${module}/onboarding`;
 }
 
+/**
+ * Which notifications have already been looked at.
+ *
+ * These reminders have no read/unread state on the server - they are just what
+ * is expiring right now - so "seen" is remembered here. Opening the panel marks
+ * everything currently in it as seen, and the badge only ever counts what has
+ * not been seen yet. A genuinely new expiry later carries an id that is not in
+ * the set, so the badge comes back for it.
+ */
+const SEEN_KEY = "bivry.notifications.seen";
+
+function loadSeen(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSeen(seen: Set<string>) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+  } catch {
+    // Storage full or blocked: the badge just will not persist as dismissed.
+  }
+}
+
 function timing(item: ExpiryNotification): string {
   if (item.daysLeft < 0) {
     const days = Math.abs(item.daysLeft);
@@ -66,9 +94,33 @@ export function NotificationBell({ role }: { role: RoleSlug | null }) {
   const { items, expired, expiring, total, warningDays, loading, error, supported, refresh } =
     useNotifications();
 
-  if (!supported) return null;
+  const [seen, setSeen] = useState<Set<string>>(loadSeen);
 
-  const tone = expired > 0 ? "danger" : "warning";
+  // What has not been looked at yet. The badge counts only these, so once the
+  // panel has been opened the number falls to zero.
+  const unseen = useMemo(() => items.filter((item) => !seen.has(item.id)), [items, seen]);
+  const unseenCount = unseen.length;
+  const tone = unseen.some((item) => item.severity === "EXPIRED") ? "danger" : "warning";
+
+  // Opening the panel is the moment they are seen. Anything in it right now is
+  // marked, and remembered, so it does not light the badge up again.
+  useEffect(() => {
+    if (!open || items.length === 0) return;
+    setSeen((previous) => {
+      const next = new Set(previous);
+      let changed = false;
+      for (const item of items) {
+        if (!next.has(item.id)) {
+          next.add(item.id);
+          changed = true;
+        }
+      }
+      if (changed) saveSeen(next);
+      return changed ? next : previous;
+    });
+  }, [open, items]);
+
+  if (!supported) return null;
 
   return (
     <Popover
@@ -84,20 +136,20 @@ export function NotificationBell({ role }: { role: RoleSlug | null }) {
           type="button"
           className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-secondary"
           aria-label={
-            total > 0
-              ? `Notifications, ${total} document${total === 1 ? "" : "s"} need attention`
+            unseenCount > 0
+              ? `Notifications, ${unseenCount} new document${unseenCount === 1 ? "" : "s"} need attention`
               : "Notifications"
           }
         >
           <Bell className="h-5 w-5" />
-          {total > 0 && (
+          {unseenCount > 0 && (
             <span
               className={cn(
                 "absolute -right-0.5 -top-0.5 grid h-[1.15rem] min-w-[1.15rem] place-items-center rounded-full px-1 text-[0.65rem] font-bold text-white ring-2 ring-white",
                 tone === "danger" ? "bg-red-500" : "bg-amber-500",
               )}
             >
-              {total > 9 ? "9+" : total}
+              {unseenCount > 9 ? "9+" : unseenCount}
             </span>
           )}
         </button>
