@@ -168,16 +168,20 @@ function isOldEnough(value: Date | null): boolean {
   return value === null || ageInYears(value) >= MIN_AGE;
 }
 
+// Empty and null come before the coercion on purpose: `new Date(null)` is a
+// valid date (the 1970 epoch), so a null left to `z.coerce.date()` would be
+// stored as 1970-01-01 rather than read as "no date of birth".
+
 /** A date of birth that may be left out, but must be an adult's when given. */
 export const optionalDateOfBirth = z
-  .union([z.coerce.date(), z.literal(''), z.null()])
+  .union([z.literal(''), z.null(), z.coerce.date()])
   .optional()
   .transform((value) => (value === '' || value === undefined ? null : value))
   .refine(isOldEnough, { message: DOB_MESSAGE });
 
 /** The same, for a partial update, where an absent key changes nothing. */
 export const patchDateOfBirth = z
-  .union([z.coerce.date(), z.literal(''), z.null()])
+  .union([z.literal(''), z.null(), z.coerce.date()])
   .optional()
   .transform((value) => (value === '' ? null : value))
   .refine((value) => value === undefined || isOldEnough(value), { message: DOB_MESSAGE });

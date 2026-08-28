@@ -27,6 +27,17 @@ const MAP = {
   none: { variant: "outline" as const, Icon: Clock },
 };
 
+/**
+ * The 1970 epoch a blank date used to be stored as (a fixed save bug). A real
+ * expiry or issue is never this day, so it is read as "not set" rather than
+ * shown as a certificate that lapsed fifty years ago. The stored value is left
+ * untouched; only how it reads here changes.
+ */
+const EPOCH_PLACEHOLDER = "1970-01-01";
+function realDate(value?: string | null): string | null | undefined {
+  return value && value.slice(0, 10) === EPOCH_PLACEHOLDER ? null : value;
+}
+
 /** Colour-coded expiry indicator: green / orange / red by days remaining. */
 export function ExpiryBadge({ expiry, issue, staticValid }: ExpiryBadgeProps) {
   if (staticValid) {
@@ -37,13 +48,17 @@ export function ExpiryBadge({ expiry, issue, staticValid }: ExpiryBadgeProps) {
     );
   }
 
+  // A blank date stored as the 1970 epoch reads as "not set", not as expired.
+  const expiryDate = realDate(expiry);
+  const issueDate = realDate(issue);
+
   // The colour always comes from the real expiry against today: a document that
   // has lapsed has to look lapsed, whatever its issue date says.
-  const days = daysUntil(expiry);
+  const days = daysUntil(expiryDate);
   const level = expiryLevel(days);
   const { variant, Icon } = MAP[level];
 
-  const span = issue ? daysBetween(issue, expiry) : null;
+  const span = issueDate ? daysBetween(issueDate, expiryDate) : null;
   const label =
     level === "expired" || span === null ? expiryLabel(days) : validityLabel(span);
 

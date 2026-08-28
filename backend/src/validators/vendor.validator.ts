@@ -1,9 +1,16 @@
 import { z } from 'zod';
 import { NAME_MAX, optionalPersonName, optionalPhoneNumber } from './fields';
 
-/** Empty strings from the form are treated as "not provided". */
+/**
+ * Empty strings and null from the form are treated as "not provided".
+ *
+ * The empty and null options come before the coercion on purpose: `new Date(null)`
+ * is a valid date (the 1970 epoch), so a null left to `z.coerce.date()` would be
+ * stored as 1970-01-01 rather than cleared. Matching null first keeps a missing
+ * date missing.
+ */
 const optionalDate = z
-  .union([z.coerce.date(), z.literal(''), z.null()])
+  .union([z.literal(''), z.null(), z.coerce.date()])
   .optional()
   .transform((value) => (value === '' || value === undefined ? null : value));
 
