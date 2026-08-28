@@ -6,7 +6,6 @@ import {
   Building2,
   CheckCircle2,
   ClipboardList,
-  FileCheck2,
   Hourglass,
   Users2,
   XCircle,
@@ -21,7 +20,6 @@ import { ApiRequestError } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { ONBOARDING_STATUS } from "@/constants/adminStatus";
 import { prettyDate } from "@/utils/date";
-import { formatBytes } from "@/utils/validation";
 import { cn } from "@/lib/utils";
 
 function StatCard({
@@ -153,12 +151,6 @@ export function AdminDashboardPage() {
               hint="Sent back to be corrected"
               tone="danger"
               to="/admin/onboarding/driver?status=REJECTED"
-            />
-            <StatCard
-              icon={FileCheck2}
-              label="Documents"
-              value={data.documents.total}
-              hint={`${formatBytes(data.documents.totalBytes)} in blob storage`}
             />
           </div>
 

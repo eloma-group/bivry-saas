@@ -478,6 +478,9 @@ export function VendorProfile({
           <Row label="Accreditation number">
             {value(data.accreditation?.accreditationNumber)}
           </Row>
+          <Row label="Date of expiry">
+            <ExpiryBadge expiry={data.accreditation?.expiryDate} />
+          </Row>
           <Row label="Mass management">
             <ExpiryBadge expiry={data.accreditation?.massManagementExpiry} />
           </Row>
