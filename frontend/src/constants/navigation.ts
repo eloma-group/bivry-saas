@@ -50,7 +50,9 @@ function adminNav(): NavItem[] {
       icon: CalendarDays,
       enabled: true,
       children: [
-        { label: "All Bookings" },
+        // Reads as live and answers to hover, but carries no href yet, so a
+        // click does nothing until the page behind it is built.
+        { label: "All Bookings", enabled: true },
         { label: "Create Booking", enabled: true, href: "/admin/bookings/new" },
         { label: "Calendar" },
       ],
@@ -159,10 +161,11 @@ function vendorNav(): NavItem[] {
       icon: CalendarDays,
       enabled: true,
       children: [
-        { label: "Existing Bookings", enabled: true },
         { label: "Manage Bookings", enabled: true },
+        // Reads as live and answers to hover, but carries no href yet, so a
+        // click does nothing until the page behind it is built.
+        { label: "All Bookings", enabled: true },
         // Kept from before, faded until their feature work lands.
-        { label: "All Bookings" },
         { label: "Create Booking" },
         { label: "Calendar" },
       ],
