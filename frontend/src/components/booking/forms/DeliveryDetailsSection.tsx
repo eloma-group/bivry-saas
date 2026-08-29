@@ -18,7 +18,6 @@ const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 function emptyDelivery() {
   return {
     id: crypto.randomUUID(),
-    clientJobNumber: "",
     trailer: "",
     deliveryTime: "",
     deliveryCompany: "",
@@ -79,11 +78,6 @@ export function DeliveryDetailsSection() {
               </div>
 
               <div className={GRID}>
-                <TextField
-                  name={`deliveries.${index}.clientJobNumber`}
-                  label="Client Job Number"
-                  placeholder="e.g. CJ-5567"
-                />
                 <SelectField
                   name={`deliveries.${index}.trailer`}
                   label="Trailer"

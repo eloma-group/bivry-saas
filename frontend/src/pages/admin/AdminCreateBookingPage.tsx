@@ -244,7 +244,6 @@ export function AdminCreateBookingPage() {
       deliveries: [
         {
           id: crypto.randomUUID(),
-          clientJobNumber: "",
           trailer: "",
           deliveryTime: "",
           deliveryCompany: "",
