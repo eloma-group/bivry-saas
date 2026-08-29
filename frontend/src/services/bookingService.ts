@@ -38,7 +38,6 @@ export interface BookingLanePayload {
 }
 
 export interface CreateBookingPayload {
-  jobNumber: string;
   bookingReceivedDate: string;
   financialYear: string;
   customerId: string;
@@ -106,7 +105,6 @@ export function buildBookingPayload(values: Record<string, unknown>): CreateBook
   const vendor = (values.vendor ?? {}) as Record<string, unknown>;
 
   return {
-    jobNumber: str(values.jobNumber),
     bookingReceivedDate: str(values.bookingReceivedDate),
     financialYear: str(values.financialYear),
     customerId: str(values.customerId),

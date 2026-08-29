@@ -4,7 +4,6 @@ import { ClipboardList } from "lucide-react";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, DateField, SelectField } from "@/components/form/Fields";
 import { rules } from "@/utils/validation";
-import { formatJobNumber, currentFinancialYear } from "@/components/booking/jobNumber";
 import { CustomerField } from "./CustomerField";
 import {
   ACCOUNT_STATUSES,
@@ -38,21 +37,11 @@ function australianFinancialYear(date: string | undefined): string {
 export function BookingDetailsSection() {
   const { control, setValue } = useFormContext();
   const receivedDate = useWatch({ control, name: "bookingReceivedDate" }) as string | undefined;
-  const financialYear = useWatch({ control, name: "financialYear" }) as string | undefined;
 
   // The financial year is not typed: it follows the received date.
   useEffect(() => {
     setValue("financialYear", australianFinancialYear(receivedDate));
   }, [receivedDate, setValue]);
-
-  // The job number is not typed either: it follows the financial year, as
-  // BIVRY-<year>-<sequence>. Before a booking date is picked there is no
-  // financial year yet, so it falls back to this year's - the number always
-  // shows, and moves to the picked date's year the moment one is chosen.
-  useEffect(() => {
-    const fy = financialYear?.trim() ? financialYear : currentFinancialYear();
-    setValue("jobNumber", formatJobNumber(fy));
-  }, [financialYear, setValue]);
 
   return (
     <SectionCard
@@ -79,9 +68,9 @@ export function BookingDetailsSection() {
         <TextField
           name="jobNumber"
           label="Job Number"
-          placeholder="Set from the financial year"
+          placeholder="Assigned when the booking is saved"
           readOnly
-          hint="BIVRY-<year>-<number>, assigned automatically. It counts up per booking."
+          hint="BIVRY-<year>-<number>, given by the server on save so two admins can never be handed the same one."
         />
         <CustomerField />
         <TextField

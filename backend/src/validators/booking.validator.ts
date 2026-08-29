@@ -3,10 +3,13 @@ import { z } from 'zod';
 /**
  * The Create Booking payload, as the Admin portal sends it.
  *
- * The form is long and mostly optional, so every field but the job number is
- * allowed to arrive empty. Blanks are normalised to null here, amounts to a
- * number, so the service and Prisma only ever see clean values. Ids are checked
- * as uuids because they land in uuid columns.
+ * The form is long and mostly optional, so every field is allowed to arrive
+ * empty. Blanks are normalised to null here, amounts to a number, so the service
+ * and Prisma only ever see clean values. Ids are checked as uuids because they
+ * land in uuid columns.
+ *
+ * The job number is not part of this. The server allocates it, so an older
+ * bundle still sending one has it dropped here rather than trusted.
  */
 
 /** Trimmed text, with empty and absent both meaning null. */
@@ -77,7 +80,6 @@ const priceSchema = z
   .partial();
 
 export const createBookingSchema = z.object({
-  jobNumber: z.string().trim().min(1, 'Job number is required'),
   bookingReceivedDate: text,
   financialYear: text,
   customerId: uuidText,

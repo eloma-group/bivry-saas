@@ -23,7 +23,6 @@ import { DeliveryDetailsSection } from "@/components/booking/forms/DeliveryDetai
 import { LaneSection } from "@/components/booking/forms/LaneSection";
 import { OurPriceSection } from "@/components/booking/forms/OurPriceSection";
 import { VendorAllotmentSection } from "@/components/booking/forms/VendorAllotmentSection";
-import { consumeJobNumber, currentFinancialYear } from "@/components/booking/jobNumber";
 import { bookingService, buildBookingPayload } from "@/services/bookingService";
 import { ApiRequestError } from "@/services/api";
 import { Stepper } from "@/components/driver/Stepper";
@@ -136,8 +135,9 @@ function BookingSummaryCard({
   savingDraft: boolean;
   onSaveDraft: () => void;
 }) {
-  // The card follows the form: the chosen customer's name heads it, with the
-  // job number underneath, both filled the moment they are picked or assigned.
+  // The card follows the form: the chosen customer's name heads it. The job
+  // number sits underneath and reads as not saved until it is, because the
+  // server is what hands it out, on create.
   const customer = (useWatch({ name: "customer" }) as string | undefined)?.trim();
   const jobNumber = (useWatch({ name: "jobNumber" }) as string | undefined)?.trim();
 
@@ -266,12 +266,9 @@ export function AdminCreateBookingPage() {
     setSubmitting(true);
 
     try {
+      // The job number comes back with the booking: the server allocates it on
+      // save, so it is only known once the create has succeeded.
       const created = await bookingService.create(buildBookingPayload(methods.getValues()));
-
-      // The number just used is consumed so the next booking moves on. The same
-      // fallback as the field: this year's when no date has been picked.
-      const fy = (methods.getValues("financialYear") as string)?.trim() || currentFinancialYear();
-      consumeJobNumber(fy);
 
       toast.success("Booking created", { description: created.jobNumber });
       navigate("/admin");
