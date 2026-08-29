@@ -159,7 +159,11 @@ function TopItem({
 /** Horizontal top-navigation menu (replaces the old left sidebar). */
 export function NavMenu({ items, activeHref, onNavigate, className }: NavMenuProps) {
   return (
-    <nav className={cn("flex items-center gap-0.5 xl:gap-2", className)}>
+    // The gap opens up with the screen rather than staying at one width. The
+    // admin menu is the long one, so `lg` stays tight enough to hold all of it
+    // on a 1024px screen; everything wider has the room to breathe, and a large
+    // monitor spreads out instead of leaving the row huddled in the middle.
+    <nav className={cn("flex items-center gap-1.5 xl:gap-5 2xl:gap-8", className)}>
       {items.map((item) => (
         <TopItem
           key={item.label}
