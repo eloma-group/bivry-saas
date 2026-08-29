@@ -15,6 +15,7 @@
     "typecheck": "prisma generate && tsc --noEmit",
     "check:storage": "tsx scripts/check-storage.ts",
     "check:mail": "tsx scripts/check-mail.ts",
+    "check:dates": "tsx scripts/check-epoch-dates.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
