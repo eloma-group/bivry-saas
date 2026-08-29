@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { ONBOARDING_STATUS, ACCOUNT_STATUS } from "@/constants/adminStatus";
 import { prettyDate } from "@/utils/date";
+import { vendorPhone } from "@/utils/vendor";
 import { cn } from "@/lib/utils";
 import type { AdminVendorRow, VendorListParams } from "@/services/adminService";
 
@@ -170,7 +171,7 @@ export function VendorTable({
 
                   <td className="px-4 py-3">
                     <p className="text-foreground">{row.email}</p>
-                    <p className="text-xs text-muted-foreground">{row.phone || "No phone"}</p>
+                    <p className="text-xs text-muted-foreground">{vendorPhone(row) || "No phone"}</p>
                   </td>
 
                   <td className="px-4 py-3">

@@ -7,7 +7,7 @@ import type {
   VerificationStatus,
   ApiLicenceType,
 } from "./driverService";
-import type { VendorDocument, VendorOnboardingData } from "./vendorService";
+import type { VendorContactType, VendorDocument, VendorOnboardingData } from "./vendorService";
 import type { DriverOnboardingGateway } from "./driverOnboarding";
 import type { VendorOnboardingGateway } from "./vendorOnboarding";
 
@@ -104,6 +104,8 @@ export interface AdminVendorRow {
   } | null;
   coverage: { areasCovered: string[]; businessOperations: string[] } | null;
   warehouses: Array<{ suburb: string | null; state: string | null; country: string | null }>;
+  /** Department contact numbers, which stand in when the account has no phone. */
+  contacts: Array<{ type: VendorContactType; contactNumber: string | null }>;
   _count: { documents: number };
 }
 

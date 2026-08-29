@@ -33,6 +33,7 @@ import { vendorDocuments } from "@/services/vendorDocuments";
 import { CONTACT_BLOCKS, INSURANCE_POLICIES } from "@/constants/vendorOptions";
 import { prettyDate } from "@/utils/date";
 import { initialsOf } from "@/utils/user";
+import { vendorPhone } from "@/utils/vendor";
 import { formatBytes } from "@/utils/validation";
 import { cn } from "@/lib/utils";
 import type { OnboardingStatus, VerificationStatus } from "@/services/driverService";
@@ -360,7 +361,7 @@ export function VendorProfile({
           <Row label="Entity type">{value(data.entityType)}</Row>
           <Row label="GST">{value(data.gst)}</Row>
           <Row label="Website">{value(data.websiteAddress)}</Row>
-          <Row label="Phone">{value(data.phone)}</Row>
+          <Row label="Phone">{value(vendorPhone(data))}</Row>
           <Row label="Email">
             <span className="inline-flex flex-wrap items-center justify-end gap-2">
               {data.email}

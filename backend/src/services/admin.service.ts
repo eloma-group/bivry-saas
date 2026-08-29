@@ -648,6 +648,9 @@ export async function listVendors(query: VendorListQuery) {
       { abn: contains },
       { email: contains },
       { phone: contains },
+      // The account phone is usually empty, so a search for a vendor's number
+      // has to look at the contact numbers they actually filled in as well.
+      { contacts: { some: { contactNumber: contains } } },
     ];
   }
 
@@ -660,6 +663,10 @@ export async function listVendors(query: VendorListQuery) {
       take: query.pageSize,
       select: {
         ...VENDOR_LIST_FIELDS,
+        // `phone` is only set when the account is created; the onboarding form
+        // has no field for it. The contact numbers are what a vendor actually
+        // gives, so they come too and the admin views fall back to them.
+        contacts: { select: { type: true, contactNumber: true } },
         accreditation: {
           select: { accreditationNumber: true, nhvasExpiry: true, verificationStatus: true },
         },
