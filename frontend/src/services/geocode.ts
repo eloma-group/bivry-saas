@@ -234,16 +234,36 @@ function googleAvailable(): boolean {
   return Date.now() >= googleRetryAt;
 }
 
+/**
+ * The ways Google says the key, its restrictions or the project are wrong.
+ *
+ * Waiting fixes none of them, so they are not retried. The legacy API said
+ * REQUEST_DENIED; Places API (New) says PERMISSION_DENIED and names the
+ * restriction that refused it, so both wordings are matched.
+ */
+const MISCONFIGURED = [
+  "REQUEST_DENIED",
+  "PERMISSION_DENIED",
+  "API_KEY_HTTP_REFERRER_BLOCKED",
+  "API_KEY_SERVICE_BLOCKED",
+  "SERVICE_DISABLED",
+  "ApiNotActivatedMapError",
+  "not authorized",
+  "not activated",
+];
+
 /** Steps back from Google, for a minute or for good, depending on why it failed. */
 function standDownGoogle(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (message.includes("REQUEST_DENIED")) {
+  if (MISCONFIGURED.some((reason) => message.includes(reason))) {
     googleMisconfigured = true;
     console.error(
-      "[address search] Google Places refused the request. Check that the Places " +
-        "API is enabled, billing is on, and this origin is allowed in the key's " +
-        "HTTP referrer restrictions. Using OpenStreetMap instead.",
+      "[address search] Google Places refused the request, so OpenStreetMap is " +
+        "being used instead and Google will not be asked again this session. " +
+        "Check, in the Google Cloud Console: Places API (New) is enabled, the " +
+        "key is allowed to call it, billing is on, and this origin is in the " +
+        "key's HTTP referrer list.",
       error,
     );
     return;
@@ -290,51 +310,54 @@ async function nominatimSearch(
 // ---------------------------------------------------------------------------
 
 /**
- * The Google services, made once and kept.
+ * The Places library, loaded once and kept.
  *
- * The autocomplete and the details lookup are billed as one session when they
- * share a session token, so a token is held across a search and the pick that
- * follows it, then rotated once the details have been fetched.
+ * These are the Places API (New) classes. This used the legacy
+ * `AutocompleteService` and `PlacesService`, which answer REQUEST_DENIED unless
+ * the legacy Places API is enabled on the Cloud project. It is not, and on a
+ * project of this age it cannot be, so every search was quietly falling back to
+ * OpenStreetMap. That is why addresses Google Maps knows perfectly well were
+ * coming back as "nothing found".
  */
-let googleServices: {
-  autocomplete: google.maps.places.AutocompleteService;
-  places: google.maps.places.PlacesService;
-} | null = null;
+let placesLibrary: google.maps.PlacesLibrary | null = null;
+
+/**
+ * The billing session. The suggestions and the `fetchFields` that follows a pick
+ * are billed as one session when they share a token, so the token is held across
+ * a search and rotated once the details have been fetched.
+ */
 let sessionToken: google.maps.places.AutocompleteSessionToken | null = null;
 
-async function ensureGoogle() {
+async function ensurePlaces(): Promise<google.maps.PlacesLibrary> {
   if (!GOOGLE_KEY) throw new Error("No Google Maps key is configured.");
 
-  const maps = await loadGoogleMaps(GOOGLE_KEY);
-  if (!googleServices) {
-    googleServices = {
-      autocomplete: new maps.maps.places.AutocompleteService(),
-      // A PlacesService needs a node to attribute results to; nothing is drawn.
-      places: new maps.maps.places.PlacesService(document.createElement("div")),
-    };
-  }
-  if (!sessionToken) sessionToken = new maps.maps.places.AutocompleteSessionToken();
-  return googleServices;
+  await loadGoogleMaps(GOOGLE_KEY);
+
+  placesLibrary ??= (await google.maps.importLibrary("places")) as google.maps.PlacesLibrary;
+  sessionToken ??= new placesLibrary.AutocompleteSessionToken();
+
+  return placesLibrary;
 }
 
 /** How long a Google call is given before it is treated as a failure. */
 const GOOGLE_TIMEOUT_MS = 4_000;
 
 /** Rejects if the wrapped Google call has not answered in time. */
-function withTimeout<T>(run: (settle: (value: T) => void, fail: (error: Error) => void) => void) {
+function withTimeout<T>(work: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(
       () => reject(new Error("Google Maps request timed out.")),
       GOOGLE_TIMEOUT_MS,
     );
-    run(
+
+    work.then(
       (value) => {
         window.clearTimeout(timer);
         resolve(value);
       },
-      (error) => {
+      (error: unknown) => {
         window.clearTimeout(timer);
-        reject(error);
+        reject(error instanceof Error ? error : new Error(String(error)));
       },
     );
   });
@@ -344,70 +367,50 @@ async function googleSearch(
   trimmed: string,
   signal?: AbortSignal,
 ): Promise<AddressSuggestion[]> {
-  const services = await ensureGoogle();
+  const places = await ensurePlaces();
   if (signal?.aborted) return [];
 
-  const predictions = await withTimeout<google.maps.places.AutocompletePrediction[]>(
-    (resolve, reject) => {
-      services.autocomplete.getPlacePredictions(
-        {
-          input: trimmed,
-          // Addresses and places, not businesses, which is what a form asks for.
-          types: ["geocode"],
-          sessionToken: sessionToken ?? undefined,
-        },
-        (result, status) => {
-          const ok = google.maps.places.PlacesServiceStatus.OK;
-          const none = google.maps.places.PlacesServiceStatus.ZERO_RESULTS;
-          if (status === ok && result) resolve(result);
-          else if (status === none) resolve([]);
-          // Anything else - REQUEST_DENIED, OVER_QUERY_LIMIT - is a real failure,
-          // so it is raised and the caller falls back rather than showing nothing.
-          else reject(new Error(`Google Places returned ${status}.`));
-        },
-      );
-    },
+  const { suggestions } = await withTimeout(
+    places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+      input: trimmed,
+      sessionToken: sessionToken ?? undefined,
+    }),
   );
 
   if (signal?.aborted) return [];
 
-  return predictions.map((prediction) => ({
-    id: prediction.place_id,
-    label: prediction.description,
-    resolve: () => googleResolve(prediction.place_id),
-  }));
+  // A suggestion can be a query rather than a place ("pizza near me"); those
+  // carry no placePrediction and are no use to an address field.
+  return suggestions
+    .map((suggestion) => suggestion.placePrediction)
+    .filter((prediction): prediction is google.maps.places.PlacePrediction => prediction !== null)
+    .map((prediction) => ({
+      id: prediction.placeId,
+      label: prediction.text.toString(),
+      resolve: () => googleResolve(prediction),
+    }));
 }
 
-async function googleResolve(placeId: string): Promise<AddressBlock> {
-  const services = await ensureGoogle();
+async function googleResolve(
+  prediction: google.maps.places.PlacePrediction,
+): Promise<AddressBlock> {
+  const place = prediction.toPlace();
 
-  const place = await withTimeout<google.maps.places.PlaceResult | null>((resolve) => {
-    services.places.getDetails(
-      {
-        placeId,
-        fields: ["address_components"],
-        sessionToken: sessionToken ?? undefined,
-      },
-      (result, status) => {
-        resolve(status === google.maps.places.PlacesServiceStatus.OK ? result : null);
-      },
-    );
-  });
+  await withTimeout(place.fetchFields({ fields: ["addressComponents"] }));
 
   // The details call closes the billing session, so the next search starts a new
   // one.
   sessionToken = null;
 
-  const components = place?.address_components ?? [];
-  return componentsToAddressBlock(components);
+  return componentsToAddressBlock(place.addressComponents ?? []);
 }
 
 /** Turns Google's address components into the fields a form asks for. */
 function componentsToAddressBlock(
-  components: google.maps.GeocoderAddressComponent[],
+  components: google.maps.places.AddressComponent[],
 ): AddressBlock {
   const pick = (type: string): string =>
-    components.find((component) => component.types.includes(type))?.long_name ?? "";
+    components.find((component) => component.types.includes(type))?.longText ?? "";
 
   const country = matchCountry(pick("country"));
   const rawState = pick("administrative_area_level_1");
