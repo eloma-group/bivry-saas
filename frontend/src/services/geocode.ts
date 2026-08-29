@@ -196,27 +196,66 @@ export async function searchAddresses(
   // address fields search from the first letter typed.
   if (trimmed.length < 1) return [];
 
-  // Google when it is configured and working; OpenStreetMap otherwise. A Google
-  // failure - key rejected, Places API off, billing off - latches so the rest of
-  // the session goes straight to the fallback instead of stalling on it.
-  if (GOOGLE_KEY && !googleBroken && !isGoogleAuthFailed()) {
+  // Google when it is configured and working; OpenStreetMap otherwise.
+  if (googleAvailable()) {
     try {
       return await googleSearch(trimmed, signal);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") throw error;
-      googleBroken = true;
-      console.warn(
-        "[address search] Google Places is not answering; using OpenStreetMap instead.",
-        error,
-      );
+      standDownGoogle(error);
     }
   }
 
   return nominatimSearch(trimmed, signal);
 }
 
-/** Latches once Google has failed, so the fallback is used from then on. */
-let googleBroken = false;
+/**
+ * How long Google is stood down for after a failure that may well pass.
+ *
+ * A slow answer, a rate limit or a dropped connection says nothing about the
+ * next search, so it must not cost the whole session. This used to latch on the
+ * first failure of any kind, which meant one four second timeout left the admin
+ * on OpenStreetMap until they reloaded the page.
+ */
+const GOOGLE_COOLDOWN_MS = 60_000;
+
+/** When Google may be asked again. */
+let googleRetryAt = 0;
+
+/**
+ * Set once Google has refused the request outright, which is a key, referrer or
+ * billing problem. Waiting does not fix any of those, so it is not retried.
+ */
+let googleMisconfigured = false;
+
+/** Whether Google is configured, working, and not currently stood down. */
+function googleAvailable(): boolean {
+  if (!GOOGLE_KEY || googleMisconfigured || isGoogleAuthFailed()) return false;
+  return Date.now() >= googleRetryAt;
+}
+
+/** Steps back from Google, for a minute or for good, depending on why it failed. */
+function standDownGoogle(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("REQUEST_DENIED")) {
+    googleMisconfigured = true;
+    console.error(
+      "[address search] Google Places refused the request. Check that the Places " +
+        "API is enabled, billing is on, and this origin is allowed in the key's " +
+        "HTTP referrer restrictions. Using OpenStreetMap instead.",
+      error,
+    );
+    return;
+  }
+
+  googleRetryAt = Date.now() + GOOGLE_COOLDOWN_MS;
+  console.warn(
+    "[address search] Google Places did not answer; using OpenStreetMap for the " +
+      "next minute, then trying Google again.",
+    error,
+  );
+}
 
 async function nominatimSearch(
   trimmed: string,
@@ -264,7 +303,9 @@ let googleServices: {
 let sessionToken: google.maps.places.AutocompleteSessionToken | null = null;
 
 async function ensureGoogle() {
-  const maps = await loadGoogleMaps(GOOGLE_KEY as string);
+  if (!GOOGLE_KEY) throw new Error("No Google Maps key is configured.");
+
+  const maps = await loadGoogleMaps(GOOGLE_KEY);
   if (!googleServices) {
     googleServices = {
       autocomplete: new maps.maps.places.AutocompleteService(),
