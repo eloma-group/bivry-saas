@@ -11,7 +11,6 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, SelectField } from "@/components/form/Fields";
-import { AddressAutocompleteField } from "@/components/form/AddressAutocompleteField";
 import { LocationPicker } from "@/components/form/LocationPicker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -95,7 +94,7 @@ function StateField({ path, rules: fieldRules }: { path: AddressPath; rules: Fie
  * first, so the State field has already switched to that country's own divisions
  * by the time the state lands in it. Only fields the lookup answered are written,
  * so a correction already typed into one it cannot see is never wiped by an empty
- * result. Street 2 is never written: no lookup knows which unit anybody is in.
+ * result.
  */
 function applyFoundAddress(
   path: AddressPath,
@@ -121,11 +120,11 @@ function applyFoundAddress(
 }
 
 /**
- * The six fields every address here asks for.
+ * The five fields every address here asks for.
  *
- * Street 1 suggests real addresses as it is typed; picking one fills the rest of
- * the block. Street 2 is the only optional field. It carries a unit, a level or a
- * building name, and plenty of addresses have none.
+ * Street 1 is typed, not searched. The search sits once above the block, in the
+ * tools, so having the street line suggest as well was the same lookup offered
+ * twice over. Whatever is picked up there still lands in this field.
  */
 function AddressFields({
   path,
@@ -135,23 +134,16 @@ function AddressFields({
   /** Whether this block is on screen and therefore being asked for. */
   asked: () => boolean;
 }) {
-  const { setValue, trigger } = useFormContext<VendorFormValues>();
   const required = (label: string) => rules.requiredWhen(label, asked);
 
   return (
     <div className={GRID}>
-      <AddressAutocompleteField
+      <TextField
         name={`${path}.street1`}
         label="Street 1"
-        placeholder="Start typing an address"
+        placeholder="12 Balaclava Road"
         required
         rules={required("Street 1")}
-        onPickAddress={(found) => applyFoundAddress(path, found, setValue, trigger)}
-      />
-      <TextField
-        name={`${path}.street2`}
-        label="Street 2"
-        placeholder="Unit or level, if there is one"
       />
       <TextField
         name={`${path}.suburb`}
@@ -159,14 +151,6 @@ function AddressFields({
         placeholder="Caulfield"
         required
         rules={required("Suburb")}
-      />
-      {/* Country first: it decides what the State field can offer. */}
-      <SelectField
-        name={`${path}.country`}
-        label="Country"
-        options={COUNTRIES}
-        required
-        rules={required("Country")}
       />
       <StateField path={path} rules={required("State")} />
       <TextField
@@ -176,13 +160,23 @@ function AddressFields({
         required
         rules={required("Post code")}
       />
+      {/* Last, although it is what decides the State options: that field watches
+          the country's value, not the order these are rendered in. */}
+      <SelectField
+        name={`${path}.country`}
+        label="Country"
+        options={COUNTRIES}
+        required
+        rules={required("Country")}
+      />
     </div>
   );
 }
 
 /**
  * The location tools over one address block: a fix from the browser, and a
- * worldwide search. Both fill the same fields the inline Street 1 field does.
+ * worldwide search. These are the only lookup an address has; the fields below
+ * are all typed, and everything found here is written into them.
  */
 function AddressTools({ path, label }: { path: AddressPath; label: string }) {
   const { setValue, trigger } = useFormContext<VendorFormValues>();
