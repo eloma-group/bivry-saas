@@ -148,9 +148,10 @@ function selfServiceNav(ownModule: "Driver" | "Vendor", href: string): NavItem[]
 /**
  * Menu for the Vendor portal.
  *
- * Dashboard, Bookings, Management, Reports and Onboarding read as live; the
- * operational trio (Operations, Dispatch, Accounts) stays faded until its
- * feature work lands. Items marked clickable without an `href` light up and
+ * Only the five a vendor has business with: Dashboard, Bookings, Management,
+ * Reports and Onboarding. Operations, Dispatch and Accounts are ours to run
+ * rather than theirs, so they are left out of this menu altogether instead of
+ * being shown greyed out. Items marked clickable without an `href` light up and
  * respond to hover but do not navigate yet - the pages are still to come.
  */
 function vendorNav(): NavItem[] {
@@ -169,24 +170,6 @@ function vendorNav(): NavItem[] {
         { label: "Create Booking" },
         { label: "Calendar" },
       ],
-    },
-    {
-      label: "Operations",
-      icon: Truck,
-      enabled: false,
-      children: [{ label: "Live Map" }, { label: "Routes" }, { label: "Jobs" }],
-    },
-    {
-      label: "Dispatch",
-      icon: Send,
-      enabled: false,
-      children: [{ label: "Assign" }, { label: "Queue" }],
-    },
-    {
-      label: "Accounts",
-      icon: Wallet,
-      enabled: false,
-      children: [{ label: "Invoices" }, { label: "Payments" }, { label: "Payroll" }],
     },
     {
       label: "Management",
