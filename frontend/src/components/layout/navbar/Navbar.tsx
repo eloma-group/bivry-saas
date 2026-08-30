@@ -134,7 +134,12 @@ export function Navbar({ items, onMenuClick, activeHref, onNavigate }: NavbarPro
             >
               <Avatar initials={initials} tint={tint} className="h-9 w-9 text-sm" />
               <div className="hidden text-left sm:block">
-                <p className="max-w-[11rem] truncate text-sm font-semibold leading-tight text-foreground">
+                {/* Tighter at lg than above it. lg is where the centre menu
+                    appears while the screen is still only 1024 wide, and a long
+                    company name reserving 11rem here is what pushed the row
+                    past the viewport and made the whole page scroll sideways.
+                    Wider screens have the room, so they keep the full width. */}
+                <p className="max-w-[7rem] truncate text-sm font-semibold leading-tight text-foreground xl:max-w-[11rem]">
                   {displayName}
                 </p>
                 <p className="text-xs leading-tight text-muted-foreground">
