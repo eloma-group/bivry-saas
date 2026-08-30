@@ -210,9 +210,58 @@ function vendorNav(): NavItem[] {
   ];
 }
 
+/**
+ * Menu for the Customer portal.
+ *
+ * Only the five a customer has business with: Dashboard, Bookings, Accounts,
+ * Reports and Onboarding. Operations, Dispatch and Management are ours to run
+ * rather than theirs, so they are left out of this menu altogether instead of
+ * being shown greyed out - the same reasoning as the vendor menu above. Items
+ * marked clickable without an `href` light up and respond to hover but do not
+ * navigate yet: the pages are still to come.
+ */
+function customerNav(): NavItem[] {
+  return [
+    { label: "Dashboard", icon: LayoutDashboard, enabled: true },
+    {
+      label: "Bookings",
+      icon: CalendarDays,
+      enabled: true,
+      children: [
+        { label: "My Bookings", enabled: true },
+        { label: "Create Booking", enabled: true },
+        { label: "Calendar" },
+      ],
+    },
+    {
+      label: "Accounts",
+      icon: Wallet,
+      enabled: true,
+      children: [{ label: "Invoices", enabled: true }, { label: "Payments", enabled: true }],
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      enabled: true,
+      children: [{ label: "Overview" }, { label: "Exports" }],
+    },
+    {
+      label: "Onboarding",
+      icon: UserPlus,
+      enabled: true,
+      children: ONBOARDING_MODULES.map((module) =>
+        module.label === "Customer"
+          ? { label: module.label, enabled: true, href: "/customer/onboarding" }
+          : { label: module.label },
+      ),
+    },
+  ];
+}
+
 export function navItemsFor(role: RoleSlug | null): NavItem[] {
   if (role === "admin") return adminNav();
   if (role === "vendor") return vendorNav();
+  if (role === "customer") return customerNav();
   return selfServiceNav("Driver", "/driver/onboarding");
 }
 

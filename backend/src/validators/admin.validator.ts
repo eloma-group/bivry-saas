@@ -231,6 +231,101 @@ export const vendorSectionParamSchema = z.object({
   ]),
 });
 
+// ---------------------------------------------------------------------------
+// Customers
+//
+// The same shape as the vendor block above. A customer now carries a full
+// onboarding record, so the account an admin creates asks for the same company
+// details a vendor's does rather than only a name and an email.
+// ---------------------------------------------------------------------------
+
+/** A date that may be left out. An empty field means "no date given". */
+const optionalDate = z
+  .union([z.literal(''), z.null(), z.coerce.date()])
+  .optional()
+  .transform((value) => (value === '' || value === undefined ? null : value));
+
+/** The same, for a partial update, where an absent key changes nothing. */
+const patchDate = z
+  .union([z.literal(''), z.null(), z.coerce.date()])
+  .optional()
+  .transform((value) => (value === '' ? null : value));
+
+export const customerListQuerySchema = z.object({
+  search: optionalText(120),
+  onboardingStatus: z.enum(ONBOARDING_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  // A whole-table export asks for every row at once, so the ceiling is high.
+  pageSize: z.coerce.number().int().min(1).max(1000).default(25),
+  sortBy: z
+    .enum(['createdAt', 'submittedAt', 'companyName', 'firstName', 'email', 'onboardingStatus'])
+    .default('createdAt'),
+  sortDir: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const createCustomerSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address').toLowerCase(),
+  password,
+  phone: optionalPhoneNumber(),
+  firstName: personName('First name'),
+  lastName: optionalPersonName('Last name'),
+  // A business name, not a person's, so it keeps the plain length check.
+  companyName: optionalText(150),
+  designation: optionalText(100),
+  tradingNames: textList(150),
+  legalName: optionalText(150),
+  abn: optionalText(30),
+  acn: optionalText(30),
+  abnStatus: optionalText(100),
+  entityType: optionalText(100),
+  gst: optionalText(100),
+  websiteAddress: optionalText(200),
+  creationDate: optionalDate,
+  status: z.enum(ACCOUNT_STATUSES).optional(),
+});
+
+export const updateCustomerSchema = z
+  .object({
+    // Editable here and nowhere else. See updateCustomer in the admin service.
+    email: z
+      .string()
+      .trim()
+      .min(1, 'Email is required')
+      .email('Enter a valid email address')
+      .toLowerCase()
+      .optional(),
+    phone: patchPhoneNumber(),
+    firstName: personName('First name').optional(),
+    lastName: patchPersonName('Last name'),
+    companyName: patchText(150),
+    designation: patchText(100),
+    tradingNames: textList(150).optional(),
+    legalName: patchText(150),
+    abn: patchText(30),
+    acn: patchText(30),
+    abnStatus: patchText(100),
+    entityType: patchText(100),
+    gst: patchText(100),
+    websiteAddress: patchText(200),
+    creationDate: patchDate,
+    status: z.enum(ACCOUNT_STATUSES).optional(),
+  })
+  // Every field is optional on its own, but an empty body is a mistake, not an
+  // instruction to change nothing.
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: 'Nothing to update',
+  });
+
+export const reviewCustomerSchema = z
+  .object({
+    decision: z.enum(['APPROVED', 'REJECTED', 'UNDER_REVIEW']),
+    reason: optionalText(500),
+  })
+  .refine((data) => data.decision !== 'REJECTED' || Boolean(data.reason), {
+    message: 'Tell the customer what needs fixing',
+    path: ['reason'],
+  });
+
 export const updateAdminSchema = z
   .object({
     firstName: personName('First name').optional(),

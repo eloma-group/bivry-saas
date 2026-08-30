@@ -76,6 +76,10 @@ export const registerSchemas: Record<RoleSlug, z.ZodTypeAny> = {
   }),
   customer: z.object({
     ...baseRegister,
+    // A customer is a business we have to be able to reach, and their
+    // onboarding form seeds this number rather than asking for it a second
+    // time, so it is asked for here. Same reasoning as the vendor below.
+    phone: phoneNumber(),
     firstName: personName('First name'),
     lastName: personName('Last name'),
     companyName: z.string().trim().max(150).optional(),

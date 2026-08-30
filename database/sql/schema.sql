@@ -47,6 +47,18 @@ CREATE TYPE "vendor_insurance_type" AS ENUM ('PRODUCT_LIABILITY', 'PUBLIC_LIABIL
 CREATE TYPE "vendor_document_type" AS ENUM ('COMPANY_LOGO', 'ACCREDITATION', 'INSURANCE_PRODUCT_LIABILITY', 'INSURANCE_PUBLIC_LIABILITY', 'INSURANCE_WORK_COVER', 'INSURANCE_MARINE_GENERAL', 'INSURANCE_MARINE_ALCOHOL', 'INSURANCE_COC', 'COMPLIANCE_DRUG', 'COMPLIANCE_ALCOHOL_POLICY', 'COMPLIANCE_PROCEDURE', 'COMPLIANCE_RISK_MANAGEMENT', 'COMPLIANCE_SPEED_POLICY', 'COMPLIANCE_FATIGUE_POLICY', 'COMPLIANCE_GPS_SNAPSHOT', 'COMPLIANCE_WHS_POLICY', 'COMPLIANCE_ADDITIONAL');
 
 -- CreateEnum
+CREATE TYPE "customer_contact_type" AS ENUM ('MAIN', 'OPERATIONS', 'ACCOUNTS', 'DISPATCH');
+
+-- CreateEnum
+CREATE TYPE "customer_address_type" AS ENUM ('PRINCIPAL', 'BILLING');
+
+-- CreateEnum
+CREATE TYPE "customer_billing_type" AS ENUM ('INVOICING', 'CTL');
+
+-- CreateEnum
+CREATE TYPE "customer_document_type" AS ENUM ('COMPANY_LOGO', 'CONTRACT', 'ADDITIONAL');
+
+-- CreateEnum
 CREATE TYPE "booking_stop_type" AS ENUM ('PICKUP', 'DELIVERY');
 
 -- CreateTable
@@ -78,11 +90,29 @@ CREATE TABLE "customers" (
     "phone" TEXT,
     "password_hash" TEXT NOT NULL,
     "account_number" TEXT,
+    "cid" TEXT,
     "first_name" TEXT NOT NULL,
     "last_name" TEXT,
     "company_name" TEXT,
+    "designation" TEXT,
+    "trading_names" TEXT[],
+    "legal_name" TEXT,
+    "abn" TEXT,
+    "acn" TEXT,
+    "abn_status" TEXT,
+    "entity_type" TEXT,
+    "gst" TEXT,
+    "website_address" TEXT,
+    "creation_date" DATE,
     "avatar_url" TEXT,
+    "logo_url" TEXT,
+    "billing_same_as_principal" BOOLEAN NOT NULL DEFAULT false,
     "status" "account_status" NOT NULL DEFAULT 'PENDING',
+    "onboarding_status" "onboarding_status" NOT NULL DEFAULT 'NOT_STARTED',
+    "onboarding_step" INTEGER NOT NULL DEFAULT 0,
+    "submitted_at" TIMESTAMP(3),
+    "approved_at" TIMESTAMP(3),
+    "rejection_reason" TEXT,
     "email_verified_at" TIMESTAMP(3),
     "last_login_at" TIMESTAMP(3),
     "failed_login_attempts" INTEGER NOT NULL DEFAULT 0,
@@ -92,6 +122,85 @@ CREATE TABLE "customers" (
     "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "customers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_contacts" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "type" "customer_contact_type" NOT NULL,
+    "contact_person" TEXT,
+    "designation" TEXT,
+    "contact_number" TEXT,
+    "email" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_contacts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_directors" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "name" TEXT,
+    "designation" TEXT,
+    "email" TEXT,
+    "contact_number" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_directors_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_addresses" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "type" "customer_address_type" NOT NULL,
+    "street1" TEXT,
+    "street2" TEXT,
+    "suburb" TEXT,
+    "state" TEXT,
+    "country" TEXT,
+    "post_code" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_addresses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_billings" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "term" TEXT,
+    "billing_type" "customer_billing_type",
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_billings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_documents" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "doc_type" "customer_document_type" NOT NULL,
+    "category" TEXT,
+    "issue_date" DATE,
+    "expiry_date" DATE,
+    "file_name" TEXT NOT NULL,
+    "storage_key" TEXT NOT NULL,
+    "storage_url" TEXT,
+    "mime_type" TEXT NOT NULL,
+    "size_in_bytes" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "customer_documents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -653,7 +762,28 @@ CREATE UNIQUE INDEX "customers_phone_key" ON "customers"("phone");
 CREATE UNIQUE INDEX "customers_account_number_key" ON "customers"("account_number");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "customers_cid_key" ON "customers"("cid");
+
+-- CreateIndex
 CREATE INDEX "customers_status_idx" ON "customers"("status");
+
+-- CreateIndex
+CREATE INDEX "customers_onboarding_status_idx" ON "customers"("onboarding_status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "customer_contacts_customer_id_type_key" ON "customer_contacts"("customer_id", "type");
+
+-- CreateIndex
+CREATE INDEX "customer_directors_customer_id_idx" ON "customer_directors"("customer_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "customer_addresses_customer_id_type_key" ON "customer_addresses"("customer_id", "type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "customer_billings_customer_id_key" ON "customer_billings"("customer_id");
+
+-- CreateIndex
+CREATE INDEX "customer_documents_customer_id_doc_type_idx" ON "customer_documents"("customer_id", "doc_type");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "vendors_email_key" ON "vendors"("email");
@@ -792,6 +922,21 @@ CREATE INDEX "booking_stops_booking_id_idx" ON "booking_stops"("booking_id");
 
 -- CreateIndex
 CREATE INDEX "booking_lanes_booking_id_idx" ON "booking_lanes"("booking_id");
+
+-- AddForeignKey
+ALTER TABLE "customer_contacts" ADD CONSTRAINT "customer_contacts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_directors" ADD CONSTRAINT "customer_directors_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_addresses" ADD CONSTRAINT "customer_addresses_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_billings" ADD CONSTRAINT "customer_billings_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_documents" ADD CONSTRAINT "customer_documents_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "vendor_contacts" ADD CONSTRAINT "vendor_contacts_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;

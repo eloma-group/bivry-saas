@@ -8,8 +8,9 @@ import {
 } from './fields';
 
 /**
- * Customers and employees. Both are plain accounts, so the shared half of the
- * shape is written once and each kind adds only the columns it actually has.
+ * The plain accounts the Admin portal governs. Employees are the only kind left
+ * here - a customer carries a full onboarding record now and is validated in
+ * admin.validator.ts alongside the driver and the vendor.
  *
  * The create and update variants treat an absent field differently on purpose,
  * for the same reason the admin validator does: on a create, nothing provided
@@ -59,34 +60,6 @@ export const listQuerySchema = z.object({
 });
 
 export const setPasswordSchema = z.object({ password });
-
-// ---------------------------------------------------------------------------
-// Customer
-// ---------------------------------------------------------------------------
-
-export const createCustomerSchema = z.object({
-  email,
-  password,
-  firstName: personName('First name'),
-  lastName: optionalPersonName('Last name'),
-  // A business name, not a person's, so it keeps the plain length check.
-  companyName: optionalText(150),
-  phone: optionalPhoneNumber(),
-  status: z.enum(ACCOUNT_STATUSES).optional(),
-});
-
-export const updateCustomerSchema = z
-  .object({
-    email: email.optional(),
-    firstName: personName('First name').optional(),
-    lastName: patchPersonName('Last name'),
-    companyName: patchText(150),
-    phone: patchPhoneNumber(),
-    status: z.enum(ACCOUNT_STATUSES).optional(),
-  })
-  .refine((data) => Object.values(data).some((value) => value !== undefined), {
-    message: 'Nothing to update',
-  });
 
 // ---------------------------------------------------------------------------
 // Employee

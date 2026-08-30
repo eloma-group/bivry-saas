@@ -10,15 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { adminService, type SimpleAccount } from "@/services/adminService";
+import { adminService, type AdminCustomerRow } from "@/services/adminService";
 import { ApiRequestError } from "@/services/api";
-
-/** How a customer reads in the dropdown: their name, or the company, or email. */
-function customerLabel(customer: SimpleAccount): string {
-  const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim();
-  const company = typeof customer.companyName === "string" ? customer.companyName : "";
-  return name || company || customer.email;
-}
+import { customerLabel } from "@/utils/customer";
 
 /**
  * The Customer field on the booking form: a dropdown of existing customers.
@@ -29,7 +23,7 @@ function customerLabel(customer: SimpleAccount): string {
  */
 export function CustomerField() {
   const { setValue, watch } = useFormContext();
-  const [customers, setCustomers] = useState<SimpleAccount[]>([]);
+  const [customers, setCustomers] = useState<AdminCustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,9 +34,9 @@ export function CustomerField() {
     setError(null);
     try {
       // One page is enough to hold every customer for the dropdown.
-      const result = await adminService.simpleAccounts("customers").list({
+      const result = await adminService.listCustomers({
         pageSize: 1000,
-        sortBy: "firstName",
+        sortBy: "companyName",
         sortDir: "asc",
       });
       setCustomers(result.rows);
@@ -63,8 +57,7 @@ export function CustomerField() {
 
   function pickCustomer(id: string) {
     const customer = customers.find((row) => row.id === id);
-    const accountNumber =
-      typeof customer?.accountNumber === "string" ? customer.accountNumber : "";
+    const accountNumber = customer?.accountNumber ?? "";
     setValue("customerId", id, { shouldDirty: true });
     setValue("customer", customer ? customerLabel(customer) : "", { shouldDirty: true });
     setValue("customerAccountNumber", accountNumber, { shouldDirty: true, shouldValidate: true });
@@ -95,9 +88,7 @@ export function CustomerField() {
               customers.map((customer) => (
                 <SelectItem key={customer.id} value={customer.id}>
                   {customerLabel(customer)}
-                  {typeof customer.accountNumber === "string" && customer.accountNumber
-                    ? ` (${customer.accountNumber})`
-                    : ""}
+                  {customer.accountNumber ? " (" + customer.accountNumber + ")" : ""}
                 </SelectItem>
               ))
             )}

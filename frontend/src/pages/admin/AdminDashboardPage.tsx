@@ -113,7 +113,7 @@ export function AdminDashboardPage() {
           </div>
 
           {/* Fills the width on large monitors rather than leaving side gutters. */}
-          <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <StatCard
               icon={Users2}
               label="Drivers"
@@ -129,17 +129,28 @@ export function AdminDashboardPage() {
               to="/admin/onboarding/vendor"
             />
             <StatCard
+              icon={Building2}
+              label="Customers"
+              value={data.customers.total}
+              hint={`${data.customers.pendingReview} waiting for review`}
+              to="/admin/onboarding/customer"
+            />
+            <StatCard
               icon={Hourglass}
               label="Waiting for review"
-              value={data.drivers.pendingReview + data.vendors.pendingReview}
-              hint="Drivers and vendors together"
+              value={
+                data.drivers.pendingReview +
+                data.vendors.pendingReview +
+                data.customers.pendingReview
+              }
+              hint="Every module together"
               tone="warning"
               to="/admin/onboarding/driver?status=SUBMITTED"
             />
             <StatCard
               icon={CheckCircle2}
               label="Approved"
-              value={data.drivers.approved + data.vendors.approved}
+              value={data.drivers.approved + data.vendors.approved + data.customers.approved}
               hint="Cleared to work"
               tone="success"
               to="/admin/onboarding/driver?status=APPROVED"
@@ -147,7 +158,7 @@ export function AdminDashboardPage() {
             <StatCard
               icon={XCircle}
               label="Changes requested"
-              value={data.drivers.rejected + data.vendors.rejected}
+              value={data.drivers.rejected + data.vendors.rejected + data.customers.rejected}
               hint="Sent back to be corrected"
               tone="danger"
               to="/admin/onboarding/driver?status=REJECTED"

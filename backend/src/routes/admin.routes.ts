@@ -6,14 +6,17 @@ import { abnLookupLimiter } from '../middleware/rateLimiter.middleware';
 import { validateBody, validateParams } from '../middleware/validate.middleware';
 import { upload } from '../middleware/upload.middleware';
 import {
+  createCustomerSchema,
   createDriverSchema,
   createVendorSchema,
+  reviewCustomerSchema,
   reviewDriverSchema,
   reviewSectionSchema,
   reviewVendorSchema,
   sectionParamSchema,
   setPasswordSchema,
   updateAdminSchema,
+  updateCustomerSchema,
   updateDriverSchema,
   updateVendorSchema,
   vendorSectionParamSchema,
@@ -51,12 +54,21 @@ import {
   uploadDocumentSchema as uploadVendorDocumentSchema,
 } from '../validators/vendor.validator';
 import {
-  createCustomerSchema,
   createEmployeeSchema,
   setPasswordSchema as setSimplePasswordSchema,
-  updateCustomerSchema,
   updateEmployeeSchema,
 } from '../validators/simpleAccount.validator';
+// And the customer sections. Aliased because several files here export schemas
+// under the same names for their own document and section routes.
+import {
+  addressesSectionSchema as customerAddressesSectionSchema,
+  billingSectionSchema as customerBillingSectionSchema,
+  companySectionSchema as customerCompanySectionSchema,
+  contactsSectionSchema as customerContactsSectionSchema,
+  directorsSectionSchema as customerDirectorsSectionSchema,
+  updateDocumentSchema as updateCustomerDocumentSchema,
+  uploadDocumentSchema as uploadCustomerDocumentSchema,
+} from '../validators/customer.validator';
 import { bookingController } from '../controllers/booking.controller';
 import { createBookingSchema } from '../validators/booking.validator';
 
@@ -268,10 +280,74 @@ router.get('/bookings', bookingController.list);
 router.post('/bookings', validateBody(createBookingSchema), bookingController.create);
 router.get('/bookings/:id', bookingController.get);
 
-// Customers and employees. No onboarding record behind either, so the whole of
-// each is the account itself and these five routes are all there is.
+// Customers: the same shape as vendors, backed by the customer tables.
+router.get('/customers', adminController.listCustomers);
+router.post('/customers', validateBody(createCustomerSchema), adminController.createCustomer);
+router.get('/customers/:id', adminController.getCustomer);
+router.put('/customers/:id', validateBody(updateCustomerSchema), adminController.updateCustomer);
+router.delete('/customers/:id', adminController.deleteCustomer);
+
+router.post(
+  '/customers/:id/review',
+  validateBody(reviewCustomerSchema),
+  adminController.reviewCustomer,
+);
+
+// The account password, replaceable by an admin when a customer is locked out.
+router.put(
+  '/customers/:id/password',
+  validateBody(setPasswordSchema),
+  adminController.setCustomerPassword,
+);
+
+// A customer's onboarding record, section by section. Same split as the
+// customer's own routes in customer.routes.ts, so a fix an admin makes and a
+// fix the customer makes go through identical validation and identical writes.
+router.put(
+  '/customers/:id/onboarding/company',
+  validateBody(customerCompanySectionSchema),
+  adminController.updateCustomerCompany,
+);
+router.put(
+  '/customers/:id/onboarding/contacts',
+  validateBody(customerContactsSectionSchema),
+  adminController.updateCustomerContacts,
+);
+router.put(
+  '/customers/:id/onboarding/directors',
+  validateBody(customerDirectorsSectionSchema),
+  adminController.updateCustomerDirectors,
+);
+router.put(
+  '/customers/:id/onboarding/addresses',
+  validateBody(customerAddressesSectionSchema),
+  adminController.updateCustomerAddresses,
+);
+router.put(
+  '/customers/:id/onboarding/billing',
+  validateBody(customerBillingSectionSchema),
+  adminController.updateCustomerBilling,
+);
+
+// A customer's files, same shape as the vendor's.
+router.post(
+  '/customers/:id/documents',
+  upload.single('file'),
+  validateBody(uploadCustomerDocumentSchema),
+  adminController.uploadCustomerDocument,
+);
+router.get('/customers/:id/documents/:documentId/url', adminController.customerDocumentLink);
+router.get('/customers/:id/documents/:documentId/file', adminController.downloadCustomerDocument);
+router.patch(
+  '/customers/:id/documents/:documentId',
+  validateBody(updateCustomerDocumentSchema),
+  adminController.updateCustomerDocument,
+);
+router.delete('/customers/:id/documents/:documentId', adminController.deleteCustomerDocument);
+
+// Employees. No onboarding record behind one, so the whole of it is the account
+// itself and these six routes are all there is.
 for (const entry of [
-  { path: 'customers', kind: 'customer' as const, create: createCustomerSchema, update: updateCustomerSchema },
   { path: 'employees', kind: 'employee' as const, create: createEmployeeSchema, update: updateEmployeeSchema },
 ]) {
   router.get(`/${entry.path}`, adminController.listSimple(entry.kind));

@@ -68,6 +68,7 @@ export const PORTALS: Record<RoleSlug, PortalConfig> = {
     label: "Customer",
     tagline: "Track your bookings, jobs and invoices in one place.",
     homePath: "/customer",
+    profilePath: (accountId) => `/customer/${accountId}`,
     loginPath: "/customer/login",
     forgotPasswordPath: "/customer/forgot-password",
     resetPasswordPath: "/customer/reset-password",

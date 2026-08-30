@@ -85,14 +85,29 @@ export const ROLES: Record<RoleSlug, RoleDefinition> = {
     toPublicProfile(account) {
       return {
         ...baseProfile(account, 'customer'),
+        // The company leads: a customer is a business, and that is the name the
+        // portal header and the booking form both mean by "the customer". The
+        // person's name stands in until the onboarding form supplies one.
         displayName:
-          joinName(account.firstName, account.lastName) ||
           text(account.companyName) ||
+          joinName(account.firstName, account.lastName) ||
           account.email,
         firstName: account.firstName,
         lastName: account.lastName,
         companyName: account.companyName,
+        designation: account.designation,
+        tradingNames: account.tradingNames,
+        legalName: account.legalName,
+        abn: account.abn,
+        cid: account.cid,
+        accountNumber: account.accountNumber,
+        websiteAddress: account.websiteAddress,
+        logoUrl: account.logoUrl,
         avatarUrl: account.avatarUrl,
+        // The portal lands somewhere different depending on these two, the same
+        // way the driver and vendor portals do.
+        onboardingStatus: account.onboardingStatus,
+        onboardingStep: account.onboardingStep,
       };
     },
     buildCreateData(input, passwordHash) {

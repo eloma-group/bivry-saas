@@ -32,28 +32,164 @@ model Admin {
 }
 
 model Customer {
-  id                  String        @id @default(uuid()) @db.Uuid
-  email               String        @unique
-  phone               String?       @unique
-  passwordHash        String        @map("password_hash")
+  id                     String             @id @default(uuid()) @db.Uuid
+  email                  String             @unique
+  phone                  String?            @unique
+  passwordHash           String             @map("password_hash")
   /// Human readable customer reference (CAN5000). Assigned by the server when
   /// the account is created and never typed in; the booking form reads it back.
-  accountNumber       String?       @unique @map("account_number")
-  firstName           String        @map("first_name")
-  lastName            String?       @map("last_name")
-  companyName         String?       @map("company_name")
-  avatarUrl           String?       @map("avatar_url")
-  status              AccountStatus @default(PENDING)
-  emailVerifiedAt     DateTime?     @map("email_verified_at")
-  lastLoginAt         DateTime?     @map("last_login_at")
-  failedLoginAttempts Int           @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime?     @map("locked_until")
-  createdAt           DateTime      @default(now()) @map("created_at")
-  updatedAt           DateTime      @updatedAt @map("updated_at")
-  deletedAt           DateTime?     @map("deleted_at")
+  accountNumber          String?            @unique @map("account_number")
+  /// The customer identifier the rest of the product quotes (CUST-3000 onwards).
+  /// Handed out by the server on the first onboarding load, never typed in, and
+  /// what a customer is looked up by outside this module.
+  cid                    String?            @unique
+  firstName              String             @map("first_name")
+  lastName               String?            @map("last_name")
+  companyName            String?            @map("company_name")
+  /// What the person named above does at the company: CEO, Director, and so on.
+  designation            String?
+  /// Every name the business trades under, newest first as the Business
+  /// Register lists them. The first is the one shown wherever only one fits.
+  tradingNames           String[]           @map("trading_names")
+  legalName              String?            @map("legal_name")
+  abn                    String?
+  /// Australian Company Number, nine digits. Only a registered company has one.
+  acn                    String?
+  /// What the Business Register says about the ABN, in its own words.
+  abnStatus              String?            @map("abn_status")
+  entityType             String?            @map("entity_type")
+  gst                    String?
+  websiteAddress         String?            @map("website_address")
+  /// The day the customer record was opened, as the form asks for it. Defaults
+  /// to today in the form and can be changed, so it is not `created_at`.
+  creationDate           DateTime?          @map("creation_date") @db.Date
+  avatarUrl              String?            @map("avatar_url")
+  logoUrl                String?            @map("logo_url")
+  /// Whether the billing address is a copy of the principal one. Stored so the
+  /// tick comes back ticked; both rows are written out either way.
+  billingSameAsPrincipal Boolean            @default(false) @map("billing_same_as_principal")
+  status                 AccountStatus      @default(PENDING)
+  onboardingStatus       OnboardingStatus   @default(NOT_STARTED) @map("onboarding_status")
+  /// Index of the last completed onboarding step, used to resume the wizard.
+  onboardingStep         Int                @default(0) @map("onboarding_step")
+  submittedAt            DateTime?          @map("submitted_at")
+  approvedAt             DateTime?          @map("approved_at")
+  rejectionReason        String?            @map("rejection_reason")
+  emailVerifiedAt        DateTime?          @map("email_verified_at")
+  lastLoginAt            DateTime?          @map("last_login_at")
+  failedLoginAttempts    Int                @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime?          @map("locked_until")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  deletedAt              DateTime?          @map("deleted_at")
+  addresses              CustomerAddress[]
+  billing                CustomerBilling?
+  contacts               CustomerContact[]
+  directors              CustomerDirector[]
+  documents              CustomerDocument[]
 
   @@index([status])
+  @@index([onboardingStatus])
   @@map("customers")
+}
+
+/// One contact block per department, as the customer form asks for them.
+///
+/// The form only asks for the operations block and offers the other three as a
+/// tick that copies it. There is no column for that tick: a copied block holds
+/// details identical to the operations one, so the tick is read back off the
+/// rows themselves rather than stored a second time where it could disagree.
+model CustomerContact {
+  id            String              @id @default(uuid()) @db.Uuid
+  customerId    String              @map("customer_id") @db.Uuid
+  type          CustomerContactType
+  contactPerson String?             @map("contact_person")
+  designation   String?
+  contactNumber String?             @map("contact_number")
+  email         String?
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  customer      Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, type])
+  @@map("customer_contacts")
+}
+
+/// The customer's directors. As many as the business has.
+model CustomerDirector {
+  id            String   @id @default(uuid()) @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  /// Keeps the rows in the order the customer entered them.
+  position      Int      @default(0)
+  /// Full name, as it reads on the document naming them.
+  name          String?
+  designation   String?
+  email         String?
+  contactNumber String?  @map("contact_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_directors")
+}
+
+/// The two addresses a customer is registered at: where the business is run
+/// from, and where its invoices go.
+model CustomerAddress {
+  id         String              @id @default(uuid()) @db.Uuid
+  customerId String              @map("customer_id") @db.Uuid
+  type       CustomerAddressType
+  street1    String?
+  street2    String?
+  suburb     String?
+  state      String?
+  country    String?
+  postCode   String?             @map("post_code")
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+  customer   Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, type])
+  @@map("customer_addresses")
+}
+
+/// How the customer is billed: the payment term, and whether they are invoiced
+/// or run on CTL. One row per customer.
+model CustomerBilling {
+  id          String               @id @default(uuid()) @db.Uuid
+  customerId  String               @unique @map("customer_id") @db.Uuid
+  /// The payment term as the accounts team words it: "Net 30".
+  term        String?
+  billingType CustomerBillingType? @map("billing_type")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  customer    Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_billings")
+}
+
+/// Every file a customer uploads. `category` names the extra document rows the
+/// customer adds beyond the two fixed slots.
+model CustomerDocument {
+  id          String               @id @default(uuid()) @db.Uuid
+  customerId  String               @map("customer_id") @db.Uuid
+  docType     CustomerDocumentType @map("doc_type")
+  category    String?
+  issueDate   DateTime?            @map("issue_date") @db.Date
+  expiryDate  DateTime?            @map("expiry_date") @db.Date
+  fileName    String               @map("file_name")
+  storageKey  String               @map("storage_key")
+  storageUrl  String?              @map("storage_url")
+  mimeType    String               @map("mime_type")
+  sizeInBytes Int                  @map("size_in_bytes")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  deletedAt   DateTime?            @map("deleted_at")
+  customer    Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, docType])
+  @@map("customer_documents")
 }
 
 model Vendor {
@@ -747,6 +883,44 @@ enum VendorDocumentType {
   @@map("vendor_document_type")
 }
 
+/// The departments a customer gives a contact for. Operations is the one always
+/// asked for; the other three can be ticked as a copy of it.
+enum CustomerContactType {
+  MAIN
+  OPERATIONS
+  ACCOUNTS
+  DISPATCH
+
+  @@map("customer_contact_type")
+}
+
+/// Which of a customer's two registered addresses a row holds.
+enum CustomerAddressType {
+  PRINCIPAL
+  BILLING
+
+  @@map("customer_address_type")
+}
+
+/// How a customer is billed. CTL is charged against the load rather than
+/// invoiced on terms.
+enum CustomerBillingType {
+  INVOICING
+  CTL
+
+  @@map("customer_billing_type")
+}
+
+/// The logo and the contract are single slots; ADDITIONAL is the customer's own
+/// extra rows and holds as many as they add.
+enum CustomerDocumentType {
+  COMPANY_LOGO
+  CONTRACT
+  ADDITIONAL
+
+  @@map("customer_document_type")
+}
+
 // ---------------------------------------------------------------------------
 // Bookings
 //
@@ -758,55 +932,55 @@ enum VendorDocumentType {
 // ---------------------------------------------------------------------------
 
 model Booking {
-  id                    String    @id @default(uuid()) @db.Uuid
+  id                  String  @id @default(uuid()) @db.Uuid
   /// Human readable reference, BIVRY-<financial year>-<sequence>.
-  jobNumber             String    @unique @map("job_number")
+  jobNumber           String  @unique @map("job_number")
   /// The date the booking was received, as typed (YYYY-MM-DD).
-  bookingReceivedDate   String?   @map("booking_received_date")
+  bookingReceivedDate String? @map("booking_received_date")
   /// Australian financial year the booking falls in, e.g. "26-27".
-  financialYear         String?   @map("financial_year")
+  financialYear       String? @map("financial_year")
 
   /// The chosen customer. Id only, plus a snapshot of the name and account
   /// number as they read when the booking was raised.
-  customerId            String?   @map("customer_id") @db.Uuid
-  customerName          String?   @map("customer_name")
-  customerAccountNumber String?   @map("customer_account_number")
+  customerId            String? @map("customer_id") @db.Uuid
+  customerName          String? @map("customer_name")
+  customerAccountNumber String? @map("customer_account_number")
 
-  accountStatus         String?   @map("account_status")
-  agreementType         String?   @map("agreement_type")
-  reference             String?
-  cargoType             String?   @map("cargo_type")
-  vehicleType           String?   @map("vehicle_type")
-  trailerCategory       String?   @map("trailer_category")
+  accountStatus   String? @map("account_status")
+  agreementType   String? @map("agreement_type")
+  reference       String?
+  cargoType       String? @map("cargo_type")
+  vehicleType     String? @map("vehicle_type")
+  trailerCategory String? @map("trailer_category")
 
   // Our price (AUD).
-  priceGrossAmount      Decimal?  @map("price_gross_amount") @db.Decimal(12, 2)
-  priceFuelLevyPct      Decimal?  @map("price_fuel_levy_pct") @db.Decimal(7, 2)
-  priceFuelLevyAmount   Decimal?  @map("price_fuel_levy_amount") @db.Decimal(12, 2)
-  priceGstPct           Decimal?  @map("price_gst_pct") @db.Decimal(7, 2)
-  priceGstAmount        Decimal?  @map("price_gst_amount") @db.Decimal(12, 2)
-  priceNetAmount        Decimal?  @map("price_net_amount") @db.Decimal(12, 2)
-  priceTotalAmount      Decimal?  @map("price_total_amount") @db.Decimal(12, 2)
+  priceGrossAmount    Decimal? @map("price_gross_amount") @db.Decimal(12, 2)
+  priceFuelLevyPct    Decimal? @map("price_fuel_levy_pct") @db.Decimal(7, 2)
+  priceFuelLevyAmount Decimal? @map("price_fuel_levy_amount") @db.Decimal(12, 2)
+  priceGstPct         Decimal? @map("price_gst_pct") @db.Decimal(7, 2)
+  priceGstAmount      Decimal? @map("price_gst_amount") @db.Decimal(12, 2)
+  priceNetAmount      Decimal? @map("price_net_amount") @db.Decimal(12, 2)
+  priceTotalAmount    Decimal? @map("price_total_amount") @db.Decimal(12, 2)
 
   // Vendor allotment and its own, separate price (AUD).
-  vendorId              String?   @map("vendor_id") @db.Uuid
-  vendorName            String?   @map("vendor_name")
-  vendorGrossAmount     Decimal?  @map("vendor_gross_amount") @db.Decimal(12, 2)
-  vendorFuelLevyPct     Decimal?  @map("vendor_fuel_levy_pct") @db.Decimal(7, 2)
-  vendorFuelLevyAmount  Decimal?  @map("vendor_fuel_levy_amount") @db.Decimal(12, 2)
-  vendorGstPct          Decimal?  @map("vendor_gst_pct") @db.Decimal(7, 2)
-  vendorGstAmount       Decimal?  @map("vendor_gst_amount") @db.Decimal(12, 2)
-  vendorNetAmount       Decimal?  @map("vendor_net_amount") @db.Decimal(12, 2)
-  vendorTotalAmount     Decimal?  @map("vendor_total_amount") @db.Decimal(12, 2)
+  vendorId             String?  @map("vendor_id") @db.Uuid
+  vendorName           String?  @map("vendor_name")
+  vendorGrossAmount    Decimal? @map("vendor_gross_amount") @db.Decimal(12, 2)
+  vendorFuelLevyPct    Decimal? @map("vendor_fuel_levy_pct") @db.Decimal(7, 2)
+  vendorFuelLevyAmount Decimal? @map("vendor_fuel_levy_amount") @db.Decimal(12, 2)
+  vendorGstPct         Decimal? @map("vendor_gst_pct") @db.Decimal(7, 2)
+  vendorGstAmount      Decimal? @map("vendor_gst_amount") @db.Decimal(12, 2)
+  vendorNetAmount      Decimal? @map("vendor_net_amount") @db.Decimal(12, 2)
+  vendorTotalAmount    Decimal? @map("vendor_total_amount") @db.Decimal(12, 2)
 
   /// Admin id that raised the booking (no FK - a verifier may be an employee later).
-  createdByAdminId      String?   @map("created_by_admin_id") @db.Uuid
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
-  deletedAt             DateTime? @map("deleted_at")
+  createdByAdminId String?   @map("created_by_admin_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
 
-  stops                 BookingStop[]
-  lanes                 BookingLane[]
+  stops BookingStop[]
+  lanes BookingLane[]
 
   @@index([customerId])
   @@index([vendorId])

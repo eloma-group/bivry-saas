@@ -4,6 +4,7 @@ import { UploadCloud, Camera, X, Eye, FileText, CheckCircle2, Loader2 } from "lu
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/upload/CameraCapture";
+import { ImageCropDialog } from "@/components/upload/ImageCropDialog";
 import { useDocumentSource } from "@/context/DocumentSourceContext";
 import {
   ACCEPT_DOCUMENT,
@@ -23,6 +24,18 @@ interface FileUploadProps {
   /** Show a "Live Camera" button (image capture). */
   allowCamera?: boolean;
   cameraTitle?: string;
+  /**
+   * Offer a crop before an image is committed, whether it was picked from disk,
+   * dropped or taken live.
+   *
+   * Opt in rather than always on: a PDF cannot be cropped and passes straight
+   * through either way, but for a photographed document the crop is the
+   * difference between the page and the desk it was lying on. The dialog can
+   * always be skipped with "Use original".
+   */
+  allowCrop?: boolean;
+  /** What is being cropped, for the dialog heading. Defaults to the label. */
+  cropTitle?: string;
   className?: string;
   error?: string;
   /** Marks the box with a * so a missing file reads as missing, not optional. */
@@ -48,6 +61,8 @@ export function FileUpload({
   accept = ACCEPT_DOCUMENT,
   allowCamera = false,
   cameraTitle = "Capture image",
+  allowCrop = false,
+  cropTitle,
   className,
   error,
   required = false,
@@ -57,6 +72,8 @@ export function FileUpload({
   const id = useId();
   const [dragging, setDragging] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
+  /** Picked or captured, waiting to be cropped. Null when nothing is waiting. */
+  const [pending, setPending] = useState<UploadedFile | null>(null);
   const [converting, setConverting] = useState(false);
   const [opening, setOpening] = useState(false);
   const source = useDocumentSource();
@@ -144,8 +161,36 @@ export function FileUpload({
     }
 
     const dataUrl = await readAsDataUrl(file);
-    onChange({ name: file.name, size: file.size, type: file.type, dataUrl });
+    const picked_file = { name: file.name, size: file.size, type: file.type, dataUrl };
+
+    // Only an image can be cropped. A PDF goes straight in, so the crop offer
+    // never stands between somebody and the document they just chose.
+    if (allowCrop && file.type.startsWith("image/")) {
+      setPending(picked_file);
+      return;
+    }
+
+    onChange(picked_file);
   };
+
+  /** What a live capture does: crop it first where this field asks for that. */
+  const capture = (file: UploadedFile) => {
+    if (allowCrop) setPending(file);
+    else onChange(file);
+  };
+
+  /** The crop dialog, rendered by both layouts below. */
+  const cropDialog = allowCrop ? (
+    <ImageCropDialog
+      file={pending}
+      label={cropTitle ?? label}
+      onConfirm={(cropped) => {
+        onChange(cropped);
+        setPending(null);
+      }}
+      onCancel={() => setPending(null)}
+    />
+  ) : null;
 
   // A file that is already stored keeps its bytes on the server, so there is
   // nothing local to draw a thumbnail from.
@@ -203,16 +248,45 @@ export function FileUpload({
           </Button>
         )}
 
+        {allowCamera && !value && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 w-full text-muted-foreground hover:text-primary"
+            onClick={() => setCamOpen(true)}
+          >
+            <Camera className="h-3.5 w-3.5" /> Use live camera
+          </Button>
+        )}
+
         <input
           ref={inputRef}
           id={id}
           type="file"
           accept={accept}
           className="hidden"
-          onChange={(e) => void ingest(e.target.files?.[0])}
+          onChange={(e) => {
+            void ingest(e.target.files?.[0]);
+            // Clearing it means picking the same file twice still fires a
+            // change. Without this, cancelling the crop and reaching for the
+            // same picture again does nothing at all.
+            e.target.value = "";
+          }}
         />
 
         {error && <p className="mt-1 text-[0.7rem] font-medium text-red-500">{error}</p>}
+
+        {allowCamera && (
+          <CameraCapture
+            open={camOpen}
+            onOpenChange={setCamOpen}
+            title={cameraTitle}
+            onCapture={capture}
+          />
+        )}
+
+        {cropDialog}
       </div>
     );
   }
@@ -325,7 +399,12 @@ export function FileUpload({
               type="file"
               accept={accept}
               className="hidden"
-              onChange={(e) => void ingest(e.target.files?.[0])}
+              onChange={(e) => {
+                void ingest(e.target.files?.[0]);
+                // See the note in the compact layout above: without this,
+                // cancelling a crop and picking the same file again does nothing.
+                e.target.value = "";
+              }}
             />
           </motion.label>
         )}
@@ -352,9 +431,11 @@ export function FileUpload({
           open={camOpen}
           onOpenChange={setCamOpen}
           title={cameraTitle}
-          onCapture={(f) => onChange(f)}
+          onCapture={capture}
         />
       )}
+
+      {cropDialog}
     </div>
   );
 }

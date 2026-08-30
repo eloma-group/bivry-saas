@@ -30,14 +30,16 @@ import { logger } from '../utils/logger';
  */
 
 /**
- * Which container a file belongs in. Driver documents, vendor documents and
- * an admin's own files are kept apart, so each can be governed on its own terms.
+ * Which container a file belongs in. Driver documents, vendor documents,
+ * customer documents and an admin's own files are kept apart, so each can be
+ * governed on its own terms.
  */
-export type StorageArea = 'driver' | 'vendor' | 'admin';
+export type StorageArea = 'driver' | 'vendor' | 'customer' | 'admin';
 
 const CONTAINERS: Record<StorageArea, string> = {
   driver: env.storage.driverContainer,
   vendor: env.storage.vendorContainer,
+  customer: env.storage.customerContainer,
   admin: env.storage.adminContainer,
 };
 

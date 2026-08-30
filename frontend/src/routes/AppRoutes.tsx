@@ -19,6 +19,8 @@ import { DriverOnboardingPage } from "@/pages/DriverOnboardingPage";
 import { DriverProfilePage } from "@/pages/DriverProfilePage";
 import { VendorOnboardingPage } from "@/pages/VendorOnboardingPage";
 import { VendorProfilePage } from "@/pages/VendorProfilePage";
+import { CustomerOnboardingPage } from "@/pages/CustomerOnboardingPage";
+import { CustomerProfilePage } from "@/pages/CustomerProfilePage";
 import { useAuth } from "@/context/AuthContext";
 
 /**
@@ -117,10 +119,14 @@ export function AppRoutes() {
         <Route path="onboarding/:module/:recordId/:action" element={<AdminOnboardingPage />} />
       </Route>
 
-      {/* Remaining portals, authenticated and waiting on their feature work. */}
+      {/* Customer portal, the same shape as the driver and vendor ones. */}
       <Route path="/customer" element={<ProtectedRoute role="customer" />}>
-        <Route index element={<PlaceholderDashboardPage role="customer" />} />
+        <Route index element={<OnboardingHome />} />
+        <Route path="onboarding" element={<CustomerOnboardingPage />} />
+        <Route path=":customerId" element={<CustomerProfilePage />} />
       </Route>
+
+      {/* Remaining portals, authenticated and waiting on their feature work. */}
       <Route path="/employee" element={<ProtectedRoute role="employee" />}>
         <Route index element={<PlaceholderDashboardPage role="employee" />} />
       </Route>

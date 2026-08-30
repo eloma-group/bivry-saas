@@ -8,8 +8,15 @@ import type {
   ApiLicenceType,
 } from "./driverService";
 import type { VendorContactType, VendorDocument, VendorOnboardingData } from "./vendorService";
+import type {
+  CustomerBillingTypeApi,
+  CustomerContactType,
+  CustomerDocument,
+  CustomerOnboardingData,
+} from "./customerService";
 import type { DriverOnboardingGateway } from "./driverOnboarding";
 import type { VendorOnboardingGateway } from "./vendorOnboarding";
+import type { CustomerOnboardingGateway } from "./customerOnboarding";
 
 /**
  * Admin module API. Every path lives under `/api/admin`, which the backend locks
@@ -126,6 +133,91 @@ export interface VendorListParams {
   sortDir?: "asc" | "desc";
 }
 
+/** A customer as the list endpoint returns them: enough for a table row. */
+export interface AdminCustomerRow {
+  id: string;
+  email: string;
+  phone: string | null;
+  cid: string | null;
+  accountNumber: string | null;
+  firstName: string;
+  lastName: string | null;
+  companyName: string | null;
+  designation: string | null;
+  tradingNames: string[];
+  legalName: string | null;
+  abn: string | null;
+  acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
+  gst: string | null;
+  websiteAddress: string | null;
+  creationDate: string | null;
+  status: AccountStatus;
+  onboardingStatus: OnboardingStatus;
+  onboardingStep: number;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Department contact numbers, which stand in when the account has no phone. */
+  contacts: Array<{ type: CustomerContactType; contactNumber: string | null }>;
+  billing: { term: string | null; billingType: CustomerBillingTypeApi | null } | null;
+  addresses: Array<{
+    type: "PRINCIPAL" | "BILLING";
+    suburb: string | null;
+    state: string | null;
+    country: string | null;
+  }>;
+  _count: { documents: number };
+}
+
+export interface CustomerListResult {
+  rows: AdminCustomerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CustomerListParams {
+  search?: string;
+  onboardingStatus?: OnboardingStatus;
+  page?: number;
+  pageSize?: number;
+  sortBy?: "createdAt" | "submittedAt" | "companyName" | "firstName" | "email" | "onboardingStatus";
+  sortDir?: "asc" | "desc";
+}
+
+export interface CreateCustomerInput {
+  email: string;
+  password: string;
+  phone?: string | null;
+  firstName: string;
+  lastName?: string | null;
+  companyName?: string | null;
+  designation?: string | null;
+  tradingNames?: string[];
+  legalName?: string | null;
+  abn?: string | null;
+  acn?: string | null;
+  abnStatus?: string | null;
+  entityType?: string | null;
+  gst?: string | null;
+  websiteAddress?: string | null;
+  /** yyyy-MM-dd. */
+  creationDate?: string | null;
+  status?: AccountStatus;
+}
+
+/**
+ * The email is here but the password is not: an admin can correct the address
+ * somebody mistyped at signup, but replacing a password goes through
+ * `setCustomerPassword`, which also signs the existing sessions out.
+ */
+export type UpdateCustomerInput = Partial<Omit<CreateCustomerInput, "password">>;
+
 /** Headline numbers, one block per record type the dashboard tracks. */
 export interface OnboardingCounts {
   total: number;
@@ -141,9 +233,11 @@ export interface OnboardingCounts {
 export interface AdminDashboard {
   drivers: OnboardingCounts;
   vendors: OnboardingCounts;
+  customers: OnboardingCounts;
   documents: { total: number; totalBytes: number };
   recentDrivers: AdminDriverRow[];
   recentVendors: AdminVendorRow[];
+  recentCustomers: AdminCustomerRow[];
   modules: AdminModuleSummary[];
 }
 
@@ -182,12 +276,12 @@ export type UpdateDriverInput = Partial<Omit<CreateDriverInput, "password">>;
 export type ReviewDecision = "APPROVED" | "REJECTED" | "UNDER_REVIEW";
 
 /** Where a plain account module lives under /admin. */
-export type SimpleAccountPath = "customers" | "employees";
+export type SimpleAccountPath = "employees";
 
 /**
- * One customer or employee row. The columns the two share are typed; the ones
- * only one of them has are read through the index signature, because the pages
- * that render them are driven by a field config rather than by this type.
+ * One plain account row. The shared columns are typed; the ones specific to a
+ * kind are read through the index signature, because the pages that render them
+ * are driven by a field config rather than by this type.
  */
 export interface SimpleAccount {
   id: string;
@@ -398,11 +492,11 @@ export const adminService = {
   },
 
   // -------------------------------------------------------------------------
-  // Customers and employees
+  // Employees
   //
-  // Plain accounts with no onboarding record behind them, so the whole module
-  // is these six calls and the only thing that differs between the two kinds is
-  // the path and which extra columns the row carries.
+  // A plain account with no onboarding record behind it, so the whole module is
+  // these six calls. Customers used to share this shape and have a full module
+  // of their own below now.
   // -------------------------------------------------------------------------
 
   simpleAccounts(path: SimpleAccountPath) {
@@ -565,6 +659,120 @@ export const adminService = {
   },
 
   // -------------------------------------------------------------------------
+  // Customers
+  // -------------------------------------------------------------------------
+
+  listCustomers(params: CustomerListParams = {}): Promise<CustomerListResult> {
+    return request<CustomerListResult>({ url: "/admin/customers", method: "GET", params });
+  },
+
+  /** One customer in full: the same shape the customer sees of themselves. */
+  getCustomer(customerId: string): Promise<CustomerOnboardingData> {
+    return request<CustomerOnboardingData>({
+      url: `/admin/customers/${customerId}`,
+      method: "GET",
+    });
+  },
+
+  createCustomer(values: CreateCustomerInput): Promise<AdminCustomerRow> {
+    return request<AdminCustomerRow>({ url: "/admin/customers", method: "POST", data: values });
+  },
+
+  updateCustomer(customerId: string, values: UpdateCustomerInput): Promise<AdminCustomerRow> {
+    return request<AdminCustomerRow>({
+      url: `/admin/customers/${customerId}`,
+      method: "PUT",
+      data: values,
+    });
+  },
+
+  deleteCustomer(customerId: string) {
+    return request({ url: `/admin/customers/${customerId}`, method: "DELETE" });
+  },
+
+  /** Replaces a customer's password and signs every one of their sessions out. */
+  setCustomerPassword(customerId: string, password: string) {
+    return request<{ id: string; email: string }>({
+      url: `/admin/customers/${customerId}/password`,
+      method: "PUT",
+      data: { password },
+    });
+  },
+
+  /**
+   * The onboarding record of one customer, written by an admin. Shaped to match
+   * `customerService` method for method so it satisfies
+   * `CustomerOnboardingGateway`, which is what lets the Admin portal reuse the
+   * customer's own form.
+   */
+  customerOnboarding(customerId: string): CustomerOnboardingGateway {
+    const base = `/admin/customers/${customerId}`;
+    const section = <T,>(path: string) => (values: T) =>
+      request({ url: `${base}/onboarding/${path}`, method: "PUT", data: values });
+
+    return {
+      saveCompany: section("company"),
+      saveContacts: section("contacts"),
+      saveDirectors: (directors) =>
+        request({ url: `${base}/onboarding/directors`, method: "PUT", data: { directors } }),
+      saveAddresses: section("addresses"),
+      saveBilling: section("billing"),
+
+      async uploadDocument(input) {
+        const form = new FormData();
+        form.append("file", input.file);
+        form.append("docType", input.docType);
+        if (input.category) form.append("category", input.category);
+        if (input.issueDate) form.append("issueDate", input.issueDate);
+        if (input.expiryDate) form.append("expiryDate", input.expiryDate);
+
+        const response = await api.post<{ data: CustomerDocument }>(`${base}/documents`, form, {
+          // Let the browser set the multipart boundary.
+          headers: { "Content-Type": undefined },
+          onUploadProgress(event) {
+            if (!input.onProgress || !event.total) return;
+            input.onProgress(Math.round((event.loaded / event.total) * 100));
+          },
+        });
+
+        return response.data.data;
+      },
+
+      updateDocument(documentId, values) {
+        return request({ url: `${base}/documents/${documentId}`, method: "PATCH", data: values });
+      },
+
+      deleteDocument(documentId) {
+        return request({ url: `${base}/documents/${documentId}`, method: "DELETE" });
+      },
+    };
+  },
+
+  reviewCustomer(customerId: string, decision: ReviewDecision, reason?: string | null) {
+    return request<AdminCustomerRow>({
+      url: `/admin/customers/${customerId}/review`,
+      method: "POST",
+      data: { decision, reason: reason ?? null },
+    });
+  },
+
+  /** Short lived blob storage link for one of a customer's documents. */
+  customerDocumentLink(customerId: string, documentId: string) {
+    return request<{ url: string; expiresAt: string | null; fileName: string; mimeType: string }>({
+      url: `/admin/customers/${customerId}/documents/${documentId}/url`,
+      method: "GET",
+    });
+  },
+
+  async fetchCustomerDocumentBlobUrl(customerId: string, documentId: string): Promise<string> {
+    const response = await api.get<Blob>(
+      `/admin/customers/${customerId}/documents/${documentId}/file`,
+      { responseType: "blob" },
+    );
+    return URL.createObjectURL(response.data);
+  },
+
+  // -------------------------------------------------------------------------
   // The admin's own account
   // -------------------------------------------------------------------------
 
@@ -596,4 +804,9 @@ export const adminService = {
   },
 };
 
-export type { DriverDocument, DriverOnboardingData, VendorOnboardingData };
+export type {
+  DriverDocument,
+  DriverOnboardingData,
+  VendorOnboardingData,
+  CustomerOnboardingData,
+};

@@ -1,0 +1,134 @@
+import type { CustomerStepDef } from "@/types/customer";
+
+/** The value that opens the free-text box for a designation not in the list. */
+export const DESIGNATION_OTHER = "Other";
+
+/**
+ * What a contact does. The same list the vendor form offers, so the two read
+ * alike and a person who holds a role at both is described the same way.
+ */
+export const DESIGNATIONS = [
+  "CEO",
+  "Director",
+  "Managing Director",
+  "Operations Manager",
+  "Compliance Manager",
+  "Fleet Manager",
+  "Accounts Manager",
+  "Dispatch Manager",
+  DESIGNATION_OTHER,
+];
+
+/** Everything the dropdown offers except the "Other" escape hatch. */
+export const DESIGNATION_PRESETS = DESIGNATIONS.filter(
+  (value) => value !== DESIGNATION_OTHER,
+);
+
+/**
+ * The four contact blocks, in the order the form asks for them.
+ *
+ * Operations comes first because it is the one always asked for; the other
+ * three can be ticked as a copy of it. The same arrangement the vendor form
+ * uses, so a person who deals with both is asked the same question twice rather
+ * than two different ones.
+ */
+export const CONTACT_BLOCKS = [
+  { key: "operations", label: "Operations", apiType: "OPERATIONS" },
+  { key: "accounts", label: "Accounts", apiType: "ACCOUNTS" },
+  { key: "dispatch", label: "Dispatch", apiType: "DISPATCH" },
+  { key: "main", label: "Main Contact", apiType: "MAIN" },
+] as const;
+
+/** The block the other three copy when ticked. */
+export const PRIMARY_CONTACT = CONTACT_BLOCKS[0];
+
+/** The three that can be ticked as a copy of it. */
+export const COPYABLE_CONTACTS = CONTACT_BLOCKS.slice(1);
+
+/**
+ * Payment terms, as the accounts team words them. Stored verbatim, which is why
+ * editing a line here is not free: a term that stops being offered is still
+ * held by whoever picked it, and the dropdown only lists what is offered now.
+ */
+export const PAYMENT_TERMS = [
+  "Prepaid",
+  "COD",
+  "Net 7",
+  "Net 14",
+  "Net 21",
+  "Net 30",
+  "Net 45",
+  "Net 60",
+  "Net 90",
+];
+
+/** How the customer is billed. These two map onto the stored enum values. */
+export const BILLING_TYPES = ["Invoicing", "CTL"] as const;
+
+/** The form label for a stored billing type, and back again. */
+export const BILLING_TYPE_TO_API: Record<string, "INVOICING" | "CTL"> = {
+  Invoicing: "INVOICING",
+  CTL: "CTL",
+};
+
+export const BILLING_TYPE_FROM_API: Record<string, string> = {
+  INVOICING: "Invoicing",
+  CTL: "CTL",
+};
+
+/**
+ * The documents the form lists, one row each.
+ *
+ * Each is stored verbatim as the `category` of an ADDITIONAL document, which is
+ * why editing a line here is not free - see the note on PAYMENT_TERMS above. It
+ * is also why the list needs no database change to grow: these are text, not
+ * enum values.
+ */
+export const CUSTOMER_DOCUMENT_TYPES = [
+  "Credit Application",
+  "Rate Card",
+  "Insurance Certificate",
+  "Trading Terms",
+  "Purchase Order",
+  "Company Registration",
+  "Tax Invoice Details",
+];
+
+/** Horizontal stepper definition - completion drives the progress percentage. */
+export const CUSTOMER_STEPS: CustomerStepDef[] = [
+  {
+    id: "customer",
+    label: "Customer Info",
+    requires: ["abn", "companyName", "tradingNames", "legalName", "creationDate"],
+  },
+  {
+    id: "addresses",
+    label: "Addresses",
+    requires: ["principalAddress", "billingAddress"],
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    requires: ["operations", "accounts", "dispatch", "main"],
+  },
+  {
+    id: "directors",
+    label: "Directors",
+    requires: ["directors"],
+  },
+  {
+    id: "billing",
+    label: "Billing",
+    requires: ["term", "billingType"],
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    requires: ["documents"],
+  },
+  {
+    id: "review",
+    label: "Review",
+    requires: [],
+  },
+];

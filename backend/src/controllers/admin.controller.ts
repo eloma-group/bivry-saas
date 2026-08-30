@@ -3,12 +3,20 @@ import { sendCreated, sendSuccess } from '../utils/apiResponse';
 import { ApiError } from '../utils/apiError';
 import * as adminService from '../services/admin.service';
 import { getAllExpiryNotifications } from '../services/notification.service';
-import { driverListQuerySchema, vendorListQuerySchema } from '../validators/admin.validator';
+import {
+  customerListQuerySchema,
+  driverListQuerySchema,
+  vendorListQuerySchema,
+} from '../validators/admin.validator';
 import * as simpleAccounts from '../services/simpleAccount.service';
 import type { KindSlug } from '../services/simpleAccount.service';
 import { listQuerySchema } from '../validators/simpleAccount.validator';
 import type { ReviewableSection, ReviewableVendorSection } from '../services/admin.service';
-import type { DriverDocumentType, VendorDocumentType } from '@prisma/client';
+import type {
+  CustomerDocumentType,
+  DriverDocumentType,
+  VendorDocumentType,
+} from '@prisma/client';
 
 /** The signed in admin's id. `authenticate` guarantees it is present. */
 function adminId(req: { auth?: { id: string } }): string {
@@ -438,6 +446,161 @@ export const adminController = {
 
   downloadVendorDocument: asyncHandler(async (req, res) => {
     const { document, file } = await adminService.openVendorDocument(
+      req.params.id,
+      req.params.documentId,
+    );
+
+    res.type(file.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${document.fileName.replace(/"/g, '')}"`,
+    );
+    if (file.contentLength !== null) {
+      res.setHeader('Content-Length', String(file.contentLength));
+    }
+
+    file.stream.on('error', (error) => {
+      // Headers are already sent, so the only option left is to drop the
+      // connection and let the client retry.
+      res.destroy(error);
+    });
+    file.stream.pipe(res);
+  }),
+
+  // -------------------------------------------------------------------------
+  // Customers
+  //
+  // The same shape as the vendor block above, backed by the customer tables.
+  // -------------------------------------------------------------------------
+
+  listCustomers: asyncHandler(async (req, res) => {
+    const query = customerListQuerySchema.parse(req.query);
+    const data = await adminService.listCustomers({
+      search: query.search ?? undefined,
+      onboardingStatus: query.onboardingStatus,
+      page: query.page,
+      pageSize: query.pageSize,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+    });
+    sendSuccess(res, data, 'Customers loaded');
+  }),
+
+  getCustomer: asyncHandler(async (req, res) => {
+    const data = await adminService.getCustomer(req.params.id);
+    sendSuccess(res, data, 'Customer loaded');
+  }),
+
+  createCustomer: asyncHandler(async (req, res) => {
+    const data = await adminService.createCustomer(req.body);
+    sendCreated(res, data, 'Customer created');
+  }),
+
+  updateCustomer: asyncHandler(async (req, res) => {
+    const data = await adminService.updateCustomer(req.params.id, req.body);
+    sendSuccess(res, data, 'Customer updated');
+  }),
+
+  deleteCustomer: asyncHandler(async (req, res) => {
+    const data = await adminService.deleteCustomer(req.params.id);
+    sendSuccess(res, data, 'Customer removed');
+  }),
+
+  reviewCustomer: asyncHandler(async (req, res) => {
+    const data = await adminService.reviewCustomer(req.params.id, req.body);
+    sendSuccess(res, data, 'Decision saved');
+  }),
+
+  setCustomerPassword: asyncHandler(async (req, res) => {
+    const { password } = req.body as { password: string };
+    const data = await adminService.setCustomerPassword(req.params.id, password);
+    sendSuccess(res, data, 'Password changed. Every existing session was signed out.');
+  }),
+
+  updateCustomerCompany: asyncHandler(async (req, res) => {
+    const data = await adminService.updateCustomerCompany(req.params.id, req.body);
+    sendSuccess(res, data, 'Customer information saved');
+  }),
+
+  updateCustomerContacts: asyncHandler(async (req, res) => {
+    const data = await adminService.updateCustomerContacts(req.params.id, req.body);
+    sendSuccess(res, data, 'Communication details saved');
+  }),
+
+  updateCustomerDirectors: asyncHandler(async (req, res) => {
+    const { directors } = req.body as {
+      directors: Parameters<typeof adminService.updateCustomerDirectors>[1];
+    };
+    const data = await adminService.updateCustomerDirectors(req.params.id, directors);
+    sendSuccess(res, data, 'Director information saved');
+  }),
+
+  updateCustomerAddresses: asyncHandler(async (req, res) => {
+    const data = await adminService.updateCustomerAddresses(
+      req.params.id,
+      req.body as Parameters<typeof adminService.updateCustomerAddresses>[1],
+    );
+    sendSuccess(res, data, 'Addresses saved');
+  }),
+
+  updateCustomerBilling: asyncHandler(async (req, res) => {
+    const data = await adminService.updateCustomerBilling(req.params.id, req.body);
+    sendSuccess(res, data, 'Billing saved');
+  }),
+
+  uploadCustomerDocument: asyncHandler(async (req, res) => {
+    if (!req.file) throw ApiError.badRequest('No file was uploaded');
+
+    const { docType, category, issueDate, expiryDate } = req.body as {
+      docType: CustomerDocumentType;
+      category: string | null;
+      issueDate: Date | null;
+      expiryDate: Date | null;
+    };
+
+    const document = await adminService.addCustomerDocument(req.params.id, {
+      docType,
+      category: category ?? null,
+      issueDate: issueDate ?? null,
+      expiryDate: expiryDate ?? null,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      sizeInBytes: req.file.size,
+      buffer: req.file.buffer,
+    });
+
+    sendCreated(res, document, 'File uploaded');
+  }),
+
+  updateCustomerDocument: asyncHandler(async (req, res) => {
+    const { category, issueDate, expiryDate } = req.body as {
+      category: string | null;
+      issueDate: Date | null;
+      expiryDate: Date | null;
+    };
+    const data = await adminService.updateCustomerDocument(req.params.id, req.params.documentId, {
+      category: category ?? null,
+      issueDate: issueDate ?? null,
+      expiryDate: expiryDate ?? null,
+    });
+    sendSuccess(res, data, 'File details saved');
+  }),
+
+  deleteCustomerDocument: asyncHandler(async (req, res) => {
+    const data = await adminService.deleteCustomerDocument(req.params.id, req.params.documentId);
+    sendSuccess(res, data, 'File removed');
+  }),
+
+  customerDocumentLink: asyncHandler(async (req, res) => {
+    const data = await adminService.createCustomerDocumentLink(
+      req.params.id,
+      req.params.documentId,
+    );
+    sendSuccess(res, data, 'Document link created');
+  }),
+
+  downloadCustomerDocument: asyncHandler(async (req, res) => {
+    const { document, file } = await adminService.openCustomerDocument(
       req.params.id,
       req.params.documentId,
     );

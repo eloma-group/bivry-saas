@@ -3,13 +3,15 @@ import type { OnboardingModuleSlug } from "@/constants/navigation";
 import { NAME_MAX, NAME_RE, PHONE_MAX, PHONE_RE } from "@/utils/validation";
 
 /**
- * Customers and employees, described rather than coded twice.
+ * The plain account modules, described rather than coded.
  *
- * Neither has an onboarding record, documents or verification behind it, so the
- * whole of each is a list of accounts and a form of columns. The only thing
- * that differs between them is which columns those are, which makes a config
- * the honest shape: two hand written page pairs would be the same file twice,
- * and the copy nobody was looking at would drift.
+ * An employee has no onboarding record, documents or verification behind it, so
+ * the whole of it is a list of accounts and a form of columns. A config is the
+ * honest shape for that: a hand written page pair would be the driver and
+ * vendor pages again with most of them deleted.
+ *
+ * Customers used to be described here too. They carry a full onboarding record
+ * now, so they have their own pages alongside the driver and vendor ones.
  */
 
 export interface AccountField {
@@ -89,30 +91,6 @@ const IDENTITY: AccountField[] = [
 ];
 
 export const SIMPLE_ACCOUNT_MODULES: Record<string, SimpleAccountModule> = {
-  customer: {
-    slug: "customer",
-    path: "customers",
-    label: "customer",
-    plural: "Customers",
-    blurb: "Every customer account, and who they book on behalf of.",
-    fields: [
-      {
-        name: "accountNumber",
-        label: "Customer Account Number",
-        placeholder: "Assigned automatically",
-        hint: "Assigned by BIVRY (CAN5000 onwards). It cannot be changed.",
-        readOnly: true,
-        inTable: true,
-      },
-      ...IDENTITY,
-      {
-        name: "companyName",
-        label: "Company",
-        placeholder: "Acme Freight Pty Ltd",
-        inTable: true,
-      },
-    ],
-  },
   user: {
     slug: "user",
     path: "employees",

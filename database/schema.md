@@ -6,12 +6,17 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**31 tables, 12 enum types.**
+**36 tables, 16 enum types.**
 
 ## Tables
 
 - [`admins`](#admins)
 - [`customers`](#customers)
+- [`customer_contacts`](#customercontacts)
+- [`customer_directors`](#customerdirectors)
+- [`customer_addresses`](#customeraddresses)
+- [`customer_billings`](#customerbillings)
+- [`customer_documents`](#customerdocuments)
 - [`vendors`](#vendors)
 - [`vendor_contacts`](#vendorcontacts)
 - [`vendor_directors`](#vendordirectors)
@@ -57,6 +62,10 @@ look up a column. Every table, column, type, default and relation is below.
 | `vendor_contact_type` | `OPERATIONS`, `COMPLIANCE`, `ADMIN`, `DISPATCH` |
 | `vendor_insurance_type` | `PRODUCT_LIABILITY`, `PUBLIC_LIABILITY`, `WORK_COVER`, `MARINE_GENERAL`, `MARINE_ALCOHOL`, `COC` |
 | `vendor_document_type` | `COMPANY_LOGO`, `ACCREDITATION`, `INSURANCE_PRODUCT_LIABILITY`, `INSURANCE_PUBLIC_LIABILITY`, `INSURANCE_WORK_COVER`, `INSURANCE_MARINE_GENERAL`, `INSURANCE_MARINE_ALCOHOL`, `INSURANCE_COC`, `COMPLIANCE_DRUG`, `COMPLIANCE_ALCOHOL_POLICY`, `COMPLIANCE_PROCEDURE`, `COMPLIANCE_RISK_MANAGEMENT`, `COMPLIANCE_SPEED_POLICY`, `COMPLIANCE_FATIGUE_POLICY`, `COMPLIANCE_GPS_SNAPSHOT`, `COMPLIANCE_WHS_POLICY`, `COMPLIANCE_ADDITIONAL` |
+| `customer_contact_type` | `MAIN`, `OPERATIONS`, `ACCOUNTS`, `DISPATCH` |
+| `customer_address_type` | `PRINCIPAL`, `BILLING` |
+| `customer_billing_type` | `INVOICING`, `CTL` |
+| `customer_document_type` | `COMPANY_LOGO`, `CONTRACT`, `ADDITIONAL` |
 | `booking_stop_type` | `PICKUP`, `DELIVERY` |
 
 ## Table detail
@@ -91,11 +100,29 @@ look up a column. Every table, column, type, default and relation is below.
 | `phone` | text | NULL |  | unique |
 | `password_hash` | text | NOT NULL |  |  |
 | `account_number` | text | NULL |  | unique; Human readable customer reference (CAN5000). Assigned by the server when\nthe account is created and never typed in; the booking form reads it back. |
+| `cid` | text | NULL |  | unique; The customer identifier the rest of the product quotes (CUST-3000 onwards).\nHanded out by the server on the first onboarding load, never typed in, and\nwhat a customer is looked up by outside this module. |
 | `first_name` | text | NOT NULL |  |  |
 | `last_name` | text | NULL |  |  |
 | `company_name` | text | NULL |  |  |
+| `designation` | text | NULL |  | What the person named above does at the company: CEO, Director, and so on. |
+| `trading_names` | text | NOT NULL |  | Every name the business trades under, newest first as the Business\nRegister lists them. The first is the one shown wherever only one fits. |
+| `legal_name` | text | NULL |  |  |
+| `abn` | text | NULL |  |  |
+| `acn` | text | NULL |  | Australian Company Number, nine digits. Only a registered company has one. |
+| `abn_status` | text | NULL |  | What the Business Register says about the ABN, in its own words. |
+| `entity_type` | text | NULL |  |  |
+| `gst` | text | NULL |  |  |
+| `website_address` | text | NULL |  |  |
+| `creation_date` | date | NULL |  | The day the customer record was opened, as the form asks for it. Defaults\nto today in the form and can be changed, so it is not `created_at`. |
 | `avatar_url` | text | NULL |  |  |
+| `logo_url` | text | NULL |  |  |
+| `billing_same_as_principal` | boolean | NOT NULL | false | Whether the billing address is a copy of the principal one. Stored so the\ntick comes back ticked; both rows are written out either way. |
 | `status` | account_status | NOT NULL | 'PENDING' |  |
+| `onboarding_status` | onboarding_status | NOT NULL | 'NOT_STARTED' |  |
+| `onboarding_step` | integer | NOT NULL | 0 | Index of the last completed onboarding step, used to resume the wizard. |
+| `submitted_at` | timestamp(3) | NULL |  |  |
+| `approved_at` | timestamp(3) | NULL |  |  |
+| `rejection_reason` | text | NULL |  |  |
 | `email_verified_at` | timestamp(3) | NULL |  |  |
 | `last_login_at` | timestamp(3) | NULL |  |  |
 | `failed_login_attempts` | integer | NOT NULL | 0 |  |
@@ -103,6 +130,126 @@ look up a column. Every table, column, type, default and relation is below.
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
 | `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
 | `deleted_at` | timestamp(3) | NULL |  |  |
+
+**Relations**
+
+- many `customer_addresses`
+- optional one `customer_billings`
+- many `customer_contacts`
+- many `customer_directors`
+- many `customer_documents`
+
+### `customer_contacts`
+
+One contact block per department, as the customer form asks for them.\n\nThe form only asks for the operations block and offers the other three as a\ntick that copies it. There is no column for that tick: a copied block holds\ndetails identical to the operations one, so the tick is read back off the\nrows themselves rather than stored a second time where it could disagree.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
+| `type` | customer_contact_type | NOT NULL |  |  |
+| `contact_person` | text | NULL |  |  |
+| `designation` | text | NULL |  |  |
+| `contact_number` | text | NULL |  |  |
+| `email` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Constraints**
+
+- unique: (`customerId`, `type`)
+
+**Relations**
+
+- one `customers`
+
+### `customer_directors`
+
+The customer's directors. As many as the business has.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
+| `position` | integer | NOT NULL | 0 | Keeps the rows in the order the customer entered them. |
+| `name` | text | NULL |  | Full name, as it reads on the document naming them. |
+| `designation` | text | NULL |  |  |
+| `email` | text | NULL |  |  |
+| `contact_number` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `customers`
+
+### `customer_addresses`
+
+The two addresses a customer is registered at: where the business is run\nfrom, and where its invoices go.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
+| `type` | customer_address_type | NOT NULL |  |  |
+| `street1` | text | NULL |  |  |
+| `street2` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Constraints**
+
+- unique: (`customerId`, `type`)
+
+**Relations**
+
+- one `customers`
+
+### `customer_billings`
+
+How the customer is billed: the payment term, and whether they are invoiced\nor run on CTL. One row per customer.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | unique; FK to `customers` (cascade delete) |
+| `term` | text | NULL |  | The payment term as the accounts team words it: "Net 30". |
+| `billing_type` | customer_billing_type | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `customers`
+
+### `customer_documents`
+
+Every file a customer uploads. `category` names the extra document rows the\ncustomer adds beyond the two fixed slots.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
+| `doc_type` | customer_document_type | NOT NULL |  |  |
+| `category` | text | NULL |  |  |
+| `issue_date` | date | NULL |  |  |
+| `expiry_date` | date | NULL |  |  |
+| `file_name` | text | NOT NULL |  |  |
+| `storage_key` | text | NOT NULL |  |  |
+| `storage_url` | text | NULL |  |  |
+| `mime_type` | text | NOT NULL |  |  |
+| `size_in_bytes` | integer | NOT NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+| `deleted_at` | timestamp(3) | NULL |  |  |
+
+**Relations**
+
+- one `customers`
 
 ### `vendors`
 

@@ -7,6 +7,9 @@ import { AdminDriverEditPage } from "./AdminDriverEditPage";
 import { AdminVendorsPage } from "./AdminVendorsPage";
 import { AdminVendorDetailPage } from "./AdminVendorDetailPage";
 import { AdminVendorEditPage } from "./AdminVendorEditPage";
+import { AdminCustomersPage } from "./AdminCustomersPage";
+import { AdminCustomerDetailPage } from "./AdminCustomerDetailPage";
+import { AdminCustomerEditPage } from "./AdminCustomerEditPage";
 import { AdminSimpleAccountsPage } from "./AdminSimpleAccountsPage";
 import { AdminSimpleAccountEditPage } from "./AdminSimpleAccountEditPage";
 import { simpleAccountModule } from "./simpleAccountModules";
@@ -21,8 +24,9 @@ import {
  * The Onboarding section of the Admin portal.
  *
  * The menu offers five record types and this decides what the chosen one shows.
- * Driver and Vendor have a register behind them; the rest say so plainly
- * rather than being unclickable in the menu, which leaves an admin guessing.
+ * Driver, Vendor and Customer each have a full register behind them, User is a
+ * plain account, and Vehicle says plainly that it is not built yet rather than
+ * being unclickable in the menu, which leaves an admin guessing.
  */
 export function AdminOnboardingPage() {
   const { module = "", recordId, action } = useParams();
@@ -33,9 +37,9 @@ export function AdminOnboardingPage() {
 
   const current = onboardingModule(module);
 
-  // Customers and employees are plain accounts. They share one pair of pages
-  // driven by a field config, so they are handled before the per module tree
-  // below rather than repeating it twice.
+  // Employees are plain accounts, driven by a field config rather than by a
+  // pair of hand written pages. Customers used to be one of these and have a
+  // full record of their own now, handled in the per module tree below.
   const simple = simpleAccountModule(module);
   if (simple) {
     return (
@@ -79,6 +83,18 @@ export function AdminOnboardingPage() {
         ) : (
           <AdminVendorsPage />
         )
+      ) : module === "customer" ? (
+        recordId === "new" ? (
+          <AdminCustomerEditPage />
+        ) : recordId ? (
+          action === "edit" ? (
+            <AdminCustomerEditPage customerId={recordId} />
+          ) : (
+            <AdminCustomerDetailPage customerId={recordId} />
+          )
+        ) : (
+          <AdminCustomersPage />
+        )
       ) : (
         <div className="grid min-h-[60vh] w-full place-items-center">
           <div className="flex max-w-lg flex-col items-center gap-5 text-center">
@@ -90,8 +106,9 @@ export function AdminOnboardingPage() {
                 {current?.label} onboarding is not built yet
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                This module has no records behind it so far. Driver and Vendor
-                onboarding are live and complete, and the rest follow the same shape.
+                This module has no records behind it so far. Driver, Vendor and
+                Customer onboarding are live and complete, and the rest follow
+                the same shape.
               </p>
             </div>
 

@@ -4,17 +4,16 @@ import { hashPassword } from './auth/password.service';
 import type { Prisma } from '@prisma/client';
 
 /**
- * Customers and employees, as the Admin portal governs them.
+ * Employees, as the Admin portal governs them.
  *
- * Unlike drivers and vendors these are plain accounts: no onboarding record,
- * no documents, no verification decisions. The whole record is the row itself,
- * so there is nothing here to delegate to a portal service and the five
- * operations are written out once against a shared shape.
+ * Unlike a driver, a vendor or a customer this is a plain account: no
+ * onboarding record, no documents, no verification decisions. The whole record
+ * is the row itself, so there is nothing here to delegate to a portal service
+ * and the six operations are written out once against a shared shape.
  *
- * The two differ only in which columns they carry, so the delegate and the
- * searchable columns are the parameters and everything else is shared. Two
- * near identical copies of this file would drift, and the half that drifted
- * would be the one nobody was looking at.
+ * The shape stays parameterised by kind even now only one kind uses it. It cost
+ * nothing, and the customer that used to sit here is exactly the thing that
+ * would have had to be unpicked from a hand written pair of functions.
  */
 
 export type AccountStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
@@ -43,7 +42,6 @@ const SHARED_FIELDS = {
   updatedAt: true,
 } as const;
 
-const CUSTOMER_FIELDS = { ...SHARED_FIELDS, accountNumber: true, companyName: true } as const;
 const EMPLOYEE_FIELDS = {
   ...SHARED_FIELDS,
   employeeCode: true,
@@ -59,7 +57,7 @@ const EMPLOYEE_FIELDS = {
 interface AccountKind {
   /** Used in the messages a caller sees, so it reads as the thing it is. */
   label: string;
-  actorType: 'CUSTOMER' | 'EMPLOYEE';
+  actorType: 'EMPLOYEE';
   delegate: {
     count(args: unknown): Promise<number>;
     findMany(args: unknown): Promise<unknown[]>;
@@ -72,21 +70,12 @@ interface AccountKind {
   /** Columns a search box looks through. */
   searchable: string[];
   /**
-   * A server assigned reference this kind carries, if any. The customer has one
-   * (CAN5000, counting up); the employee does not. When set, `create` allocates
-   * the next number rather than trusting anything the client sent.
+   * A server assigned reference this kind carries, if any. An employee has
+   * none. When set, `create` allocates the next number rather than trusting
+   * anything the client sent.
    */
   reference?: { column: string; prefix: string; base: number };
 }
-
-const CUSTOMER: AccountKind = {
-  label: 'Customer',
-  actorType: 'CUSTOMER',
-  delegate: prisma.customer as unknown as AccountKind['delegate'],
-  fields: CUSTOMER_FIELDS,
-  searchable: ['firstName', 'lastName', 'email', 'phone', 'companyName', 'accountNumber'],
-  reference: { column: 'accountNumber', prefix: 'CAN', base: 5000 },
-};
 
 const EMPLOYEE: AccountKind = {
   label: 'Employee',
@@ -96,7 +85,7 @@ const EMPLOYEE: AccountKind = {
   searchable: ['firstName', 'lastName', 'email', 'phone', 'employeeCode', 'department'],
 };
 
-export const KINDS = { customer: CUSTOMER, employee: EMPLOYEE } as const;
+export const KINDS = { employee: EMPLOYEE } as const;
 export type KindSlug = keyof typeof KINDS;
 
 function buildWhere(kind: AccountKind, query: ListQuery): Record<string, unknown> {
@@ -177,9 +166,10 @@ export async function create(slug: KindSlug, input: Record<string, unknown>) {
     return kind.delegate.create({ data: baseData, select: kind.fields });
   }
 
-  // Customers get the next number in the CAN series, allocated here rather than
-  // trusted from the client. A concurrent create can take the same one, so this
-  // retries on the unique index refusing it (P2002), moving to the next number.
+  // A kind that carries a reference gets the next number in its series,
+  // allocated here rather than trusted from the client. A concurrent create can
+  // take the same one, so this retries on the unique index refusing it (P2002),
+  // moving to the next number.
   const reference = kind.reference;
   const taken = await kind.delegate.count({ where: { [reference.column]: { not: null } } });
 

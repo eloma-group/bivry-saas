@@ -77,6 +77,25 @@ export function todayAustralian(): string {
   return australianDate(new Date());
 }
 
+/**
+ * Today as a `<input type="date">` understands it, yyyy-MM-dd.
+ *
+ * Read on the Australian calendar for the same reason `australianDate` is: a
+ * form filled in here means the local day, not the viewer's. Built from the
+ * formatter's own parts rather than from `toISOString`, which would report the
+ * UTC day and be a day behind for most of the working morning.
+ */
+export function todayInput(on: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(on);
+  // en-CA already formats as yyyy-MM-dd, which is exactly the input's format.
+  return parts;
+}
+
 export function expiryLabel(days: number | null): string {
   if (days === null) return "No date";
   if (days < 0) return `Expired ${Math.abs(days)}d ago`;

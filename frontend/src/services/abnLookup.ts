@@ -6,8 +6,8 @@ import type { RoleSlug } from "@/types/auth";
  *
  * The register publishes no CORS headers, so the browser cannot call it
  * directly however public the data is. The backend proxies it, and mounts the
- * same handler on both portals: a vendor filling in their own form and an
- * admin filling it in for them ask the same question.
+ * same handler on every portal that needs it: a vendor or a customer filling in
+ * their own form and an admin filling it in for them ask the same question.
  */
 export interface AbnLookupResult {
   abn: string;
@@ -27,10 +27,13 @@ export interface AbnLookupResult {
   gstFrom: string;
 }
 
+/** The portals that mount the lookup route. */
+const LOOKUP_PORTALS: ReadonlySet<string> = new Set(["admin", "vendor", "customer"]);
+
 export function lookupAbn(abn: string, role: RoleSlug | undefined): Promise<AbnLookupResult> {
-  // Only these two portals mount the route. Anything else is the development
-  // auth bypass, which stands in a vendor's shoes.
-  const portal = role === "admin" ? "admin" : "vendor";
+  // Only these portals mount the route. Anything else is the development auth
+  // bypass, which stands in a vendor's shoes.
+  const portal = role && LOOKUP_PORTALS.has(role) ? role : "vendor";
 
   return request<AbnLookupResult>({
     url: `/${portal}/abn-lookup`,

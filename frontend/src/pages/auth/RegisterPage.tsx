@@ -63,11 +63,13 @@ const ROLE_FIELDS: Record<RoleSlug, FieldDef[]> = {
 /**
  * The portals that insist on a phone number at signup.
  *
- * A vendor is a business the fleet has to be able to reach, so the number is
- * asked for here rather than left to the onboarding form. `auth.validator.ts`
- * states the same rule, so the form asks for exactly what the API insists on.
+ * A vendor and a customer are both businesses the fleet has to be able to
+ * reach, and both onboarding forms seed the number from the account rather than
+ * asking for it a second time, so it is asked for here.
+ * `auth.validator.ts` states the same rule, so the form asks for exactly what
+ * the API insists on.
  */
-const PHONE_REQUIRED: ReadonlySet<RoleSlug> = new Set<RoleSlug>(["vendor"]);
+const PHONE_REQUIRED: ReadonlySet<RoleSlug> = new Set<RoleSlug>(["vendor", "customer"]);
 
 interface RegisterPageProps {
   role: RoleSlug;

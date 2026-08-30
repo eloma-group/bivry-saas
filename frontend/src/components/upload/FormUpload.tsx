@@ -9,6 +9,9 @@ interface FormUploadProps {
   accept?: string;
   allowCamera?: boolean;
   cameraTitle?: string;
+  /** Offer a crop before an image is committed. See FileUpload. */
+  allowCrop?: boolean;
+  cropTitle?: string;
   rules?: FieldRules;
   className?: string;
   /** Marks the box with a * and refuses an empty submit. */
@@ -24,6 +27,8 @@ export function FormUpload({
   accept,
   allowCamera,
   cameraTitle,
+  allowCrop,
+  cropTitle,
   rules,
   className,
   required,
@@ -48,6 +53,8 @@ export function FormUpload({
           accept={accept}
           allowCamera={allowCamera}
           cameraTitle={cameraTitle}
+          allowCrop={allowCrop}
+          cropTitle={cropTitle}
           error={error}
           required={required}
           compact={compact}

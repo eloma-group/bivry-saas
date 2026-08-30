@@ -5,6 +5,7 @@ import { hashPassword } from './auth/password.service';
 import * as storage from './storage.service';
 import * as driverService from './driver.service';
 import * as vendorService from './vendor.service';
+import * as customerService from './customer.service';
 import type { OnboardingStatus, Prisma, VendorInsuranceType } from '@prisma/client';
 
 /**
@@ -80,6 +81,35 @@ const VENDOR_LIST_FIELDS = {
   updatedAt: true,
 } satisfies Prisma.VendorSelect;
 
+const CUSTOMER_LIST_FIELDS = {
+  id: true,
+  email: true,
+  phone: true,
+  cid: true,
+  accountNumber: true,
+  firstName: true,
+  lastName: true,
+  companyName: true,
+  designation: true,
+  tradingNames: true,
+  legalName: true,
+  abn: true,
+  acn: true,
+  abnStatus: true,
+  entityType: true,
+  gst: true,
+  websiteAddress: true,
+  creationDate: true,
+  status: true,
+  onboardingStatus: true,
+  onboardingStep: true,
+  submittedAt: true,
+  approvedAt: true,
+  rejectionReason: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.CustomerSelect;
+
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
@@ -113,6 +143,11 @@ export async function getDashboard() {
     vendorDocuments,
     recentVendors,
     vendorsPendingReview,
+    customers,
+    customersByStatus,
+    customerDocuments,
+    recentCustomers,
+    customersPendingReview,
   ] = await Promise.all([
     prisma.driver.count({ where: { deletedAt: null } }),
     prisma.driver.groupBy({
@@ -154,6 +189,26 @@ export async function getDashboard() {
     prisma.vendor.count({
       where: { deletedAt: null, onboardingStatus: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
     }),
+    prisma.customer.count({ where: { deletedAt: null } }),
+    prisma.customer.groupBy({
+      by: ['onboardingStatus'],
+      where: { deletedAt: null },
+      _count: { _all: true },
+    }),
+    prisma.customerDocument.aggregate({
+      where: { deletedAt: null },
+      _count: { _all: true },
+      _sum: { sizeInBytes: true },
+    }),
+    prisma.customer.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 6,
+      select: CUSTOMER_LIST_FIELDS,
+    }),
+    prisma.customer.count({
+      where: { deletedAt: null, onboardingStatus: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
+    }),
   ]);
 
   return {
@@ -167,19 +222,29 @@ export async function getDashboard() {
       pendingReview: vendorsPendingReview,
       ...statusCounts(vendorsByStatus),
     },
+    customers: {
+      total: customers,
+      pendingReview: customersPendingReview,
+      ...statusCounts(customersByStatus),
+    },
     documents: {
-      // Both stores together: the dashboard tile counts every file held.
-      total: documents._count._all + vendorDocuments._count._all,
-      totalBytes: (documents._sum.sizeInBytes ?? 0) + (vendorDocuments._sum.sizeInBytes ?? 0),
+      // Every store together: the dashboard tile counts every file held.
+      total:
+        documents._count._all + vendorDocuments._count._all + customerDocuments._count._all,
+      totalBytes:
+        (documents._sum.sizeInBytes ?? 0) +
+        (vendorDocuments._sum.sizeInBytes ?? 0) +
+        (customerDocuments._sum.sizeInBytes ?? 0),
     },
     recentDrivers: recent,
     recentVendors,
+    recentCustomers,
     /** The modules the Onboarding menu offers. Only the built ones are usable. */
     modules: [
       { slug: 'driver', label: 'Driver', ready: true, records: drivers },
       { slug: 'vendor', label: 'Vendor', ready: true, records: vendors },
+      { slug: 'customer', label: 'Customer', ready: true, records: customers },
       { slug: 'vehicle', label: 'Vehicle', ready: false, records: 0 },
-      { slug: 'customer', label: 'Customer', ready: false, records: 0 },
       { slug: 'user', label: 'User', ready: false, records: 0 },
     ],
   };
@@ -1100,6 +1165,412 @@ export async function createVendorDocumentLink(vendorId: string, documentId: str
 export async function openVendorDocument(vendorId: string, documentId: string) {
   const document = await getVendorDocument(vendorId, documentId);
   const file = await storage.openFile(document.storageKey, document.mimeType, 'vendor');
+  return { document, file };
+}
+
+// ---------------------------------------------------------------------------
+// Customers - read
+// ---------------------------------------------------------------------------
+
+export interface CustomerListQuery {
+  search?: string;
+  onboardingStatus?: OnboardingStatus;
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt' | 'submittedAt' | 'companyName' | 'firstName' | 'email' | 'onboardingStatus';
+  sortDir: 'asc' | 'desc';
+}
+
+export async function listCustomers(query: CustomerListQuery) {
+  const where: Prisma.CustomerWhereInput = { deletedAt: null };
+
+  if (query.onboardingStatus) where.onboardingStatus = query.onboardingStatus;
+
+  if (query.search) {
+    const contains = { contains: query.search, mode: 'insensitive' } as const;
+    where.OR = [
+      { firstName: contains },
+      { lastName: contains },
+      { companyName: contains },
+      { legalName: contains },
+      // A scalar list has no substring filter, so a trading name matches only
+      // in full. Company and legal name still answer a partial search.
+      { tradingNames: { has: query.search } },
+      { cid: contains },
+      { accountNumber: contains },
+      { abn: contains },
+      { email: contains },
+      { phone: contains },
+      // The account phone is often empty, so a search for a customer's number
+      // has to look at the contact numbers they actually filled in as well.
+      { contacts: { some: { contactNumber: contains } } },
+    ];
+  }
+
+  const [total, rows] = await Promise.all([
+    prisma.customer.count({ where }),
+    prisma.customer.findMany({
+      where,
+      orderBy: { [query.sortBy]: query.sortDir },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      select: {
+        ...CUSTOMER_LIST_FIELDS,
+        // `phone` is only set at signup; the onboarding form asks each
+        // department for its own number, so those come too and the admin views
+        // fall back to them.
+        contacts: { select: { type: true, contactNumber: true } },
+        billing: { select: { term: true, billingType: true } },
+        addresses: { select: { type: true, suburb: true, state: true, country: true } },
+        _count: { select: { documents: { where: { deletedAt: null } } } },
+      },
+    }),
+  ]);
+
+  return {
+    rows,
+    page: query.page,
+    pageSize: query.pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+  };
+}
+
+/** One customer in full, including every onboarding section and document. */
+export async function getCustomer(customerId: string) {
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
+    include: {
+      contacts: true,
+      directors: { orderBy: { position: 'asc' } },
+      addresses: true,
+      billing: true,
+      documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
+    },
+  });
+
+  if (!customer) throw ApiError.notFound('Customer not found');
+
+  const { passwordHash: _passwordHash, ...safeCustomer } = customer;
+  return safeCustomer;
+}
+
+// ---------------------------------------------------------------------------
+// Customers - write
+// ---------------------------------------------------------------------------
+
+export interface CreateCustomerInput {
+  email: string;
+  password: string;
+  phone: string | null;
+  firstName: string;
+  lastName: string | null;
+  companyName: string | null;
+  designation: string | null;
+  tradingNames: string[];
+  legalName: string | null;
+  abn: string | null;
+  acn: string | null;
+  abnStatus: string | null;
+  entityType: string | null;
+  gst: string | null;
+  websiteAddress: string | null;
+  creationDate: Date | null;
+  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+}
+
+/**
+ * Creates the account, and hands it its CID in the same breath.
+ *
+ * The reference is allocated here rather than trusted from the client, and a
+ * concurrent create taking the same number is refused by the unique index
+ * (P2002), which simply moves this on to the next one. The CAN account number
+ * the booking form reads is allocated on the first onboarding load, the same
+ * way it is for a customer who signed themselves up.
+ */
+export async function createCustomer(input: CreateCustomerInput) {
+  const email = input.email.trim().toLowerCase();
+
+  const existing = await prisma.customer.findUnique({ where: { email } });
+  if (existing) throw ApiError.conflict('A customer account with this email already exists.');
+
+  const data = {
+    email,
+    passwordHash: await hashPassword(input.password),
+    phone: input.phone,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    companyName: input.companyName,
+    designation: input.designation,
+    tradingNames: input.tradingNames,
+    legalName: input.legalName,
+    abn: input.abn,
+    acn: input.acn,
+    abnStatus: input.abnStatus,
+    entityType: input.entityType,
+    gst: input.gst,
+    websiteAddress: input.websiteAddress,
+    creationDate: input.creationDate,
+    // An admin created account is usable straight away; the customer still has
+    // to complete onboarding before it can be approved.
+    status: input.status ?? ('ACTIVE' as const),
+    emailVerifiedAt: new Date(),
+  };
+
+  const taken = await prisma.customer.count({ where: { cid: { not: null } } });
+
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    try {
+      return await prisma.customer.create({
+        data: { ...data, cid: customerService.nextCidCandidate(taken, attempt) },
+        select: CUSTOMER_LIST_FIELDS,
+      });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code !== 'P2002') throw error;
+      // Someone took this number between the count and the insert; try the next.
+    }
+  }
+
+  throw ApiError.internal('Could not assign a customer ID');
+}
+
+export type UpdateCustomerInput = Partial<Omit<CreateCustomerInput, 'password'>>;
+
+/**
+ * Updates a customer's account details.
+ *
+ * The email is editable from here, unlike in the customer's own profile, for
+ * the same reason it is on a driver or a vendor: correcting an address somebody
+ * mistyped at signup is a fix only an admin can make.
+ */
+export async function updateCustomer(customerId: string, input: UpdateCustomerInput) {
+  await assertCustomerExists(customerId);
+
+  const { email, ...rest } = input;
+  const data: Prisma.CustomerUpdateInput = { ...rest };
+
+  if (email !== undefined) {
+    const normalised = email.trim().toLowerCase();
+    const clash = await prisma.customer.findFirst({
+      where: { email: normalised, id: { not: customerId } },
+      select: { id: true },
+    });
+    if (clash) throw ApiError.conflict('Another customer account already uses this email.');
+    data.email = normalised;
+  }
+
+  return prisma.customer.update({
+    where: { id: customerId },
+    data,
+    select: CUSTOMER_LIST_FIELDS,
+  });
+}
+
+/** Replaces a customer's password. See setDriverPassword: same rules. */
+export async function setCustomerPassword(customerId: string, password: string) {
+  await assertCustomerExists(customerId);
+
+  const [customer] = await prisma.$transaction([
+    prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        passwordHash: await hashPassword(password),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+      select: { id: true, email: true },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { actorType: 'CUSTOMER', actorId: customerId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { actorType: 'CUSTOMER', actorId: customerId, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+
+  return customer;
+}
+
+// ---------------------------------------------------------------------------
+// Customers - the onboarding record
+//
+// The same arrangement as the driver and vendor equivalents above: the customer
+// portal already knows how to write every one of these sections, so these
+// delegate to it and add the admin 404.
+// ---------------------------------------------------------------------------
+
+export async function updateCustomerCompany(
+  customerId: string,
+  input: Parameters<typeof customerService.updateCompany>[1],
+) {
+  await assertCustomerExists(customerId);
+  return customerService.updateCompany(customerId, input);
+}
+
+export async function updateCustomerContacts(
+  customerId: string,
+  input: Parameters<typeof customerService.updateContacts>[1],
+) {
+  await assertCustomerExists(customerId);
+  return customerService.updateContacts(customerId, input);
+}
+
+export async function updateCustomerDirectors(
+  customerId: string,
+  input: Parameters<typeof customerService.updateDirectors>[1],
+) {
+  await assertCustomerExists(customerId);
+  return customerService.updateDirectors(customerId, input);
+}
+
+export async function updateCustomerAddresses(
+  customerId: string,
+  input: Parameters<typeof customerService.updateAddresses>[1],
+) {
+  await assertCustomerExists(customerId);
+  return customerService.updateAddresses(customerId, input);
+}
+
+export async function updateCustomerBilling(
+  customerId: string,
+  input: Parameters<typeof customerService.updateBilling>[1],
+) {
+  await assertCustomerExists(customerId);
+  return customerService.updateBilling(customerId, input);
+}
+
+export async function addCustomerDocument(
+  customerId: string,
+  input: Parameters<typeof customerService.addDocument>[1],
+) {
+  await assertCustomerExists(customerId);
+  return customerService.addDocument(customerId, input);
+}
+
+export async function updateCustomerDocument(
+  customerId: string,
+  documentId: string,
+  data: { category: string | null; issueDate: Date | null; expiryDate: Date | null },
+) {
+  await assertCustomerExists(customerId);
+  return customerService.updateDocument(customerId, documentId, data);
+}
+
+export async function deleteCustomerDocument(customerId: string, documentId: string) {
+  await assertCustomerExists(customerId);
+  return customerService.deleteDocument(customerId, documentId);
+}
+
+/**
+ * Permanent delete, the same contract as a driver or a vendor. The row goes,
+ * and with it every customer_* record hanging off it, every session, every
+ * reset link and every file in blob storage. Nothing is left behind a flag, so
+ * the email and phone are free again.
+ */
+export async function deleteCustomer(customerId: string) {
+  await assertCustomerExists(customerId);
+
+  // Read the blob keys while the rows still exist. Soft deleted documents are
+  // included too: their blob may already be gone, and deleting a missing blob
+  // is a no-op.
+  const customer = await prisma.customer.findUniqueOrThrow({
+    where: { id: customerId },
+    select: {
+      id: true,
+      email: true,
+      documents: { select: { id: true, storageKey: true } },
+    },
+  });
+
+  await prisma.$transaction([
+    // actorType/actorId is not a foreign key, so these do not cascade.
+    prisma.refreshToken.deleteMany({ where: { actorType: 'CUSTOMER', actorId: customerId } }),
+    prisma.passwordResetToken.deleteMany({
+      where: { actorType: 'CUSTOMER', actorId: customerId },
+    }),
+    // Every customer_* child row cascades from this one.
+    prisma.customer.delete({ where: { id: customerId } }),
+  ]);
+
+  await removeStoredFiles(customer.documents, 'customer');
+
+  return { id: customer.id, email: customer.email };
+}
+
+/**
+ * Verification decision on a customer's application. Like the vendor flow, and
+ * unlike the driver one, this does not insist the application was submitted
+ * first: an admin who has the paperwork in front of them can sign it off.
+ */
+export async function reviewCustomer(
+  customerId: string,
+  input: { decision: 'APPROVED' | 'REJECTED' | 'UNDER_REVIEW'; reason: string | null },
+) {
+  await assertCustomerExists(customerId);
+
+  const now = new Date();
+
+  const data: Prisma.CustomerUpdateInput =
+    input.decision === 'APPROVED'
+      ? { onboardingStatus: 'APPROVED', approvedAt: now, rejectionReason: null, status: 'ACTIVE' }
+      : input.decision === 'REJECTED'
+        ? { onboardingStatus: 'REJECTED', approvedAt: null, rejectionReason: input.reason }
+        : { onboardingStatus: 'UNDER_REVIEW', approvedAt: null };
+
+  return prisma.customer.update({
+    where: { id: customerId },
+    data,
+    select: CUSTOMER_LIST_FIELDS,
+  });
+}
+
+async function assertCustomerExists(customerId: string) {
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
+    select: { id: true, onboardingStatus: true },
+  });
+  if (!customer) throw ApiError.notFound('Customer not found');
+  return customer;
+}
+
+// ---------------------------------------------------------------------------
+// Customer documents, read only from here
+// ---------------------------------------------------------------------------
+
+async function getCustomerDocument(customerId: string, documentId: string) {
+  const document = await prisma.customerDocument.findFirst({
+    where: { id: documentId, customerId, deletedAt: null },
+  });
+  if (!document) throw ApiError.notFound('Document not found');
+  return document;
+}
+
+/** Signed link so an admin can open a customer's file straight from storage. */
+export async function createCustomerDocumentLink(customerId: string, documentId: string) {
+  const document = await getCustomerDocument(customerId, documentId);
+  const link = await storage.createSignedLink({
+    storageKey: document.storageKey,
+    fileName: document.fileName,
+    fallbackPath: `/api/admin/customers/${customerId}/documents/${document.id}/file`,
+    // A customer's documents stay in the customer container whoever reads them.
+    area: 'customer',
+  });
+
+  return {
+    documentId: document.id,
+    fileName: document.fileName,
+    mimeType: document.mimeType,
+    url: link.url,
+    expiresAt: link.expiresAt,
+  };
+}
+
+export async function openCustomerDocument(customerId: string, documentId: string) {
+  const document = await getCustomerDocument(customerId, documentId);
+  const file = await storage.openFile(document.storageKey, document.mimeType, 'customer');
   return { document, file };
 }
 
