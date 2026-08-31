@@ -902,6 +902,7 @@ Audit trail of every login attempt, used for lockout and security review.
 | `account_status` | text | NULL |  |  |
 | `agreement_type` | text | NULL |  |  |
 | `reference` | text | NULL |  |  |
+| `invoice_term` | integer | NULL |  | How many days the invoice runs for, as the admin types it. A count of\ndays, so it is a number rather than a term worded in prose. |
 | `cargo_type` | text | NULL |  |  |
 | `vehicle_type` | text | NULL |  |  |
 | `trailer_category` | text | NULL |  |  |

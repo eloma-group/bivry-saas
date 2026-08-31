@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adminService, type AdminVendorRow } from "@/services/adminService";
+import { ACCOUNT_STATUS } from "@/constants/adminStatus";
 import { ApiRequestError } from "@/services/api";
 
 /** One labelled read-only line in the fetched-details panel. */
@@ -28,10 +29,11 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
 }
 
 /**
- * Section 6 - which vendor carries the job, and at what price.
+ * Section 7 - which vendor carries the job, and at what price.
  *
- * The dropdown lists every existing vendor; picking one pulls that vendor's own
- * details straight in and shows them read-only, so there is nothing to retype.
+ * The dropdown lists every existing vendor; picking one shows who they are and
+ * whether their account is live, read-only, so the choice can be checked without
+ * leaving the booking.
  * The price grid below is a second, independent copy of the Our Price fields -
  * same arithmetic, its own values (base "vendorPrice"), never linked to ours.
  */
@@ -82,7 +84,7 @@ export function VendorAllotmentSection() {
 
   return (
     <SectionCard
-      index={6}
+      index={7}
       id="step-vendor"
       icon={Handshake}
       title="Vendor Allotment & Price"
@@ -132,25 +134,15 @@ export function VendorAllotmentSection() {
         )}
       </div>
 
-      {/* The chosen vendor's own details, fetched and shown read-only. */}
+      {/* Enough of the chosen vendor to know it is the right one and that it can
+          take the job. The rest of their record is a click away on the vendor's
+          own page, and repeating it here only buried these three. */}
       {selected && (
         <div className="mb-6 rounded-2xl border border-border/60 bg-secondary/30 p-5">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <Detail label="Company Name" value={selected.companyName} />
             <Detail label="Vendor ID" value={selected.vendorCode} />
-            <Detail label="Legal Name" value={selected.legalName} />
-            <Detail label="ABN" value={selected.abn} />
-            <Detail label="ACN" value={selected.acn} />
-            <Detail label="Entity Type" value={selected.entityType} />
-            <Detail label="GST" value={selected.gst} />
-            <Detail label="Contact Person" value={selected.contactPerson} />
-            <Detail label="Email" value={selected.email} />
-            <Detail label="Phone" value={selected.phone} />
-            <Detail label="Website" value={selected.websiteAddress} />
-            <Detail
-              label="Trading Names"
-              value={selected.tradingNames.length ? selected.tradingNames.join(", ") : null}
-            />
+            <Detail label="Status" value={ACCOUNT_STATUS[selected.status]?.label} />
           </div>
         </div>
       )}

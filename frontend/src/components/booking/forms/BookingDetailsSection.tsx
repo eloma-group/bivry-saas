@@ -8,10 +8,8 @@ import { CustomerField } from "./CustomerField";
 import {
   ACCOUNT_STATUSES,
   AGREEMENT_TYPES,
+  INVOICE_TERM_MAX,
   REFERENCES,
-  CARGO_TYPES,
-  VEHICLE_TYPES,
-  TRAILER_CATEGORIES,
 } from "@/constants/bookingOptions";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -33,7 +31,7 @@ function australianFinancialYear(date: string | undefined): string {
   return `${two(startYear)}-${two(endYear)}`;
 }
 
-/** Section 1 - the booking's own particulars: who, what and under which terms. */
+/** Section 1 - the booking's own particulars: who it is for and its terms. */
 export function BookingDetailsSection() {
   const { control, setValue } = useFormContext();
   const receivedDate = useWatch({ control, name: "bookingReceivedDate" }) as string | undefined;
@@ -49,7 +47,7 @@ export function BookingDetailsSection() {
       id="step-booking"
       icon={ClipboardList}
       title="Booking Details"
-      description="Who the job is for, what is moving, and the terms it runs under."
+      description="Who the job is for, and the terms it runs under. What is moving is the section below."
     >
       <div className={GRID}>
         <DateField
@@ -98,23 +96,15 @@ export function BookingDetailsSection() {
           options={REFERENCES}
           placeholder="Select reference"
         />
-        <SelectField
-          name="cargoType"
-          label="Cargo Type"
-          options={CARGO_TYPES}
-          placeholder="Select cargo"
-        />
-        <SelectField
-          name="vehicleType"
-          label="Vehicle Type"
-          options={VEHICLE_TYPES}
-          placeholder="Select vehicle"
-        />
-        <SelectField
-          name="trailerCategory"
-          label="Trailer Category"
-          options={TRAILER_CATEGORIES}
-          placeholder="Select trailer"
+        {/* A count of days, so the box takes digits and nothing else: a letter
+            or a symbol never lands in it, rather than being refused on save. */}
+        <TextField
+          name="invoiceTerm"
+          label="Invoice Term"
+          placeholder="15"
+          digitsOnly
+          maxLength={INVOICE_TERM_MAX}
+          hint="How many days the invoice runs for. Numbers only."
         />
       </div>
     </SectionCard>

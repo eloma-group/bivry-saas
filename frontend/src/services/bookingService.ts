@@ -46,6 +46,8 @@ export interface CreateBookingPayload {
   accountStatus: string;
   agreementType: string;
   reference: string;
+  /** How many days the invoice runs for, as typed. Digits only, or empty. */
+  invoiceTerm: string;
   cargoType: string;
   vehicleType: string;
   trailerCategory: string;
@@ -113,6 +115,7 @@ export function buildBookingPayload(values: Record<string, unknown>): CreateBook
     accountStatus: str(values.accountStatus),
     agreementType: str(values.agreementType),
     reference: str(values.reference),
+    invoiceTerm: str(values.invoiceTerm),
     cargoType: str(values.cargoType),
     vehicleType: str(values.vehicleType),
     trailerCategory: str(values.trailerCategory),

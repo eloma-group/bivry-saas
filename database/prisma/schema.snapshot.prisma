@@ -1004,6 +1004,9 @@ model Booking {
   accountStatus   String? @map("account_status")
   agreementType   String? @map("agreement_type")
   reference       String?
+  /// How many days the invoice runs for, as the admin types it. A count of
+  /// days, so it is a number rather than a term worded in prose.
+  invoiceTerm     Int?    @map("invoice_term")
   cargoType       String? @map("cargo_type")
   vehicleType     String? @map("vehicle_type")
   trailerCategory String? @map("trailer_category")

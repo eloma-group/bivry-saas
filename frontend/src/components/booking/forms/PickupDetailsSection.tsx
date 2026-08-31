@@ -32,7 +32,7 @@ function emptyPickup() {
 }
 
 /**
- * Section 2 - one or more pickups.
+ * Section 3 - one or more pickups.
  *
  * Every pickup asks for the same handful of details, so they are a field array:
  * the form opens with one, and "Add More" appends another exactly like it. The
@@ -45,7 +45,7 @@ export function PickupDetailsSection() {
 
   return (
     <SectionCard
-      index={2}
+      index={3}
       id="step-pickup"
       icon={PackageCheck}
       title="Pickup Details"

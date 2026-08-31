@@ -32,6 +32,25 @@ const amount = z
     return Number.isFinite(parsed) ? parsed : null;
   });
 
+/**
+ * A whole number of days. Empty means null; anything that is not digits is
+ * refused rather than quietly rounded or dropped, because the form only lets
+ * digits be typed and a value that got past it did not come from the form.
+ */
+const days = z
+  .union([z.string(), z.number(), z.null()])
+  .optional()
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value === '') return null;
+    const trimmed = String(value).trim();
+    if (trimmed === '') return null;
+    if (!/^\d+$/.test(trimmed)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a number of days' });
+      return z.NEVER;
+    }
+    return Number(trimmed);
+  });
+
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** An id column: a uuid, or null when nothing was chosen. */
@@ -88,6 +107,7 @@ export const createBookingSchema = z.object({
   accountStatus: text,
   agreementType: text,
   reference: text,
+  invoiceTerm: days,
   cargoType: text,
   vehicleType: text,
   trailerCategory: text,

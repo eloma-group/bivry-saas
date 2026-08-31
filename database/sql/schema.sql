@@ -718,6 +718,7 @@ CREATE TABLE "bookings" (
     "account_status" TEXT,
     "agreement_type" TEXT,
     "reference" TEXT,
+    "invoice_term" INTEGER,
     "cargo_type" TEXT,
     "vehicle_type" TEXT,
     "trailer_category" TEXT,

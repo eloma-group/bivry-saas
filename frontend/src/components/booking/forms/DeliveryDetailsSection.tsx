@@ -31,7 +31,7 @@ function emptyDelivery() {
 }
 
 /**
- * Section 3 - one or more deliveries.
+ * Section 4 - one or more deliveries.
  *
  * The same shape as the pickups above it: a field array that opens with one and
  * grows by "Add More", where "Pick-Up" reads as "Delivery" throughout.
@@ -42,7 +42,7 @@ export function DeliveryDetailsSection() {
 
   return (
     <SectionCard
-      index={3}
+      index={4}
       id="step-delivery"
       icon={Truck}
       title="Delivery Details"

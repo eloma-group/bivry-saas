@@ -11,7 +11,7 @@ interface Stop {
 }
 
 /**
- * Section 4 - the lanes, worked out from the pickups and deliveries.
+ * Section 5 - the lanes, worked out from the pickups and deliveries.
  *
  * Each pickup pairs with the delivery at the same position to make one lane:
  * its trailer, and a "Pick-Up City - Delivery City" line. Nothing here is typed -
@@ -49,7 +49,7 @@ export function LaneSection() {
 
   return (
     <SectionCard
-      index={4}
+      index={5}
       id="step-lane"
       icon={Route}
       title="Lane"

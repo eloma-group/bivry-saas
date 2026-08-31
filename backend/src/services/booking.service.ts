@@ -155,6 +155,7 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
     accountStatus: input.accountStatus,
     agreementType: input.agreementType,
     reference: input.reference,
+    invoiceTerm: input.invoiceTerm,
     cargoType: input.cargoType,
     vehicleType: input.vehicleType,
     trailerCategory: input.trailerCategory,

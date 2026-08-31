@@ -11,6 +11,14 @@ export const ACCOUNT_STATUSES = [
   "Dormant",
 ] as const;
 
+/**
+ * The longest invoice term that can be typed, in digits.
+ *
+ * Three is enough for any term anyone bills on and stops a mistyped date being
+ * entered as a number of days.
+ */
+export const INVOICE_TERM_MAX = 3;
+
 export const AGREEMENT_TYPES = [
   "Contract",
   "Permanent",

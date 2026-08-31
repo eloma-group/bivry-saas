@@ -18,12 +18,14 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { BookingDetailsSection } from "@/components/booking/forms/BookingDetailsSection";
+import { VehicleDetailsSection } from "@/components/booking/forms/VehicleDetailsSection";
 import { PickupDetailsSection } from "@/components/booking/forms/PickupDetailsSection";
 import { DeliveryDetailsSection } from "@/components/booking/forms/DeliveryDetailsSection";
 import { LaneSection } from "@/components/booking/forms/LaneSection";
 import { OurPriceSection } from "@/components/booking/forms/OurPriceSection";
 import { VendorAllotmentSection } from "@/components/booking/forms/VendorAllotmentSection";
 import { bookingService, buildBookingPayload } from "@/services/bookingService";
+import { ACCOUNT_STATUSES } from "@/constants/bookingOptions";
 import { ApiRequestError } from "@/services/api";
 import { Stepper } from "@/components/driver/Stepper";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,7 @@ type BookingFormValues = Record<string, unknown>;
 
 const SECTIONS = [
   { id: "booking", label: "Booking Details", icon: ClipboardList },
+  { id: "vehicle", label: "Vehicle Details", icon: Truck },
   { id: "pickup", label: "Pickup Details", icon: PackageCheck },
   { id: "delivery", label: "Delivery Details", icon: Truck },
   { id: "lane", label: "Lane", icon: Route },
@@ -67,7 +70,7 @@ function AdminCreateBookingBody({
 }) {
   const busy = submitting || savingDraft;
 
-  // No completion logic yet - the stepper renders the five sections so the page
+  // No completion logic yet - the stepper renders every section so the page
   // reads like the vendor wizard. Progress fills in once the fields land.
   const steps: StepProgress[] = SECTIONS.map((section) => ({
     id: section.id,
@@ -88,8 +91,9 @@ function AdminCreateBookingBody({
             Create Booking
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Fill each section to raise a new booking - what is moving, where it is
-            picked up and delivered, our price, and the vendor carrying it.
+            Fill each section to raise a new booking - what is moving, the vehicle
+            it moves on, where it is picked up and delivered, our price, and the
+            vendor carrying it.
           </p>
         </div>
 
@@ -113,6 +117,7 @@ function AdminCreateBookingBody({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="space-y-6">
           <BookingDetailsSection />
+          <VehicleDetailsSection />
           <PickupDetailsSection />
           <DeliveryDetailsSection />
           <LaneSection />
@@ -224,8 +229,13 @@ function BookingSummaryCard({
 export function AdminCreateBookingPage() {
   const navigate = useNavigate();
   const methods = useForm<BookingFormValues>({
-    // Open with a single pickup so the section has one row from the start.
     defaultValues: {
+      // Nearly every booking is raised against a live account, so the status
+      // opens on Active rather than empty. It stays a dropdown: an admin
+      // raising one against a suspended or dormant account changes it here.
+      accountStatus: ACCOUNT_STATUSES[0],
+
+      // Open with a single pickup so the section has one row from the start.
       pickups: [
         {
           id: crypto.randomUUID(),
