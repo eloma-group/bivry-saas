@@ -82,19 +82,19 @@ export const BILLING_TYPE_FROM_API: Record<string, string> = {
 };
 
 /**
- * The documents the form lists, one row each.
+ * The documents the form lists a row for by name.
  *
- * Each is stored verbatim as the `category` of an ADDITIONAL document, which is
- * why editing a line here is not free - see the note on PAYMENT_TERMS above. It
- * is also why the list needs no database change to grow: these are text, not
- * enum values.
+ * Empty on purpose: the contract is the one document with a slot of its own,
+ * and everything else a customer holds is added with the "Add Document" button
+ * and named there. A document already stored under a name this list does not
+ * carry is not lost - it comes back as one of the customer's own added rows.
  *
- * Only the service agreement is listed. Anything else a customer holds is added
- * with the "Add Document" button and named there, which is also where a
- * document stored under a name this list no longer carries comes back: it reads
- * as one of the customer's own added rows rather than disappearing.
+ * Naming one here lists it again, with no database change needed: each is
+ * stored verbatim as the `category` of an ADDITIONAL document, so these are
+ * text rather than enum values. Taking a name back out is not free for the same
+ * reason - see the note on PAYMENT_TERMS above.
  */
-export const CUSTOMER_DOCUMENT_TYPES = ["Service Agreement"];
+export const CUSTOMER_DOCUMENT_TYPES: string[] = [];
 
 /** Horizontal stepper definition - completion drives the progress percentage. */
 export const CUSTOMER_STEPS: CustomerStepDef[] = [

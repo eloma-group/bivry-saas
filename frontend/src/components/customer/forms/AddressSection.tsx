@@ -24,6 +24,16 @@ import type { CustomerFormValues } from "@/types/customer";
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 /**
+ * Whether the worldwide address search is offered on this form.
+ *
+ * Off for now, deliberately: the search is not ready to be put in front of a
+ * customer yet. The fix from the browser stays, and every field below is typed
+ * anyway, so nothing here depends on it. Flip this back to true to bring the
+ * search box back on all three address blocks at once.
+ */
+const SHOW_ADDRESS_SEARCH = false;
+
+/**
  * Where one address lives in the form.
  *
  * The two addresses the company is registered at sit at a name of their own; a
@@ -117,9 +127,8 @@ function applyFoundAddress(
 /**
  * The five fields every address here asks for.
  *
- * Street 1 is typed, not searched. The search sits once above the block, in the
- * tools, so having the street line suggest as well was the same lookup offered
- * twice over. Whatever is picked up there still lands in this field.
+ * All of them are typed. Whatever the tools above pick up still lands in these
+ * fields, and every one stays editable afterwards.
  */
 function AddressFields({
   path,
@@ -170,14 +179,16 @@ function AddressFields({
 
 /**
  * The location tools over one address block: a fix from the browser, and a
- * worldwide search. These are the only lookup an address has; the fields below
- * are all typed, and everything found here is written into them.
+ * worldwide search where SHOW_ADDRESS_SEARCH offers it. These are the only
+ * lookup an address has; the fields below are all typed, and everything found
+ * here is written into them.
  */
 function AddressTools({ path, label }: { path: AddressPath; label: string }) {
   const { setValue, trigger } = useFormContext<CustomerFormValues>();
   return (
     <LocationPicker
       label={label}
+      showSearch={SHOW_ADDRESS_SEARCH}
       onPick={(found) => applyFoundAddress(path, found, setValue, trigger)}
       className="mb-4"
     />

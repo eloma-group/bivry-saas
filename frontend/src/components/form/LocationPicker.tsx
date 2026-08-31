@@ -23,6 +23,12 @@ interface LocationPickerProps {
   onPick: (address: AddressBlock) => void;
   /** Names the address being filled, for the screen reader on each control. */
   label: string;
+  /**
+   * Whether the worldwide search box is offered. Off leaves the fix from the
+   * browser as the only lookup, for a form that is not ready to offer the
+   * search yet.
+   */
+  showSearch?: boolean;
   className?: string;
 }
 
@@ -39,7 +45,12 @@ interface LocationPickerProps {
  * fix lands within a few metres of one, and neither knows which floor anybody
  * is on.
  */
-export function LocationPicker({ onPick, label, className }: LocationPickerProps) {
+export function LocationPicker({
+  onPick,
+  label,
+  showSearch = true,
+  className,
+}: LocationPickerProps) {
   const listId = useId();
   const [locating, setLocating] = useState(false);
   const [query, setQuery] = useState("");
@@ -128,6 +139,7 @@ export function LocationPicker({ onPick, label, className }: LocationPickerProps
 
   return (
     <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-center", className)}>
+      {showSearch && (
       <div ref={boxRef} className="relative min-w-0 flex-1">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -196,6 +208,7 @@ export function LocationPicker({ onPick, label, className }: LocationPickerProps
           </ul>
         )}
       </div>
+      )}
 
       <Button
         type="button"

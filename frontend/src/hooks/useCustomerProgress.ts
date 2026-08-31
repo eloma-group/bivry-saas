@@ -4,7 +4,6 @@ import type { StepProgress, DriverProgress } from "./useDriverProgress";
 import type {
   CustomerAddressBlock,
   CustomerContactBlock,
-  CustomerDocRow,
   CustomerFormValues,
 } from "@/types/customer";
 
@@ -19,6 +18,17 @@ import type {
 type ContactKey = (typeof CONTACT_BLOCKS)[number]["key"];
 
 const CONTACT_KEYS = new Set<ContactKey>(CONTACT_BLOCKS.map((block) => block.key));
+
+/**
+ * Requirements that count as answered by being asked at all.
+ *
+ * The Documents section is optional from top to bottom: the contract has a slot
+ * and everything else is added by the customer, so a customer with no paperwork
+ * to hand has answered it in full by holding no documents. Judging it on
+ * whether it holds rows would leave the step short of complete for good, and
+ * with it the Review step behind it.
+ */
+const ALWAYS_ANSWERED = new Set<keyof CustomerFormValues>(["documents"]);
 
 /**
  * Whether an address has been answered.
@@ -48,14 +58,6 @@ function isFilled(value: unknown): boolean {
     const named = value as Array<{ name?: unknown }>;
     if (typeof named[0] === "object" && named[0] !== null && "name" in named[0]) {
       return named.some((row) => typeof row.name === "string" && row.name.trim() !== "");
-    }
-
-    // The documents table is optional: every document is listed for a customer
-    // to attach where they have it, and none is required, so the step never
-    // holds completion back. It counts as answered as soon as it is present.
-    const rows = value as CustomerDocRow[];
-    if (typeof rows[0] === "object" && rows[0] !== null && "docType" in rows[0]) {
-      return true;
     }
 
     return true;
@@ -119,7 +121,9 @@ export function useCustomerProgress(): DriverProgress {
     if (step.requires.length === 0) {
       return { id: step.id, label: step.label, complete: false, ratio: 0 };
     }
-    const filled = step.requires.filter((key) => isFilled(valueFor(values, key))).length;
+    const filled = step.requires.filter(
+      (key) => ALWAYS_ANSWERED.has(key) || isFilled(valueFor(values, key)),
+    ).length;
     filledTotal += filled;
     requiredTotal += step.requires.length;
     return {

@@ -21,12 +21,34 @@ const COLUMNS = "lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,10rem)_2.5
 const ROW_GRID = `grid grid-cols-1 items-start gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 sm:grid-cols-2 ${COLUMNS} lg:items-center lg:py-4`;
 
 /**
+ * The contract slot: the upload, and beside it the day it was stored.
+ *
+ * Two cells rather than the four a document row has, so it states its own
+ * columns instead of overriding the row grid's - two `grid-cols` classes on one
+ * element are settled by the stylesheet's order, not by the class list's.
+ */
+const CONTRACT_GRID =
+  "grid grid-cols-1 items-start gap-4 rounded-2xl border border-border/60 bg-secondary/30 p-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,10rem)] sm:items-center";
+
+/**
+ * The day a file was stored: a saved file carries that day, a file just picked
+ * is dated today, and an empty slot has no date at all.
+ */
+function uploadDateOf(file: UploadedFile | null | undefined): string {
+  if (!file) return "";
+  return file.uploadedAt ? australianDate(file.uploadedAt) : todayAustralian();
+}
+
+/**
  * The documents a customer holds.
  *
- * Every document is listed on its own row rather than picked from a dropdown,
- * so a customer attaches each one where they have it. Nothing here is required.
- * The "Add Document" button adds an extra named row for anything not in the
- * list, and only those added rows can be renamed or taken off again.
+ * The contract has a slot of its own at the top. Everything else is added with
+ * the "Add Document" button and named there, so a customer attaches whatever
+ * they hold rather than working down a list of documents that may not apply.
+ * Nothing here is required.
+ *
+ * Naming a document in CUSTOMER_DOCUMENT_TYPES lists a row for it again. Those
+ * listed rows cannot be renamed or taken off; the added ones can.
  *
  * Every upload takes a file from disk, a drop, or the live camera, and offers a
  * crop before it is kept - the same three ways a driver attaches a document. A
@@ -39,6 +61,7 @@ export function DocumentsSection() {
   const { control } = useFormContext<CustomerFormValues>();
   const { fields, append, remove } = useFieldArray({ control, name: "documents" });
   const rowValues = useWatch({ control, name: "documents" });
+  const contract = useWatch({ control, name: "contractDocument" });
 
   return (
     <SectionCard
@@ -53,24 +76,46 @@ export function DocumentsSection() {
           <FileSignature className="h-4 w-4 text-muted-foreground" aria-hidden />
           Contract Document
         </div>
-        <div className="max-w-xl">
-          <FormUpload
-            name="contractDocument"
-            label="Upload Contractual Document"
-            accept={ACCEPT_DOCUMENT}
-            allowCamera
-            allowCrop
-            cameraTitle="Photograph the contract"
-            cropTitle="Contract document"
-          />
+
+        {/* The upload sits beside the day it was stored, so the contract reads
+            the same way the rows below it do. */}
+        <div className={CONTRACT_GRID}>
+          <div className="min-w-0">
+            <FormUpload
+              name="contractDocument"
+              label="Upload Contractual Document"
+              accept={ACCEPT_DOCUMENT}
+              allowCamera
+              allowCrop
+              cameraTitle="Photograph the contract"
+              cropTitle="Contract document"
+            />
+          </div>
+
+          <div className="min-w-0">
+            <span className="mb-1.5 block text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Upload Date
+            </span>
+            <Input
+              value={uploadDateOf(contract)}
+              readOnly
+              aria-readonly
+              aria-label="Contract document upload date"
+              placeholder="DD/MM/YYYY"
+              className="cursor-not-allowed bg-secondary/70 text-muted-foreground"
+            />
+          </div>
         </div>
       </div>
 
       <Separator className="mb-6" />
 
       <div className="space-y-3">
-        {/* Column headings, wide screens only: each cell is labelled below. */}
-        <div className={`hidden gap-4 px-5 lg:grid ${COLUMNS}`}>
+        {/* Column headings, wide screens only, and only once there is a row
+            under them: each cell is labelled below as well. */}
+        <div
+          className={`hidden gap-4 px-5 ${COLUMNS} ${fields.length > 0 ? "lg:grid" : ""}`}
+        >
           {["Document", "Attach File", "Upload Date", ""].map((heading) => (
             <span
               key={heading || "actions"}
@@ -85,14 +130,9 @@ export function DocumentsSection() {
           {fields.map((field, index) => {
             const listed = index < LISTED_COUNT;
             const label = rowValues?.[index]?.label ?? "";
-            // The upload date is the day the file was stored: a saved file
-            // carries that day, a file just picked is dated today.
-            const file = rowValues?.[index]?.file as UploadedFile | null | undefined;
-            const uploadDate = file
-              ? file.uploadedAt
-                ? australianDate(file.uploadedAt)
-                : todayAustralian()
-              : "";
+            const uploadDate = uploadDateOf(
+              rowValues?.[index]?.file as UploadedFile | null | undefined,
+            );
 
             return (
               <motion.div
