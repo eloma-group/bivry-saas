@@ -10,13 +10,12 @@ import { CommunicationSection } from "@/components/customer/forms/CommunicationS
 import { DirectorsSection } from "@/components/customer/forms/DirectorsSection";
 import { BillingSection } from "@/components/customer/forms/BillingSection";
 import { DocumentsSection } from "@/components/customer/forms/DocumentsSection";
-import { TextField } from "@/components/form/Fields";
+import { FieldShell, TextField } from "@/components/form/Fields";
 import { rules } from "@/utils/validation";
 import { DocumentSourceProvider } from "@/context/DocumentSourceContext";
 import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -283,8 +282,15 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
                 hint="What this customer signs in with. Correcting it here is the only way it changes."
               />
 
-              <div className="space-y-2">
-                <Label htmlFor="account-status">Account status</Label>
+              {/* Neither of these is a form field, so they are not TextFields -
+                  but they sit on the same row as one, so they borrow its shell.
+                  That is what keeps the three labels and the three boxes on the
+                  same lines as each other rather than a few pixels apart. */}
+              <FieldShell
+                label="Account status"
+                htmlFor="account-status"
+                hint="Suspended and Deactivated both stop this customer signing in."
+              >
                 <Select value={status} onValueChange={(value) => setStatus(value as AccountStatus)}>
                   <SelectTrigger id="account-status">
                     <SelectValue />
@@ -297,15 +303,20 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Suspended and Deactivated both stop this customer signing in.
-                </p>
-              </div>
+              </FieldShell>
 
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="customer-password">
-                  Password{creating ? <span className="ml-0.5 text-destructive">*</span> : null}
-                </Label>
+              <FieldShell
+                label="Password"
+                htmlFor="customer-password"
+                required={creating}
+                error={passwordError ?? undefined}
+                hint={
+                  creating
+                    ? "Set it now and pass it on to the customer yourself. They can change it later."
+                    : "Leave blank to keep the current password. Setting a new one signs every existing session out."
+                }
+                className="sm:col-span-2"
+              >
                 <Input
                   id="customer-password"
                   type="text"
@@ -318,16 +329,7 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
                   placeholder={PASSWORD_HINT}
                   aria-invalid={passwordError ? true : undefined}
                 />
-                {passwordError ? (
-                  <p className="text-xs font-medium text-destructive">{passwordError}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {creating
-                      ? "Set it now and pass it on to the customer yourself. They can change it later."
-                      : "Leave blank to keep the current password. Setting a new one signs every existing session out."}
-                  </p>
-                )}
-              </div>
+              </FieldShell>
             </div>
           </section>
 
