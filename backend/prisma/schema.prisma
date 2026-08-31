@@ -83,10 +83,12 @@ model Customer {
   updatedAt              DateTime           @updatedAt @map("updated_at")
   deletedAt              DateTime?          @map("deleted_at")
   addresses              CustomerAddress[]
+  additionalContacts     CustomerAdditionalContact[]
   billing                CustomerBilling?
   contacts               CustomerContact[]
   directors              CustomerDirector[]
   documents              CustomerDocument[]
+  warehouses             CustomerWarehouse[]
 
   @@index([status])
   @@index([onboardingStatus])
@@ -113,6 +115,59 @@ model CustomerContact {
 
   @@unique([customerId, type])
   @@map("customer_contacts")
+}
+
+/// A contact block the customer added themselves, beyond the four departments
+/// above.
+///
+/// A table of its own rather than a fifth enum value on `customer_contacts`:
+/// that table holds one row per department and says so with a unique index, and
+/// a customer can add as many of these as they like. Kept apart, a build from
+/// before this change goes on reading the four departments unchanged and simply
+/// does not see the extra ones.
+model CustomerAdditionalContact {
+  id            String   @id @default(uuid()) @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  /// Keeps the rows in the order the customer entered them.
+  position      Int      @default(0)
+  /// What this block is for, in the customer's own words: "Legal", "After
+  /// hours". The equivalent of the department name on a fixed block.
+  label         String?
+  contactPerson String?  @map("contact_person")
+  designation   String?
+  contactNumber String?  @map("contact_number")
+  email         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_additional_contacts")
+}
+
+/// A warehouse the customer operates: a site we may collect from or deliver to.
+///
+/// The same shape the vendor's warehouses have, and separate from
+/// `customer_addresses` for the same reason: that table holds the two addresses
+/// the company is registered at, one row each, and there can be any number of
+/// these.
+model CustomerWarehouse {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  /// Keeps "Warehouse 1", "Warehouse 2" in the order they were entered.
+  position   Int      @default(0)
+  street1    String?
+  street2    String?
+  suburb     String?
+  state      String?
+  country    String?
+  postCode   String?  @map("post_code")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_warehouses")
 }
 
 /// The customer's directors. As many as the business has.
@@ -155,7 +210,7 @@ model CustomerAddress {
 }
 
 /// How the customer is billed: the payment term, and whether they are invoiced
-/// or run on CTL. One row per customer.
+/// or run on RCTI. One row per customer.
 model CustomerBilling {
   id          String               @id @default(uuid()) @db.Uuid
   customerId  String               @unique @map("customer_id") @db.Uuid
@@ -902,11 +957,11 @@ enum CustomerAddressType {
   @@map("customer_address_type")
 }
 
-/// How a customer is billed. CTL is charged against the load rather than
-/// invoiced on terms.
+/// How a customer is billed. RCTI is a recipient created tax invoice, raised
+/// against the load by us rather than invoiced by the customer on terms.
 enum CustomerBillingType {
   INVOICING
-  CTL
+  RCTI
 
   @@map("customer_billing_type")
 }

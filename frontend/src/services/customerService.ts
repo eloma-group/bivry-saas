@@ -11,7 +11,7 @@ export type CustomerDocumentType = "COMPANY_LOGO" | "CONTRACT" | "ADDITIONAL";
 
 export type CustomerContactType = "MAIN" | "OPERATIONS" | "ACCOUNTS" | "DISPATCH";
 
-export type CustomerBillingTypeApi = "INVOICING" | "CTL";
+export type CustomerBillingTypeApi = "INVOICING" | "RCTI";
 
 export interface CustomerDocument {
   id: string;
@@ -34,9 +34,17 @@ export interface CustomerContactPayload {
   email: string | null;
 }
 
+/** One block the customer added beyond the four departments. */
+export interface CustomerAdditionalContactPayload {
+  label: string | null;
+  contactPerson: string | null;
+  designation: string | null;
+  contactNumber: string | null;
+  email: string | null;
+}
+
 export interface CustomerDirectorPayload {
   name: string | null;
-  designation: string | null;
   email: string | null;
   contactNumber: string | null;
 }
@@ -50,11 +58,15 @@ export interface CustomerAddressPayload {
   postCode: string | null;
 }
 
-/** The two addresses the company is registered at, sent together. */
+/**
+ * The address section, sent as a whole: the two addresses the company is
+ * registered at, and every warehouse it operates.
+ */
 export interface CustomerAddressesPayload {
   billingSameAsPrincipal: boolean;
   principal: CustomerAddressPayload;
   billing: CustomerAddressPayload;
+  warehouses: CustomerAddressPayload[];
 }
 
 export interface CustomerBillingPayload {
@@ -62,7 +74,13 @@ export interface CustomerBillingPayload {
   billingType: CustomerBillingTypeApi | null;
 }
 
-/** Company details. The email is absent on purpose: it identifies the account. */
+/**
+ * Company details.
+ *
+ * The email is absent on purpose: it identifies the account. So are the account
+ * holder's name, designation and phone - the section is about the business, and
+ * the people we speak to live in the Communication section instead.
+ */
 export interface CustomerCompanyPayload {
   companyName: string | null;
   tradingNames: string[];
@@ -73,10 +91,6 @@ export interface CustomerCompanyPayload {
   entityType: string | null;
   gst: string | null;
   websiteAddress: string | null;
-  phone: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  designation: string | null;
   /** yyyy-MM-dd. */
   creationDate: string | null;
 }
@@ -110,10 +124,14 @@ export interface CustomerOnboardingData {
   createdAt: string;
   billingSameAsPrincipal: boolean;
   contacts: Array<CustomerContactPayload & { id: string }>;
+  additionalContacts: Array<
+    CustomerAdditionalContactPayload & { id: string; position: number }
+  >;
   directors: Array<CustomerDirectorPayload & { id: string; position: number }>;
   addresses: Array<
     CustomerAddressPayload & { id: string; type: "PRINCIPAL" | "BILLING" }
   >;
+  warehouses: Array<CustomerAddressPayload & { id: string; position: number }>;
   billing: (CustomerBillingPayload & { id: string }) | null;
   documents: CustomerDocument[];
 }
@@ -127,7 +145,10 @@ export const customerService = {
     return request({ url: "/customer/onboarding/company", method: "PUT", data: values });
   },
 
-  saveContacts(values: { contacts: CustomerContactPayload[] }) {
+  saveContacts(values: {
+    contacts: CustomerContactPayload[];
+    additionalContacts: CustomerAdditionalContactPayload[];
+  }) {
     return request({ url: "/customer/onboarding/contacts", method: "PUT", data: values });
   },
 

@@ -194,7 +194,12 @@ export interface CreateCustomerInput {
   email: string;
   password: string;
   phone?: string | null;
-  firstName: string;
+  /**
+   * Optional, unlike every other portal: the customer form no longer asks for a
+   * person at the business, so the server files the account under the company
+   * name (or the email) when this is left out.
+   */
+  firstName?: string | null;
   lastName?: string | null;
   companyName?: string | null;
   designation?: string | null;

@@ -23,7 +23,6 @@ import { customerDocuments } from "@/services/customerDocuments";
 import { BILLING_TYPE_FROM_API, CONTACT_BLOCKS } from "@/constants/customerOptions";
 import { prettyDate } from "@/utils/date";
 import { initialsOf } from "@/utils/user";
-import { customerPhone } from "@/utils/customer";
 import { formatBytes } from "@/utils/validation";
 import { cn } from "@/lib/utils";
 import type { OnboardingStatus } from "@/services/driverService";
@@ -286,9 +285,8 @@ export function CustomerProfile({
           <Row label="Entity type">{value(data.entityType)}</Row>
           <Row label="GST">{value(data.gst)}</Row>
           <Row label="Website">{value(data.websiteAddress)}</Row>
-          <Row label="Contact name">{value(personName)}</Row>
-          <Row label="Designation">{value(data.designation)}</Row>
-          <Row label="Phone">{value(customerPhone(data))}</Row>
+          {/* No contact name, designation or phone here: the form asks for
+              those once per department, and they read in Communication below. */}
           <Row label="Email">
             <span className="inline-flex flex-wrap items-center justify-end gap-2">
               {data.email}
@@ -314,6 +312,13 @@ export function CustomerProfile({
           <Row label="Billing matches principal">
             {data.billingSameAsPrincipal ? "Yes" : "No"}
           </Row>
+          {(data.warehouses ?? []).map((site, index) => (
+            <Row key={site.id} label={`Warehouse ${index + 1}`}>
+              <span className="block whitespace-pre-line">
+                {addressLines(site).join("\n") || EMPTY}
+              </span>
+            </Row>
+          ))}
         </InfoCard>
 
         <InfoCard icon={Contact} title="Communication">
@@ -337,6 +342,19 @@ export function CustomerProfile({
               </Row>
             );
           })}
+          {(data.additionalContacts ?? []).map((row, index) => (
+            <Row key={row.id} label={row.label || `Contact ${index + 1}`}>
+              <span className="block whitespace-pre-line">
+                {[
+                  [row.contactPerson, row.designation].filter(Boolean).join(" - "),
+                  row.email ?? "",
+                  row.contactNumber ?? "",
+                ]
+                  .filter((line) => line.trim() !== "")
+                  .join("\n") || EMPTY}
+              </span>
+            </Row>
+          ))}
         </InfoCard>
 
         <InfoCard
@@ -356,7 +374,7 @@ export function CustomerProfile({
             data.directors.map((director, index) => (
               <Row key={director.id} label={director.name || `Director ${index + 1}`}>
                 <span className="block whitespace-pre-line">
-                  {[director.designation ?? "", director.email ?? "", director.contactNumber ?? ""]
+                  {[director.email ?? "", director.contactNumber ?? ""]
                     .filter((line) => line.trim() !== "")
                     .join("\n") || EMPTY}
                 </span>

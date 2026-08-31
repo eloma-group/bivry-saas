@@ -53,7 +53,7 @@ CREATE TYPE "customer_contact_type" AS ENUM ('MAIN', 'OPERATIONS', 'ACCOUNTS', '
 CREATE TYPE "customer_address_type" AS ENUM ('PRINCIPAL', 'BILLING');
 
 -- CreateEnum
-CREATE TYPE "customer_billing_type" AS ENUM ('INVOICING', 'CTL');
+CREATE TYPE "customer_billing_type" AS ENUM ('INVOICING', 'RCTI');
 
 -- CreateEnum
 CREATE TYPE "customer_document_type" AS ENUM ('COMPANY_LOGO', 'CONTRACT', 'ADDITIONAL');
@@ -137,6 +137,39 @@ CREATE TABLE "customer_contacts" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "customer_contacts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_additional_contacts" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "label" TEXT,
+    "contact_person" TEXT,
+    "designation" TEXT,
+    "contact_number" TEXT,
+    "email" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_additional_contacts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_warehouses" (
+    "id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "street1" TEXT,
+    "street2" TEXT,
+    "suburb" TEXT,
+    "state" TEXT,
+    "country" TEXT,
+    "post_code" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_warehouses_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -774,6 +807,12 @@ CREATE INDEX "customers_onboarding_status_idx" ON "customers"("onboarding_status
 CREATE UNIQUE INDEX "customer_contacts_customer_id_type_key" ON "customer_contacts"("customer_id", "type");
 
 -- CreateIndex
+CREATE INDEX "customer_additional_contacts_customer_id_idx" ON "customer_additional_contacts"("customer_id");
+
+-- CreateIndex
+CREATE INDEX "customer_warehouses_customer_id_idx" ON "customer_warehouses"("customer_id");
+
+-- CreateIndex
 CREATE INDEX "customer_directors_customer_id_idx" ON "customer_directors"("customer_id");
 
 -- CreateIndex
@@ -925,6 +964,12 @@ CREATE INDEX "booking_lanes_booking_id_idx" ON "booking_lanes"("booking_id");
 
 -- AddForeignKey
 ALTER TABLE "customer_contacts" ADD CONSTRAINT "customer_contacts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_additional_contacts" ADD CONSTRAINT "customer_additional_contacts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_warehouses" ADD CONSTRAINT "customer_warehouses_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "customer_directors" ADD CONSTRAINT "customer_directors_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;

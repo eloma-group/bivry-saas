@@ -267,7 +267,10 @@ export const createCustomerSchema = z.object({
   email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address').toLowerCase(),
   password,
   phone: optionalPhoneNumber(),
-  firstName: personName('First name'),
+  // Optional, unlike every other portal: a customer is a business, and the
+  // form no longer asks for a person at it. `accountName` in admin.service
+  // decides what the account is filed under when this is left empty.
+  firstName: optionalPersonName('First name'),
   lastName: optionalPersonName('Last name'),
   // A business name, not a person's, so it keeps the plain length check.
   companyName: optionalText(150),

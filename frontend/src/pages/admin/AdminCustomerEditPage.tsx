@@ -113,21 +113,20 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
 
   /**
    * Saves without insisting the whole record is complete. Creating is the
-   * exception: an account cannot exist without an email, a first name and a
-   * password, so those three are checked.
+   * exception: an account cannot exist without an email and a password, so
+   * those two are checked.
    */
   async function save() {
     const values = methods.getValues();
     const email = values.email.trim().toLowerCase();
 
     if (creating) {
-      const ok = await methods.trigger(["firstName", "email"]);
+      const ok = await methods.trigger(["email"]);
       const problem = passwordProblem(password);
       setPasswordError(problem);
       if (!ok || problem) {
         toast.error("Some details are still needed", {
-          description:
-            "An email, a first name and a password are what an account needs to exist.",
+          description: "An email and a password are what an account needs to exist.",
         });
         return;
       }
@@ -145,10 +144,7 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
             await adminService.createCustomer({
               email,
               password,
-              firstName: values.firstName.trim(),
-              lastName: values.lastName.trim() || null,
               companyName: values.companyName.trim() || null,
-              designation: values.designation.trim() || null,
               tradingNames: values.tradingNames
                 .map((row) => row.name.trim())
                 .filter((name) => name !== ""),
@@ -160,7 +156,6 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
               gst: values.gst.trim() || null,
               websiteAddress: values.websiteAddress.trim() || null,
               creationDate: values.creationDate || null,
-              phone: values.phone.trim() || null,
               status,
             })
           ).id
@@ -260,7 +255,7 @@ export function AdminCustomerEditPage({ customerId }: { customerId?: string }) {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {creating
-              ? "The whole record in one place. Only an email, a first name and a password are needed to create the account; everything else can be filled in now or later."
+              ? "The whole record in one place. Only an email and a password are needed to create the account; everything else can be filled in now or later."
               : "Every field on this customer's record, including the ones they would normally fill in themselves."}
           </p>
         </div>

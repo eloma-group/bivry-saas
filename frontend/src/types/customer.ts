@@ -36,6 +36,26 @@ export interface CustomerContactBlock {
 }
 
 /**
+ * One contact block the customer added themselves, beyond the four departments
+ * the form asks for.
+ *
+ * The same four answers a fixed block holds, plus the name the customer gives
+ * it and a stable key, so a row can be taken out of the middle of the list
+ * without the ones below it losing what was typed into them.
+ */
+export interface CustomerAdditionalContactRow {
+  id: string;
+  /** What this block is for, in the customer's own words: "Legal". */
+  label: string;
+  contactPerson: string;
+  designation: string;
+  /** Typed by hand when "Other" is picked. See CustomerContactBlock. */
+  designationOther: string;
+  contactNumber: string;
+  email: string;
+}
+
+/**
  * One name the business trades under.
  *
  * A bare string would do for the value, but the form repeats this row and needs
@@ -49,15 +69,14 @@ export interface CustomerDirectorRow {
   id: string;
   /** Full name, as it reads on the document naming them. */
   name: string;
-  designation: string;
   email: string;
   contactNumber: string;
 }
 
 /**
- * A block of address fields. Both addresses the company is registered at are
- * asked for the same six things, so one block and one set of location tools
- * serves them both.
+ * A block of address fields. The two addresses the company is registered at and
+ * every warehouse are asked for the same six things, so one block and one set
+ * of location tools serves them all.
  */
 export interface CustomerAddressBlock {
   street1: string;
@@ -66,6 +85,17 @@ export interface CustomerAddressBlock {
   state: string;
   country: string;
   postCode: string;
+}
+
+/**
+ * One warehouse the customer operates.
+ *
+ * An address plus a key, so a list of them can be added to and removed from
+ * without the rows losing their place. The same shape the vendor form uses for
+ * its own sites.
+ */
+export interface CustomerWarehouseRow extends CustomerAddressBlock {
+  id: string;
 }
 
 /** A row in the documents table. */
@@ -98,10 +128,6 @@ export interface CustomerFormValues {
   cid: string;
   /** Seeded from the account, and read only: it identifies the account. */
   email: string;
-  phone: string;
-  firstName: string;
-  lastName: string;
-  designation: string;
   /** yyyy-MM-dd. Opens on today and can be changed. */
   creationDate: string;
   companyLogo: UploadedFile | null;
@@ -117,19 +143,23 @@ export interface CustomerFormValues {
    * find an address.
    */
   billingSameAsPrincipal: boolean;
+  /** Every warehouse the customer operates. There may be none. */
+  warehouses: CustomerWarehouseRow[];
 
   /* Section 3 - Communication */
   operations: CustomerContactBlock;
   accounts: CustomerContactBlock;
   dispatch: CustomerContactBlock;
   main: CustomerContactBlock;
+  /** Anything else the customer wants us to have a contact for. */
+  additionalContacts: CustomerAdditionalContactRow[];
 
   /* Section 4 - Director information */
   directors: CustomerDirectorRow[];
 
   /* Section 5 - Billing */
   term: string;
-  /** "Invoicing" or "CTL", as the dropdown offers them. */
+  /** "Invoicing" or "RCTI", as the dropdown offers them. */
   billingType: string;
 
   /* Section 6 - Documents */

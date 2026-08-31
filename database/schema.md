@@ -6,13 +6,15 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**36 tables, 16 enum types.**
+**38 tables, 16 enum types.**
 
 ## Tables
 
 - [`admins`](#admins)
 - [`customers`](#customers)
 - [`customer_contacts`](#customercontacts)
+- [`customer_additional_contacts`](#customeradditionalcontacts)
+- [`customer_warehouses`](#customerwarehouses)
 - [`customer_directors`](#customerdirectors)
 - [`customer_addresses`](#customeraddresses)
 - [`customer_billings`](#customerbillings)
@@ -64,7 +66,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `vendor_document_type` | `COMPANY_LOGO`, `ACCREDITATION`, `INSURANCE_PRODUCT_LIABILITY`, `INSURANCE_PUBLIC_LIABILITY`, `INSURANCE_WORK_COVER`, `INSURANCE_MARINE_GENERAL`, `INSURANCE_MARINE_ALCOHOL`, `INSURANCE_COC`, `COMPLIANCE_DRUG`, `COMPLIANCE_ALCOHOL_POLICY`, `COMPLIANCE_PROCEDURE`, `COMPLIANCE_RISK_MANAGEMENT`, `COMPLIANCE_SPEED_POLICY`, `COMPLIANCE_FATIGUE_POLICY`, `COMPLIANCE_GPS_SNAPSHOT`, `COMPLIANCE_WHS_POLICY`, `COMPLIANCE_ADDITIONAL` |
 | `customer_contact_type` | `MAIN`, `OPERATIONS`, `ACCOUNTS`, `DISPATCH` |
 | `customer_address_type` | `PRINCIPAL`, `BILLING` |
-| `customer_billing_type` | `INVOICING`, `CTL` |
+| `customer_billing_type` | `INVOICING`, `RCTI` |
 | `customer_document_type` | `COMPANY_LOGO`, `CONTRACT`, `ADDITIONAL` |
 | `booking_stop_type` | `PICKUP`, `DELIVERY` |
 
@@ -134,10 +136,12 @@ look up a column. Every table, column, type, default and relation is below.
 **Relations**
 
 - many `customer_addresses`
+- many `customer_additional_contacts`
 - optional one `customer_billings`
 - many `customer_contacts`
 - many `customer_directors`
 - many `customer_documents`
+- many `customer_warehouses`
 
 ### `customer_contacts`
 
@@ -158,6 +162,49 @@ One contact block per department, as the customer form asks for them.\n\nThe for
 **Constraints**
 
 - unique: (`customerId`, `type`)
+
+**Relations**
+
+- one `customers`
+
+### `customer_additional_contacts`
+
+A contact block the customer added themselves, beyond the four departments\nabove.\n\nA table of its own rather than a fifth enum value on `customer_contacts`:\nthat table holds one row per department and says so with a unique index, and\na customer can add as many of these as they like. Kept apart, a build from\nbefore this change goes on reading the four departments unchanged and simply\ndoes not see the extra ones.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
+| `position` | integer | NOT NULL | 0 | Keeps the rows in the order the customer entered them. |
+| `label` | text | NULL |  | What this block is for, in the customer's own words: "Legal", "After\nhours". The equivalent of the department name on a fixed block. |
+| `contact_person` | text | NULL |  |  |
+| `designation` | text | NULL |  |  |
+| `contact_number` | text | NULL |  |  |
+| `email` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `customers`
+
+### `customer_warehouses`
+
+A warehouse the customer operates: a site we may collect from or deliver to.\n\nThe same shape the vendor's warehouses have, and separate from\n`customer_addresses` for the same reason: that table holds the two addresses\nthe company is registered at, one row each, and there can be any number of\nthese.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
+| `position` | integer | NOT NULL | 0 | Keeps "Warehouse 1", "Warehouse 2" in the order they were entered. |
+| `street1` | text | NULL |  |  |
+| `street2` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
 
 **Relations**
 
@@ -211,7 +258,7 @@ The two addresses a customer is registered at: where the business is run\nfrom, 
 
 ### `customer_billings`
 
-How the customer is billed: the payment term, and whether they are invoiced\nor run on CTL. One row per customer.
+How the customer is billed: the payment term, and whether they are invoiced\nor run on RCTI. One row per customer.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Plus, Trash2, Warehouse } from "lucide-react";
 import {
+  useFieldArray,
   useFormContext,
   useWatch,
   type UseFormSetValue,
@@ -10,6 +11,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, SelectField } from "@/components/form/Fields";
 import { LocationPicker } from "@/components/form/LocationPicker";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { COUNTRIES } from "@/constants/options";
@@ -24,10 +26,12 @@ const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 /**
  * Where one address lives in the form.
  *
- * A customer is asked for two, and both take the same fields and the same
- * location tools, so everything below takes the path rather than the address.
+ * The two addresses the company is registered at sit at a name of their own; a
+ * warehouse sits at an index in its list. All of them take the same fields and
+ * the same location tools, so everything below takes the path rather than the
+ * address.
  */
-type AddressPath = "principalAddress" | "billingAddress";
+type AddressPath = "principalAddress" | "billingAddress" | `warehouses.${number}`;
 
 /**
  * The State field, offering whichever divisions the chosen country actually has.
@@ -180,6 +184,92 @@ function AddressTools({ path, label }: { path: AddressPath; label: string }) {
   );
 }
 
+/**
+ * The warehouses the customer operates.
+ *
+ * The same list, the same address fields and the same location tools the vendor
+ * form gives its own sites, so a business that is both is asked the same
+ * question once rather than two different ones. The State field offers whichever
+ * divisions the chosen country has, which is what makes these state wise.
+ *
+ * The fields for a warehouse only appear once one has been added, which is what
+ * keeps them out of the way of a customer who runs none.
+ */
+function WarehouseList() {
+  const { control } = useFormContext<CustomerFormValues>();
+  const sites = useFieldArray({ control, name: "warehouses" });
+
+  return (
+    <>
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Warehouse className="h-4 w-4 text-muted-foreground" aria-hidden />
+        Warehouse Locations
+      </div>
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+        Every site we may collect from or deliver to. Add one for each state you hold stock
+        in.
+      </p>
+
+      <div className="space-y-4">
+        <AnimatePresence initial={false}>
+          {sites.fields.map((field, index) => (
+            <motion.div
+              key={field.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.25 }}
+              className="rounded-2xl border border-border/60 bg-secondary/30 p-5"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-foreground">
+                  Warehouse {index + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:bg-red-50 hover:text-red-500"
+                  onClick={() => sites.remove(index)}
+                >
+                  <Trash2 className="h-4 w-4" /> Remove
+                </Button>
+              </div>
+
+              <AddressTools path={`warehouses.${index}`} label={`warehouse ${index + 1} address`} />
+              <AddressFields path={`warehouses.${index}`} asked={() => true} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {sites.fields.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-border bg-secondary/30 px-5 py-6 text-center text-sm text-muted-foreground">
+            No warehouse addresses added yet.
+          </p>
+        )}
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            sites.append({
+              id: crypto.randomUUID(),
+              street1: "",
+              street2: "",
+              suburb: "",
+              state: "",
+              country: "Australia",
+              postCode: "",
+            })
+          }
+        >
+          <Plus className="h-4 w-4" /> Add More Addresses
+        </Button>
+      </div>
+    </>
+  );
+}
+
 export function AddressSection() {
   const { control, getValues, setValue } = useFormContext<CustomerFormValues>();
   const billingSameAsPrincipal = useWatch({ control, name: "billingSameAsPrincipal" });
@@ -190,7 +280,7 @@ export function AddressSection() {
       id="step-addresses"
       icon={MapPin}
       title="Address Information"
-      description="Where the business is run from, and where its invoices go."
+      description="Where the business is run from, where its invoices go, and every warehouse you run."
     >
       <div className="mb-3 text-sm font-semibold text-foreground">Principal Address</div>
       <AddressTools path="principalAddress" label="principal address" />
@@ -237,6 +327,9 @@ export function AddressSection() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Separator className="my-6" />
+      <WarehouseList />
     </SectionCard>
   );
 }

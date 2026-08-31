@@ -1242,8 +1242,10 @@ export async function getCustomer(customerId: string) {
     where: { id: customerId, deletedAt: null },
     include: {
       contacts: true,
+      additionalContacts: { orderBy: { position: 'asc' } },
       directors: { orderBy: { position: 'asc' } },
       addresses: true,
+      warehouses: { orderBy: { position: 'asc' } },
       billing: true,
       documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
     },
@@ -1263,7 +1265,13 @@ export interface CreateCustomerInput {
   email: string;
   password: string;
   phone: string | null;
-  firstName: string;
+  /**
+   * The person the account is opened in the name of. The customer form no
+   * longer asks for one - a customer is a business, and the named contacts live
+   * in the Communication section - so an admin creating a record usually leaves
+   * this empty and `accountName` below fills it in.
+   */
+  firstName: string | null;
   lastName: string | null;
   companyName: string | null;
   designation: string | null;
@@ -1277,6 +1285,21 @@ export interface CreateCustomerInput {
   websiteAddress: string | null;
   creationDate: Date | null;
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+}
+
+/**
+ * What to file the account under when no person was named.
+ *
+ * `customers.first_name` is not nullable and the lists and headers read it, so
+ * it always holds something: the person if one was given, otherwise the company
+ * the account belongs to, and failing both the part of the email before the @.
+ */
+function accountName(
+  firstName: string | null,
+  companyName: string | null,
+  email: string,
+): string {
+  return firstName?.trim() || companyName?.trim() || email.split('@')[0];
 }
 
 /**
@@ -1298,7 +1321,7 @@ export async function createCustomer(input: CreateCustomerInput) {
     email,
     passwordHash: await hashPassword(input.password),
     phone: input.phone,
-    firstName: input.firstName,
+    firstName: accountName(input.firstName, input.companyName, email),
     lastName: input.lastName,
     companyName: input.companyName,
     designation: input.designation,
@@ -1335,7 +1358,15 @@ export async function createCustomer(input: CreateCustomerInput) {
   throw ApiError.internal('Could not assign a customer ID');
 }
 
-export type UpdateCustomerInput = Partial<Omit<CreateCustomerInput, 'password'>>;
+/**
+ * A patch of the account details. `firstName` narrows back to a plain string:
+ * the column is not nullable, so an update either sets a name or leaves the
+ * stored one alone. Only the create is allowed to omit it, and it fills the
+ * column in itself.
+ */
+export type UpdateCustomerInput = Partial<
+  Omit<CreateCustomerInput, 'password' | 'firstName'> & { firstName: string }
+>;
 
 /**
  * Updates a customer's account details.

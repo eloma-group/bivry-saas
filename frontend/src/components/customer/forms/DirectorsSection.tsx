@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NAME_MAX, PHONE_MAX, rules } from "@/utils/validation";
 import type { CustomerFormValues } from "@/types/customer";
 
-const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4";
+const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 export function DirectorsSection() {
   const { control } = useFormContext<CustomerFormValues>();
@@ -58,14 +58,6 @@ export function DirectorsSection() {
                   hint="Full name as per the document."
                 />
                 <TextField
-                  name={`directors.${index}.designation`}
-                  label="Designation"
-                  placeholder="Director"
-                  required
-                  maxLength={100}
-                  rules={rules.required("Designation")}
-                />
-                <TextField
                   name={`directors.${index}.email`}
                   label="Director Email Address"
                   type="email"
@@ -100,7 +92,6 @@ export function DirectorsSection() {
             append({
               id: crypto.randomUUID(),
               name: "",
-              designation: "",
               email: "",
               contactNumber: "",
             })

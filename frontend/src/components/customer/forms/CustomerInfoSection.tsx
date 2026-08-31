@@ -7,7 +7,7 @@ import { SectionCard } from "@/components/form/SectionCard";
 import { DateField, TextField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
 import { LogoUpload } from "@/components/customer/LogoUpload";
-import { ABN_LENGTH, ACN_LENGTH, NAME_MAX, PHONE_MAX, rules } from "@/utils/validation";
+import { ABN_LENGTH, ACN_LENGTH, rules } from "@/utils/validation";
 import { abnStatusLine, gstLine, lookupAbn } from "@/services/abnLookup";
 import { ApiRequestError } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
@@ -262,43 +262,9 @@ export function CustomerInfoSection({ showAccountEmail = true }: CustomerInfoSec
           hint="The register does not hold this one. Type it in if you have a site."
         />
 
-        <TextField
-          name="firstName"
-          label="First Name"
-          placeholder="Sanket"
-          required
-          maxLength={NAME_MAX}
-          rules={rules.name("First name")}
-        />
-        <TextField
-          name="lastName"
-          label="Last Name"
-          placeholder="Salve"
-          required
-          maxLength={NAME_MAX}
-          rules={rules.name("Last name")}
-        />
-        {/* Typed rather than picked: this is the job title of one named person
-            at the customer, not one of the department roles the Communication
-            section offers, and the two lists would not have matched anyway. */}
-        <TextField
-          name="designation"
-          label="Designation"
-          placeholder="CEO"
-          required
-          maxLength={100}
-          rules={rules.required("Designation")}
-        />
-
-        <TextField
-          name="phone"
-          label="Phone"
-          type="tel"
-          placeholder="0400000000"
-          required
-          maxLength={PHONE_MAX}
-          rules={rules.phone}
-        />
+        {/* No named person and no phone number here: this section is about the
+            business. Who we speak to, what they do and how to reach them are
+            asked for once, per department, in the Communication section. */}
         {showAccountEmail && (
           <TextField
             name="email"

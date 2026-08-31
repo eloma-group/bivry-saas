@@ -36,17 +36,18 @@ function text(value: unknown): string {
 
 /**
  * The identity the customer already gave when the account was created. Nobody
- * should have to type their name, email and phone a second time, so the form
- * opens with them filled in. The email rides along locked; the rest are seeded
- * and stay editable.
+ * should have to type their company and email a second time, so the form opens
+ * with them filled in. The email rides along locked; the company is seeded and
+ * stays editable.
+ *
+ * The account holder's name and phone are not here: the form no longer asks for
+ * either. A customer is a business, and who we speak to is asked for once, per
+ * department, in the Communication section.
  */
 function accountIdentity(user: AuthUser | null) {
   return {
-    firstName: text(user?.firstName),
-    lastName: text(user?.lastName),
     companyName: text(user?.companyName),
     email: user?.email ?? "",
-    phone: user?.phone ?? "",
   };
 }
 
@@ -56,7 +57,7 @@ function accountIdentity(user: AuthUser | null) {
  * and untouched. The email is not among them: it is always mirrored, because it
  * is the account and cannot be edited here.
  */
-const SEEDED_IDENTITY = ["firstName", "lastName", "companyName", "phone"] as const;
+const SEEDED_IDENTITY = ["companyName"] as const;
 
 /** Inner body - lives inside FormProvider so it can read live progress. */
 function OnboardingBody({
@@ -232,9 +233,9 @@ export function CustomerOnboarding({ initial }: CustomerOnboardingProps) {
     setSubmitting(true);
 
     try {
-      // The name and company are editable here, so this also updates the
-      // account they came from. The email is never sent: it identifies the
-      // account and can only change elsewhere.
+      // The company is editable here, so this also updates the account it came
+      // from. The email is never sent: it identifies the account and can only
+      // change elsewhere.
       await saveOnboarding(data, saved);
       if (firstSubmission) await customerService.submit();
       // So the header name and initials follow the edit straight away.

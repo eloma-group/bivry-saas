@@ -40,13 +40,17 @@ const textList = (max = 150) =>
 
 export const CUSTOMER_CONTACT_TYPES = ['MAIN', 'OPERATIONS', 'ACCOUNTS', 'DISPATCH'] as const;
 
-export const CUSTOMER_BILLING_TYPES = ['INVOICING', 'CTL'] as const;
+export const CUSTOMER_BILLING_TYPES = ['INVOICING', 'RCTI'] as const;
 
 export const CUSTOMER_DOCUMENT_TYPES = ['COMPANY_LOGO', 'CONTRACT', 'ADDITIONAL'] as const;
 
 /**
- * The company block. The email is absent on purpose: it identifies the account
- * and can only be changed from the Admin portal.
+ * The company block.
+ *
+ * This section is about the business, not about a person at it: the named
+ * contacts live in the Communication section, one per department. The email is
+ * absent for a different reason - it identifies the account, and can only be
+ * changed from the Admin portal.
  */
 export const companySectionSchema = z.object({
   companyName: optionalText(150),
@@ -58,10 +62,6 @@ export const companySectionSchema = z.object({
   entityType: optionalText(100),
   gst: optionalText(100),
   websiteAddress: optionalText(200),
-  phone: optionalPhoneNumber(),
-  firstName: optionalPersonName('First name'),
-  lastName: optionalPersonName('Last name'),
-  designation: optionalText(100),
   creationDate: optionalDate,
 });
 
@@ -77,6 +77,25 @@ export const contactsSectionSchema = z.object({
       }),
     )
     .max(CUSTOMER_CONTACT_TYPES.length),
+  /**
+   * The blocks the customer added beyond the four departments, in the order
+   * they entered them.
+   *
+   * Optional rather than defaulted: the list is replaced wholesale, so a client
+   * that does not send it means "leave them alone" and not "delete them all".
+   */
+  additionalContacts: z
+    .array(
+      z.object({
+        label: optionalText(100),
+        contactPerson: optionalPersonName('Contact person'),
+        designation: optionalText(100),
+        contactNumber: optionalPhoneNumber('Contact number'),
+        email: optionalText(150),
+      }),
+    )
+    .max(25)
+    .optional(),
 });
 
 export const directorsSectionSchema = z.object({
@@ -87,7 +106,6 @@ export const directorsSectionSchema = z.object({
         // director, and those carry apostrophes, hyphens and initials that the
         // letters-only rule would refuse. Only the length is capped.
         name: optionalText(NAME_MAX),
-        designation: optionalText(100),
         email: optionalText(150),
         contactNumber: optionalPhoneNumber('Contact number'),
       }),
@@ -115,6 +133,14 @@ export const addressesSectionSchema = z.object({
   billingSameAsPrincipal: z.boolean(),
   principal: addressShape,
   billing: addressShape,
+  /**
+   * Every warehouse the customer operates, in the order they entered them.
+   *
+   * Optional rather than defaulted, for the same reason the extra contacts are:
+   * the list is replaced wholesale, so a client that does not send it means
+   * "leave them alone" and not "delete them all".
+   */
+  warehouses: z.array(addressShape).max(50).optional(),
 });
 
 export const billingSectionSchema = z.object({

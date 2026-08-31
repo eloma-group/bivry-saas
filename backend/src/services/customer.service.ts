@@ -41,8 +41,10 @@ export async function getOnboarding(customerId: string) {
     where: { id: customerId, deletedAt: null },
     include: {
       contacts: true,
+      additionalContacts: { orderBy: { position: 'asc' } },
       directors: { orderBy: { position: 'asc' } },
       addresses: true,
+      warehouses: { orderBy: { position: 'asc' } },
       billing: true,
       documents: { where: { deletedAt: null }, orderBy: { createdAt: 'asc' } },
     },
@@ -121,6 +123,14 @@ export function nextCidCandidate(taken: number, attempt: number): string {
 // Company and contacts
 // ---------------------------------------------------------------------------
 
+/**
+ * The company block, as the form now asks for it.
+ *
+ * The person columns on `customers` - the first and last name, the designation
+ * and the account phone - are deliberately absent. They are set when the
+ * account is created and are no longer part of this section, so this write
+ * leaves whatever is stored there alone rather than blanking it.
+ */
 export interface CompanyInput {
   companyName: string | null;
   tradingNames: string[];
@@ -131,10 +141,6 @@ export interface CompanyInput {
   entityType: string | null;
   gst: string | null;
   websiteAddress: string | null;
-  phone: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  designation: string | null;
   creationDate: Date | null;
 }
 
@@ -144,12 +150,7 @@ export async function updateCompany(customerId: string, data: CompanyInput) {
   const customer = await prisma.customer.update({
     where: { id: customerId },
     data: {
-      // The account always has a first name, so a draft that left the field
-      // empty keeps the one already stored rather than blanking it.
-      ...(data.firstName ? { firstName: data.firstName } : {}),
-      lastName: data.lastName,
       companyName: data.companyName,
-      designation: data.designation,
       tradingNames: data.tradingNames,
       legalName: data.legalName,
       abn: data.abn,
@@ -159,7 +160,6 @@ export async function updateCompany(customerId: string, data: CompanyInput) {
       gst: data.gst,
       websiteAddress: data.websiteAddress,
       creationDate: data.creationDate,
-      phone: data.phone,
     },
   });
 
@@ -175,8 +175,23 @@ export interface ContactInput {
   email: string | null;
 }
 
+/** One block the customer added beyond the four departments. */
+export interface AdditionalContactInput {
+  label: string | null;
+  contactPerson: string | null;
+  designation: string | null;
+  contactNumber: string | null;
+  email: string | null;
+}
+
 export interface ContactsInput {
   contacts: ContactInput[];
+  /**
+   * The blocks the customer added themselves. Left out means "leave them
+   * alone": these are replaced wholesale, so an absent list must not be read
+   * as an empty one.
+   */
+  additionalContacts?: AdditionalContactInput[];
 }
 
 export async function updateContacts(customerId: string, input: ContactsInput) {
@@ -189,6 +204,19 @@ export async function updateContacts(customerId: string, input: ContactsInput) {
     });
   }
 
+  // The extra blocks have no meaning on their own - they are the section as the
+  // customer last left it - so they are rewritten rather than matched row for
+  // row, the same way the directors are.
+  if (input.additionalContacts) {
+    const extra = input.additionalContacts;
+    await prisma.$transaction([
+      prisma.customerAdditionalContact.deleteMany({ where: { customerId } }),
+      prisma.customerAdditionalContact.createMany({
+        data: extra.map((contact, position) => ({ customerId, position, ...contact })),
+      }),
+    ]);
+  }
+
   await touchOnboarding(customerId);
   return prisma.customerContact.findMany({ where: { customerId } });
 }
@@ -199,7 +227,6 @@ export async function updateContacts(customerId: string, input: ContactsInput) {
 
 export interface DirectorInput {
   name: string | null;
-  designation: string | null;
   email: string | null;
   contactNumber: string | null;
 }
@@ -240,6 +267,12 @@ export interface AddressesInput {
   billingSameAsPrincipal: boolean;
   principal: AddressInput;
   billing: AddressInput;
+  /**
+   * Every warehouse the customer operates. Left out means "leave them alone":
+   * these are replaced wholesale, so an absent list must not be read as an
+   * empty one.
+   */
+  warehouses?: AddressInput[];
 }
 
 /**
@@ -269,6 +302,19 @@ export async function updateAddresses(customerId: string, input: AddressesInput)
       }),
     ),
   ]);
+
+  // The warehouses ride along with the registered addresses because they are
+  // the same section of the form. Unlike those two they are a list, so they are
+  // replaced wholesale in the order they were entered.
+  if (input.warehouses) {
+    const warehouses = input.warehouses;
+    await prisma.$transaction([
+      prisma.customerWarehouse.deleteMany({ where: { customerId } }),
+      prisma.customerWarehouse.createMany({
+        data: warehouses.map((warehouse, position) => ({ customerId, position, ...warehouse })),
+      }),
+    ]);
+  }
 
   await touchOnboarding(customerId);
   return prisma.customerAddress.findMany({ where: { customerId } });

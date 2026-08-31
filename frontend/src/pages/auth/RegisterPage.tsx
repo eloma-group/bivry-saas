@@ -37,12 +37,11 @@ const ROLE_FIELDS: Record<RoleSlug, FieldDef[]> = {
     { name: "firstName", label: "First name", required: true, half: true, ...NAME },
     { name: "lastName", label: "Last name", required: true, half: true, ...NAME },
   ],
-  customer: [
-    { name: "firstName", label: "First name", required: true, half: true, ...NAME },
-    { name: "lastName", label: "Last name", required: true, half: true, ...NAME },
-    // A business name, not a person's, so it keeps the wider limit.
-    { name: "companyName", label: "Company name", placeholder: "Optional" },
-  ],
+  // A customer is a business, so the company is the whole of what is asked for.
+  // No person and no phone: who we speak to, what they do and how to reach them
+  // are asked for once, per department, in the onboarding form's Communication
+  // section, rather than half here and half there.
+  customer: [{ name: "companyName", label: "Company name", required: true }],
   vendor: [
     { name: "companyName", label: "Company name", required: true },
     { name: "contactPerson", label: "Contact person", half: true, ...NAME },
@@ -61,15 +60,29 @@ const ROLE_FIELDS: Record<RoleSlug, FieldDef[]> = {
 };
 
 /**
- * The portals that insist on a phone number at signup.
+ * The portals that ask for a phone number at signup at all.
  *
- * A vendor and a customer are both businesses the fleet has to be able to
- * reach, and both onboarding forms seed the number from the account rather than
- * asking for it a second time, so it is asked for here.
- * `auth.validator.ts` states the same rule, so the form asks for exactly what
- * the API insists on.
+ * A customer is not among them. Its onboarding form holds no number of its own
+ * any more - a contact number is asked for once per department, in the
+ * Communication section - so a number collected here is one nothing goes on to
+ * show.
  */
-const PHONE_REQUIRED: ReadonlySet<RoleSlug> = new Set<RoleSlug>(["vendor", "customer"]);
+const PHONE_ASKED: ReadonlySet<RoleSlug> = new Set<RoleSlug>([
+  "admin",
+  "vendor",
+  "employee",
+  "driver",
+]);
+
+/**
+ * The portals that insist on that number rather than offering it.
+ *
+ * A vendor is a business the fleet has to be able to reach, and its onboarding
+ * form seeds the number from the account rather than asking for it a second
+ * time. `auth.validator.ts` states the same rule, so the form asks for exactly
+ * what the API insists on.
+ */
+const PHONE_REQUIRED: ReadonlySet<RoleSlug> = new Set<RoleSlug>(["vendor"]);
 
 interface RegisterPageProps {
   role: RoleSlug;
@@ -82,6 +95,7 @@ export function RegisterPage({ role }: RegisterPageProps) {
   const { isSubmitting, formError, fieldErrors, submit } = useAuthForm();
 
   const fields = ROLE_FIELDS[role];
+  const phoneAsked = PHONE_ASKED.has(role);
   const phoneRequired = PHONE_REQUIRED.has(role);
   const [values, setValues] = useState<Record<string, string>>({});
 
@@ -150,18 +164,20 @@ export function RegisterPage({ role }: RegisterPageProps) {
           required
         />
 
-        <TextField
-          id="phone"
-          label="Phone number"
-          type="tel"
-          autoComplete="tel"
-          placeholder={phoneRequired ? "+61 412345678" : "Optional"}
-          maxLength={PHONE_MAX}
-          value={values.phone ?? ""}
-          onChange={(event) => setValue("phone", event.target.value)}
-          error={fieldErrors.phone}
-          required={phoneRequired}
-        />
+        {phoneAsked && (
+          <TextField
+            id="phone"
+            label="Phone number"
+            type="tel"
+            autoComplete="tel"
+            placeholder={phoneRequired ? "+61 412345678" : "Optional"}
+            maxLength={PHONE_MAX}
+            value={values.phone ?? ""}
+            onChange={(event) => setValue("phone", event.target.value)}
+            error={fieldErrors.phone}
+            required={phoneRequired}
+          />
+        )}
 
         <PasswordField
           id="password"

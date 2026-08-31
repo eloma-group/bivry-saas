@@ -62,18 +62,23 @@ export const PAYMENT_TERMS = [
   "Net 90",
 ];
 
-/** How the customer is billed. These two map onto the stored enum values. */
-export const BILLING_TYPES = ["Invoicing", "CTL"] as const;
+/**
+ * How the customer is billed. These two map onto the stored enum values.
+ *
+ * RCTI is a recipient created tax invoice: the load is invoiced by us on the
+ * customer's behalf rather than billed to them on terms.
+ */
+export const BILLING_TYPES = ["Invoicing", "RCTI"] as const;
 
 /** The form label for a stored billing type, and back again. */
-export const BILLING_TYPE_TO_API: Record<string, "INVOICING" | "CTL"> = {
+export const BILLING_TYPE_TO_API: Record<string, "INVOICING" | "RCTI"> = {
   Invoicing: "INVOICING",
-  CTL: "CTL",
+  RCTI: "RCTI",
 };
 
 export const BILLING_TYPE_FROM_API: Record<string, string> = {
   INVOICING: "Invoicing",
-  CTL: "CTL",
+  RCTI: "RCTI",
 };
 
 /**
@@ -83,16 +88,13 @@ export const BILLING_TYPE_FROM_API: Record<string, string> = {
  * why editing a line here is not free - see the note on PAYMENT_TERMS above. It
  * is also why the list needs no database change to grow: these are text, not
  * enum values.
+ *
+ * Only the service agreement is listed. Anything else a customer holds is added
+ * with the "Add Document" button and named there, which is also where a
+ * document stored under a name this list no longer carries comes back: it reads
+ * as one of the customer's own added rows rather than disappearing.
  */
-export const CUSTOMER_DOCUMENT_TYPES = [
-  "Credit Application",
-  "Rate Card",
-  "Insurance Certificate",
-  "Trading Terms",
-  "Purchase Order",
-  "Company Registration",
-  "Tax Invoice Details",
-];
+export const CUSTOMER_DOCUMENT_TYPES = ["Service Agreement"];
 
 /** Horizontal stepper definition - completion drives the progress percentage. */
 export const CUSTOMER_STEPS: CustomerStepDef[] = [
@@ -104,11 +106,15 @@ export const CUSTOMER_STEPS: CustomerStepDef[] = [
   {
     id: "addresses",
     label: "Addresses",
+    // The warehouses are left out on purpose: plenty of customers run none, so
+    // asking for one would hold the step short of complete for good.
     requires: ["principalAddress", "billingAddress"],
   },
   {
     id: "communication",
     label: "Communication",
+    // The blocks a customer adds themselves are not listed: they are extra by
+    // definition, so an empty list must not hold the step short of complete.
     requires: ["operations", "accounts", "dispatch", "main"],
   },
   {

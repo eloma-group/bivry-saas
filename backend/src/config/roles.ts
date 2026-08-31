@@ -115,7 +115,11 @@ export const ROLES: Record<RoleSlug, RoleDefinition> = {
         email: input.email,
         phone: input.phone ?? null,
         passwordHash,
-        firstName: input.firstName,
+        // `first_name` is not nullable and the admin lists read it, so it always
+        // holds something. Signup no longer asks for a person, so the company
+        // the account belongs to fills it in. `accountName` in admin.service
+        // does the same for a record an admin creates.
+        firstName: text(input.companyName) ?? String(input.email).split('@')[0],
         lastName: input.lastName ?? null,
         companyName: input.companyName ?? null,
       };

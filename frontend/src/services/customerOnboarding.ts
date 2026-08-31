@@ -11,6 +11,7 @@ import {
   PRIMARY_CONTACT,
 } from "@/constants/customerOptions";
 import type {
+  CustomerAdditionalContactPayload,
   CustomerContactPayload,
   CustomerDocument,
   CustomerDocumentType,
@@ -22,6 +23,7 @@ import type {
   CustomerContactBlock,
   CustomerDocRow,
   CustomerFormValues,
+  CustomerWarehouseRow,
 } from "@/types/customer";
 
 /**
@@ -81,10 +83,6 @@ export function emptyFormValues(): CustomerFormValues {
     websiteAddress: "",
     cid: "",
     email: "",
-    phone: "",
-    firstName: "",
-    lastName: "",
-    designation: "",
     // The form opens on today, which is what somebody filling it in now means
     // by a creation date. It stays editable for a record being backdated.
     creationDate: todayInput(),
@@ -93,11 +91,13 @@ export function emptyFormValues(): CustomerFormValues {
     principalAddress: emptyAddress(),
     billingAddress: emptyAddress(),
     billingSameAsPrincipal: false,
+    warehouses: [],
 
     operations: { ...emptyContact },
     accounts: { ...emptyContact },
     dispatch: { ...emptyContact },
     main: { ...emptyContact },
+    additionalContacts: [],
 
     directors: [],
 
@@ -143,6 +143,43 @@ function storedFileOfType(
   return match ? storedFile(match) : null;
 }
 
+/** One stored warehouse as the form holds it. */
+function warehouseRow(
+  site: CustomerOnboardingData["warehouses"][number],
+): CustomerWarehouseRow {
+  return {
+    id: site.id,
+    street1: site.street1 ?? "",
+    street2: site.street2 ?? "",
+    suburb: site.suburb ?? "",
+    state: site.state ?? "",
+    country: site.country ?? "",
+    postCode: site.postCode ?? "",
+  };
+}
+
+/**
+ * A stored designation, split the way the form holds it.
+ *
+ * One that is not among the preset options was typed by hand, so it comes back
+ * as "Other" with the text carried alongside it.
+ */
+function splitDesignation(stored: string): { designation: string; designationOther: string } {
+  const isCustom = stored !== "" && !DESIGNATION_PRESETS.includes(stored);
+  return {
+    designation: isCustom ? DESIGNATION_OTHER : stored,
+    designationOther: isCustom ? stored : "",
+  };
+}
+
+/**
+ * The designation to store. "Other" is a UI-only choice: what is saved is the
+ * text typed alongside it, so the API only ever sees a real designation.
+ */
+function joinDesignation(block: { designation: string; designationOther: string }): string {
+  return block.designation === DESIGNATION_OTHER ? block.designationOther : block.designation;
+}
+
 /** One stored address row as the form holds it, or a blank one. */
 function addressOfType(
   addresses: CustomerOnboardingData["addresses"],
@@ -167,15 +204,9 @@ function contactDetails(
   apiType: string,
 ): Omit<CustomerContactBlock, "sameAsOperations"> {
   const stored = contacts.find((row) => row.type === apiType);
-  // A stored designation that is not one of the preset options was typed by
-  // hand, so it comes back as "Other" with the text carried in designationOther.
-  const storedDesignation = stored?.designation ?? "";
-  const isPreset = DESIGNATION_PRESETS.includes(storedDesignation);
-  const isCustom = storedDesignation !== "" && !isPreset;
   return {
     contactPerson: stored?.contactPerson ?? "",
-    designation: isCustom ? DESIGNATION_OTHER : storedDesignation,
-    designationOther: isCustom ? storedDesignation : "",
+    ...splitDesignation(stored?.designation ?? ""),
     contactNumber: stored?.contactNumber ?? "",
     email: stored?.email ?? "",
   };
@@ -263,10 +294,6 @@ export function toFormValues(data: CustomerOnboardingData): CustomerFormValues {
     websiteAddress: data.websiteAddress ?? "",
     cid: data.cid ?? "",
     email: data.email,
-    phone: data.phone ?? "",
-    firstName: data.firstName ?? "",
-    lastName: data.lastName ?? "",
-    designation: data.designation ?? "",
     // A record saved before this field existed has no date on it. It opens on
     // today rather than empty, which is what the blank form does too.
     creationDate: dateInput(data.creationDate) || todayInput(),
@@ -275,16 +302,26 @@ export function toFormValues(data: CustomerOnboardingData): CustomerFormValues {
     principalAddress: addressOfType(data.addresses, "PRINCIPAL"),
     billingAddress: addressOfType(data.addresses, "BILLING"),
     billingSameAsPrincipal: data.billingSameAsPrincipal,
+    // A record saved before warehouses existed carries none, which is also what
+    // a customer who runs none looks like. Both open on an empty list.
+    warehouses: (data.warehouses ?? []).map(warehouseRow),
 
     operations: contactBlock(data.contacts, "OPERATIONS"),
     accounts: contactBlock(data.contacts, "ACCOUNTS", operations),
     dispatch: contactBlock(data.contacts, "DISPATCH", operations),
     main: contactBlock(data.contacts, "MAIN", operations),
+    additionalContacts: (data.additionalContacts ?? []).map((contact) => ({
+      id: contact.id,
+      label: contact.label ?? "",
+      contactPerson: contact.contactPerson ?? "",
+      ...splitDesignation(contact.designation ?? ""),
+      contactNumber: contact.contactNumber ?? "",
+      email: contact.email ?? "",
+    })),
 
     directors: data.directors.map((director) => ({
       id: director.id,
       name: director.name ?? "",
-      designation: director.designation ?? "",
       email: director.email ?? "",
       contactNumber: director.contactNumber ?? "",
     })),
@@ -358,10 +395,6 @@ export async function saveOnboarding(
     entityType: trimmedOrNull(values.entityType),
     gst: trimmedOrNull(values.gst),
     websiteAddress: trimmedOrNull(values.websiteAddress),
-    phone: trimmedOrNull(values.phone),
-    firstName: trimmedOrNull(values.firstName),
-    lastName: trimmedOrNull(values.lastName),
-    designation: trimmedOrNull(values.designation),
     creationDate: values.creationDate || null,
   });
 
@@ -373,27 +406,32 @@ export async function saveOnboarding(
   const contacts: CustomerContactPayload[] = CONTACT_BLOCKS.map((block) => {
     const copied = block.key !== PRIMARY_CONTACT.key && values[block.key].sameAsOperations;
     const source = copied ? values[PRIMARY_CONTACT.key] : values[block.key];
-    // "Other" is a UI-only choice: what gets stored is the text typed alongside
-    // it, so the API only ever sees a real designation.
-    const designation =
-      source.designation === DESIGNATION_OTHER
-        ? source.designationOther
-        : source.designation;
     return {
       type: block.apiType,
       contactPerson: trimmedOrNull(source.contactPerson),
-      designation: trimmedOrNull(designation),
+      designation: trimmedOrNull(joinDesignation(source)),
       contactNumber: trimmedOrNull(source.contactNumber),
       email: trimmedOrNull(source.email),
     };
   });
 
-  await gateway.saveContacts({ contacts });
+  // The blocks the customer added themselves. A row with nothing in it is a row
+  // they opened and left, so it is dropped rather than stored empty.
+  const additionalContacts: CustomerAdditionalContactPayload[] = values.additionalContacts
+    .map((row) => ({
+      label: trimmedOrNull(row.label),
+      contactPerson: trimmedOrNull(row.contactPerson),
+      designation: trimmedOrNull(joinDesignation(row)),
+      contactNumber: trimmedOrNull(row.contactNumber),
+      email: trimmedOrNull(row.email),
+    }))
+    .filter((row) => Object.values(row).some((field) => field !== null));
+
+  await gateway.saveContacts({ contacts, additionalContacts });
 
   await gateway.saveDirectors(
     values.directors.map((director) => ({
       name: trimmedOrNull(director.name),
-      designation: trimmedOrNull(director.designation),
       email: trimmedOrNull(director.email),
       contactNumber: trimmedOrNull(director.contactNumber),
     })),
@@ -407,6 +445,9 @@ export async function saveOnboarding(
     billing: addressPayload(
       values.billingSameAsPrincipal ? values.principalAddress : values.billingAddress,
     ),
+    // Every warehouse, in the order they sit on screen. The list is replaced
+    // wholesale, so a row taken off the form is a warehouse that is gone.
+    warehouses: values.warehouses.map(addressPayload),
   });
 
   await gateway.saveBilling({
