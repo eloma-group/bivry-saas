@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   MessageSquare,
   HelpCircle,
@@ -84,6 +84,8 @@ export function Navbar({ items, onMenuClick, activeHref, onNavigate }: NavbarPro
   const profilePath = role && user ? getPortal(role).profilePath?.(user.id) : undefined;
   // Every portal can change its own password.
   const changePasswordPath = role ? getPortal(role).changePasswordPath : undefined;
+  // Where the logo leads. See the note on the link itself.
+  const homeHref = role === "admin" ? getPortal("admin").homePath : "/";
 
   async function handleLogout() {
     if (signingOut) return;
@@ -110,9 +112,18 @@ export function Navbar({ items, onMenuClick, activeHref, onNavigate }: NavbarPro
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="shrink-0">
+        {/* The logo is the way back out. Everywhere but Admin that means the
+            portal picker: these accounts belong to one business that may hold
+            more than one of them, so "home" is the choice of portal rather than
+            any page inside the one they happen to be in. An admin has no other
+            portal to pick, so theirs goes to the dashboard. */}
+        <Link
+          to={homeHref}
+          aria-label={role === "admin" ? "Go to the dashboard" : "Choose your portal"}
+          className="shrink-0 rounded-xl transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
+        >
           <Logo />
-        </div>
+        </Link>
       </div>
 
       <NavMenu

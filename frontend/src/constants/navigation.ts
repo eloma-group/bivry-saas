@@ -145,6 +145,9 @@ function selfServiceNav(ownModule: "Driver" | "Vendor", href: string): NavItem[]
   ];
 }
 
+/** The Onboarding modules a vendor is offered. Their own is not among them. */
+const VENDOR_ONBOARDING_MODULES = ["Vehicle", "Driver"];
+
 /**
  * Menu for the Vendor portal.
  *
@@ -153,6 +156,12 @@ function selfServiceNav(ownModule: "Driver" | "Vendor", href: string): NavItem[]
  * rather than theirs, so they are left out of this menu altogether instead of
  * being shown greyed out. Items marked clickable without an `href` light up and
  * respond to hover but do not navigate yet - the pages are still to come.
+ *
+ * A vendor's own onboarding form is deliberately absent from the Onboarding
+ * menu. They meet it once, straight after signing up, and every visit after
+ * that is an edit of a record they already hold - which belongs with the record
+ * itself. So they reach it from Profile > Edit Profile instead, and the menu is
+ * left to say what a vendor onboards rather than that they are one.
  */
 function vendorNav(): NavItem[] {
   return [
@@ -166,9 +175,6 @@ function vendorNav(): NavItem[] {
         // Reads as live and answers to hover, but carries no href yet, so a
         // click does nothing until the page behind it is built.
         { label: "All Bookings", enabled: true },
-        // Kept from before, faded until their feature work lands.
-        { label: "Create Booking" },
-        { label: "Calendar" },
       ],
     },
     {
@@ -177,7 +183,6 @@ function vendorNav(): NavItem[] {
       enabled: true,
       children: [
         { label: "Invoices", enabled: true },
-        { label: "Compliance", enabled: true },
         { label: "Fines", enabled: true },
         { label: "Non compliances", enabled: true },
         // Kept from before, faded until their feature work lands.
@@ -196,16 +201,8 @@ function vendorNav(): NavItem[] {
       label: "Onboarding",
       icon: UserPlus,
       enabled: true,
-      children: ONBOARDING_MODULES.map((module) => {
-        if (module.label === "Vendor") {
-          return { label: module.label, enabled: true, href: "/vendor/onboarding" };
-        }
-        // Vehicle and Driver read as clickable now; the pages are still to come.
-        if (module.label === "Vehicle" || module.label === "Driver") {
-          return { label: module.label, enabled: true };
-        }
-        return { label: module.label };
-      }),
+      // Clickable now; the pages behind them are still to come.
+      children: VENDOR_ONBOARDING_MODULES.map((label) => ({ label, enabled: true })),
     },
   ];
 }

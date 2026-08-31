@@ -52,7 +52,11 @@ function TopItem({
   );
 
   if (!hasChildren) {
-    const enabled = Boolean(item.enabled && item.href);
+    // `enabled` alone is enough to light an item up. One without an `href`
+    // answers to hover and reads as live but goes nowhere yet, which is how the
+    // children below have always behaved; a top level item was demanding a
+    // route as well, so a page still to be built could only be shown locked.
+    const enabled = item.enabled === true;
     const active = enabled && item.href === activeHref;
     const button = (
       <button
