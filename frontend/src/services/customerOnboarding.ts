@@ -143,18 +143,48 @@ function storedFileOfType(
   return match ? storedFile(match) : null;
 }
 
-/** One stored warehouse as the form holds it. */
+/** Whether an address block has been answered at all. */
+function hasAddress(address: CustomerAddressBlock): boolean {
+  return Object.values(address).some((field) => field.trim() !== "");
+}
+
+/** Whether two address blocks say the same thing, field for field. */
+function sameAddress(a: CustomerAddressBlock, b: CustomerAddressBlock): boolean {
+  return (Object.keys(a) as Array<keyof CustomerAddressBlock>).every(
+    (field) => a[field].trim() === b[field].trim(),
+  );
+}
+
+/**
+ * One stored warehouse as the form holds it, with its tick worked out.
+ *
+ * Nothing stores that tick. A warehouse ticked as a copy is saved holding the
+ * principal address verbatim, so a warehouse that matches it in every field is
+ * one that was copied - which makes the row its own record of it, with no
+ * second copy of the answer free to drift out of step. The same arrangement the
+ * contact blocks use.
+ *
+ * One guard: a warehouse only counts as copied once the principal address has
+ * actually been answered, so a record with neither filled in does not open with
+ * every warehouse ticked.
+ */
 function warehouseRow(
   site: CustomerOnboardingData["warehouses"][number],
+  principal: CustomerAddressBlock,
 ): CustomerWarehouseRow {
-  return {
-    id: site.id,
+  const address: CustomerAddressBlock = {
     street1: site.street1 ?? "",
     street2: site.street2 ?? "",
     suburb: site.suburb ?? "",
     state: site.state ?? "",
     country: site.country ?? "",
     postCode: site.postCode ?? "",
+  };
+
+  return {
+    id: site.id,
+    ...address,
+    sameAsPrincipal: hasAddress(principal) && sameAddress(address, principal),
   };
 }
 
@@ -254,6 +284,8 @@ export function toFormValues(data: CustomerOnboardingData): CustomerFormValues {
   const documents = data.documents;
   // The block the other three are compared against to work out their tick.
   const operations = contactDetails(data.contacts, "OPERATIONS");
+  // And the address every warehouse is compared against to work out its own.
+  const principal = addressOfType(data.addresses, "PRINCIPAL");
 
   // The documents are shown one row each. Every listed one gets its row back,
   // carrying its stored file where one was uploaded; anything stored under a
@@ -299,12 +331,12 @@ export function toFormValues(data: CustomerOnboardingData): CustomerFormValues {
     creationDate: dateInput(data.creationDate) || todayInput(),
     companyLogo: storedFileOfType(documents, "COMPANY_LOGO"),
 
-    principalAddress: addressOfType(data.addresses, "PRINCIPAL"),
+    principalAddress: principal,
     billingAddress: addressOfType(data.addresses, "BILLING"),
     billingSameAsPrincipal: data.billingSameAsPrincipal,
     // A record saved before warehouses existed carries none, which is also what
     // a customer who runs none looks like. Both open on an empty list.
-    warehouses: (data.warehouses ?? []).map(warehouseRow),
+    warehouses: (data.warehouses ?? []).map((site) => warehouseRow(site, principal)),
 
     operations: contactBlock(data.contacts, "OPERATIONS"),
     accounts: contactBlock(data.contacts, "ACCOUNTS", operations),
@@ -446,8 +478,13 @@ export async function saveOnboarding(
       values.billingSameAsPrincipal ? values.principalAddress : values.billingAddress,
     ),
     // Every warehouse, in the order they sit on screen. The list is replaced
-    // wholesale, so a row taken off the form is a warehouse that is gone.
-    warehouses: values.warehouses.map(addressPayload),
+    // wholesale, so a row taken off the form is a warehouse that is gone. A
+    // ticked one is sent as a copy of the principal address, which is the whole
+    // of what the tick means here - there is no flag alongside it, and
+    // `warehouseRow` reads the tick back off these rows.
+    warehouses: values.warehouses.map((site) =>
+      addressPayload(site.sameAsPrincipal ? values.principalAddress : site),
+    ),
   });
 
   await gateway.saveBilling({

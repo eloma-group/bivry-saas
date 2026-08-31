@@ -185,6 +185,82 @@ function AddressTools({ path, label }: { path: AddressPath; label: string }) {
 }
 
 /**
+ * One warehouse: its address, or a tick saying it is the principal one.
+ *
+ * The tick works the way the billing address's does. Ticked, the fields fold
+ * away and the principal address is saved as this warehouse instead. Whatever
+ * was typed here stays in the form, so unticking brings it back rather than
+ * making somebody type it twice.
+ */
+function WarehouseRow({
+  index,
+  onRemove,
+}: {
+  index: number;
+  onRemove: () => void;
+}) {
+  const { control, getValues, setValue } = useFormContext<CustomerFormValues>();
+  const path = `warehouses.${index}` as const;
+  const sameAsPrincipal = useWatch({ control, name: `${path}.sameAsPrincipal` });
+  const checkboxId = `warehouse-${index}-same-as-principal`;
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-secondary/30 p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-foreground">Warehouse {index + 1}</span>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-card px-3 py-2">
+            <Checkbox
+              id={checkboxId}
+              checked={sameAsPrincipal}
+              onCheckedChange={(checked) =>
+                setValue(`${path}.sameAsPrincipal`, Boolean(checked), { shouldDirty: true })
+              }
+            />
+            <label
+              htmlFor={checkboxId}
+              className="cursor-pointer text-sm font-medium text-foreground"
+            >
+              Same as principal address
+            </label>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:bg-red-50 hover:text-red-500"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4" /> Remove
+          </Button>
+        </div>
+      </div>
+
+      {/* The fields leave the screen when the tick says this is the principal
+          address, but they stay registered, so their rules have to ask whether
+          they are on show. The principal address is saved either way. */}
+      <AnimatePresence initial={false}>
+        {!sameAsPrincipal && (
+          <motion.div
+            key="address"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <AddressTools path={path} label={`warehouse ${index + 1} address`} />
+            <AddressFields path={path} asked={() => !getValues(`${path}.sameAsPrincipal`)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
  * The warehouses the customer operates.
  *
  * The same list, the same address fields and the same location tools the vendor
@@ -219,25 +295,8 @@ function WarehouseList() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.25 }}
-              className="rounded-2xl border border-border/60 bg-secondary/30 p-5"
             >
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-foreground">
-                  Warehouse {index + 1}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:bg-red-50 hover:text-red-500"
-                  onClick={() => sites.remove(index)}
-                >
-                  <Trash2 className="h-4 w-4" /> Remove
-                </Button>
-              </div>
-
-              <AddressTools path={`warehouses.${index}`} label={`warehouse ${index + 1} address`} />
-              <AddressFields path={`warehouses.${index}`} asked={() => true} />
+              <WarehouseRow index={index} onRemove={() => sites.remove(index)} />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -260,6 +319,7 @@ function WarehouseList() {
               state: "",
               country: "Australia",
               postCode: "",
+              sameAsPrincipal: false,
             })
           }
         >

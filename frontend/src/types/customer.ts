@@ -96,6 +96,18 @@ export interface CustomerAddressBlock {
  */
 export interface CustomerWarehouseRow extends CustomerAddressBlock {
   id: string;
+  /**
+   * Whether this warehouse was ticked as a copy of the principal address.
+   *
+   * Form state only - nothing stores it. A ticked warehouse is saved holding
+   * the principal address verbatim, so on the way back in the tick is read off
+   * the row itself rather than remembered separately, the same way a contact
+   * block ticked as a copy of the operations one is.
+   *
+   * The fields above keep whatever was typed in them and are not cleared by the
+   * tick, so unticking brings back what was there.
+   */
+  sameAsPrincipal: boolean;
 }
 
 /** A row in the documents table. */
