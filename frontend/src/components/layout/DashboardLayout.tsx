@@ -72,7 +72,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 >
                   <X className="h-5 w-5" />
                 </button>
-                <Sidebar items={items} activeHref={activeHref} onNavigate={navigate} />
+                <Sidebar
+                  items={items}
+                  activeHref={activeHref}
+                  onNavigate={navigate}
+                  onClose={() => setDrawerOpen(false)}
+                />
               </motion.div>
             </>
           )}

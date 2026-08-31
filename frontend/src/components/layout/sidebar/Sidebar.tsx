@@ -1,7 +1,10 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/layout/Logo";
+import { useAuth } from "@/context/AuthContext";
+import { homeHrefFor } from "@/config/roles";
 import { SidebarItem } from "./SidebarItem";
 import {
   Tooltip,
@@ -15,10 +18,18 @@ interface SidebarProps {
   items: NavItem[];
   activeHref: string;
   onNavigate: (href: string) => void;
+  /**
+   * Puts the drawer away. Called when the logo is followed, because that leads
+   * out of this menu and leaving it open over the page it lands on is not what
+   * anybody meant by clicking it.
+   */
+  onClose?: () => void;
   className?: string;
 }
 
-export function Sidebar({ items, activeHref, onNavigate, className }: SidebarProps) {
+export function Sidebar({ items, activeHref, onNavigate, onClose, className }: SidebarProps) {
+  const { role } = useAuth();
+
   return (
     <aside
       className={cn(
@@ -26,8 +37,16 @@ export function Sidebar({ items, activeHref, onNavigate, className }: SidebarPro
         className
       )}
     >
+      {/* The same way back out the header's logo gives. See `homeHrefFor`. */}
       <div className="px-6 py-6">
-        <Logo />
+        <Link
+          to={homeHrefFor(role)}
+          onClick={onClose}
+          aria-label={role === "admin" ? "Go to the dashboard" : "Choose your portal"}
+          className="inline-block rounded-xl transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
+        >
+          <Logo />
+        </Link>
       </div>
 
       <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-4 pb-4">

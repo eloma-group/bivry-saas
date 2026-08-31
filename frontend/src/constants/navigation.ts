@@ -185,10 +185,6 @@ function vendorNav(): NavItem[] {
         { label: "Invoices", enabled: true },
         { label: "Fines", enabled: true },
         { label: "Non compliances", enabled: true },
-        // Kept from before, faded until their feature work lands.
-        { label: "Teams" },
-        { label: "Roles" },
-        { label: "Assets" },
       ],
     },
     {

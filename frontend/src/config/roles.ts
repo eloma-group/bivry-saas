@@ -137,3 +137,15 @@ export function getPortal(slug: RoleSlug): PortalConfig {
 export function isRoleSlug(value: string): value is RoleSlug {
   return value in PORTALS;
 }
+
+/**
+ * Where the BIVRY logo leads from inside a portal.
+ *
+ * Everywhere but Admin that is the portal picker: these accounts belong to one
+ * business that may hold more than one of them, so "home" is the choice of
+ * portal rather than any page inside the one they happen to be in. An admin has
+ * no other portal to pick, so theirs goes to the dashboard.
+ */
+export function homeHrefFor(role: RoleSlug | null): string {
+  return role === "admin" ? PORTALS.admin.homePath : "/";
+}
