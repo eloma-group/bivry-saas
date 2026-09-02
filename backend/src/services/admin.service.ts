@@ -732,8 +732,20 @@ export async function listVendors(query: VendorListQuery) {
         // has no field for it. The contact numbers are what a vendor actually
         // gives, so they come too and the admin views fall back to them.
         contacts: { select: { type: true, contactNumber: true } },
+        // Every expiry the accreditation carries, not only the NHVAS one. The
+        // register shows the certificate's own expiry date where there is one,
+        // and the soonest scheme expiry otherwise, so a vendor who filled in a
+        // date on their form never shows a blank here.
         accreditation: {
-          select: { accreditationNumber: true, nhvasExpiry: true, verificationStatus: true },
+          select: {
+            accreditationNumber: true,
+            expiryDate: true,
+            massManagementExpiry: true,
+            dangerousGoodsExpiry: true,
+            nhvasExpiry: true,
+            haccpExpiry: true,
+            verificationStatus: true,
+          },
         },
         coverage: { select: { areasCovered: true, businessOperations: true } },
         warehouses: { select: { suburb: true, state: true, country: true }, orderBy: { position: 'asc' } },
@@ -796,13 +808,21 @@ export interface CreateVendorInput {
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 }
 
+/**
+ * Creates the account, and hands it its vendor ID in the same breath.
+ *
+ * The ID used to wait until the vendor first opened their own onboarding form,
+ * so a vendor an admin created showed as blank everywhere the ID is quoted -
+ * the register, and the vendor dropdown on a booking. Allocating here means an
+ * account can never exist without one.
+ */
 export async function createVendor(input: CreateVendorInput) {
   const email = input.email.trim().toLowerCase();
 
   const existing = await prisma.vendor.findUnique({ where: { email } });
   if (existing) throw ApiError.conflict('A vendor account with this email already exists.');
 
-  return prisma.vendor.create({
+  const created = await prisma.vendor.create({
     data: {
       email,
       passwordHash: await hashPassword(input.password),
@@ -823,6 +843,12 @@ export async function createVendor(input: CreateVendorInput) {
     },
     select: VENDOR_LIST_FIELDS,
   });
+
+  // Allocated after the insert rather than inside it, so a clash on the number
+  // retries on its own instead of failing the whole create. A vendor left
+  // without one by a run of clashes still picks one up on their next load.
+  const vendorCode = await vendorService.ensureVendorCode(created.id);
+  return { ...created, vendorCode };
 }
 
 export type UpdateVendorInput = Partial<Omit<CreateVendorInput, 'password'>>;

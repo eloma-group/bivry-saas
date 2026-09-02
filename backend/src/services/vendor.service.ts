@@ -52,31 +52,53 @@ export async function getOnboarding(vendorId: string) {
 }
 
 /**
- * Hands this vendor its reference number the first time they open the form.
+ * The next free number in the vendor code series: one past the highest already
+ * taken, or 5000 where none has been handed out yet.
  *
- * The number is derived from how many vendors already hold one, so it reads
- * as a running count rather than a random string. Two accounts opening the form
- * at the same instant can land on the same candidate, which the unique index
- * refuses - so a clash simply tries the next one.
+ * Read as a single MAX rather than by counting rows, because a count only lands
+ * on a free number while the numbers taken run without a gap. One deleted vendor
+ * in the middle and every count from then on names a number somebody already
+ * holds, which is how vendors ended up with no code at all: the unique index
+ * refused every candidate and the allocation gave up. The digits are cast to an
+ * integer because a text sort puts 10000 before 9999.
  */
-async function ensureVendorCode(vendorId: string): Promise<void> {
+async function nextVendorCodeNumber(): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ max: number | null }>>`
+    SELECT MAX(NULLIF(regexp_replace(vendor_code, '[^0-9]', '', 'g'), '')::bigint) AS max
+    FROM vendors
+    WHERE vendor_code IS NOT NULL
+  `;
+
+  const highest = rows[0]?.max ?? null;
+  return highest === null ? VENDOR_CODE_BASE : Math.max(Number(highest) + 1, VENDOR_CODE_BASE);
+}
+
+/**
+ * Hands a vendor its reference number, if it has none.
+ *
+ * Called on the first onboarding load and again whenever an admin creates a
+ * vendor, so no account can reach a dropdown or a register without an ID. Two
+ * accounts allocating at the same instant can land on the same candidate, which
+ * the unique index refuses - so a clash simply tries the next one.
+ */
+export async function ensureVendorCode(vendorId: string): Promise<string | null> {
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
     select: { id: true, vendorCode: true },
   });
   if (!vendor) throw ApiError.notFound('Vendor not found');
-  if (vendor.vendorCode) return;
+  if (vendor.vendorCode) return vendor.vendorCode;
 
-  const taken = await prisma.vendor.count({ where: { vendorCode: { not: null } } });
+  const first = await nextVendorCodeNumber();
 
   for (let attempt = 0; attempt < 25; attempt += 1) {
-    const candidate = `${VENDOR_CODE_PREFIX}${VENDOR_CODE_BASE + taken + attempt}`;
+    const candidate = `${VENDOR_CODE_PREFIX}${first + attempt}`;
     try {
       await prisma.vendor.update({
         where: { id: vendorId },
         data: { vendorCode: candidate },
       });
-      return;
+      return candidate;
     } catch (error) {
       // P2002 is the unique index refusing a number somebody else just took.
       const code = (error as { code?: string }).code;
@@ -86,6 +108,7 @@ async function ensureVendorCode(vendorId: string): Promise<void> {
 
   // Not fatal: the form works without a reference, and the next load tries again.
   logger.warn(`Could not allocate a vendor code for vendor ${vendorId}`);
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +211,8 @@ export async function updateDirectors(vendorId: string, directors: DirectorInput
 }
 
 export interface WarehouseInput {
+  /** Unit, suite or flat number. Its own field, kept off the street line. */
+  suite: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;
@@ -197,6 +222,8 @@ export interface WarehouseInput {
 }
 
 export interface AddressInput {
+  /** Unit, suite or flat number. Its own field, kept off the street line. */
+  suite: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;

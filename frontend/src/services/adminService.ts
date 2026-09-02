@@ -106,7 +106,12 @@ export interface AdminVendorRow {
   updatedAt: string;
   accreditation: {
     accreditationNumber: string | null;
+    /** The certificate's own expiry, as distinct from the scheme ones below. */
+    expiryDate: string | null;
+    massManagementExpiry: string | null;
+    dangerousGoodsExpiry: string | null;
     nhvasExpiry: string | null;
+    haccpExpiry: string | null;
     verificationStatus: VerificationStatus;
   } | null;
   coverage: { areasCovered: string[]; businessOperations: string[] } | null;

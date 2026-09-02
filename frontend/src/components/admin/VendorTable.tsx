@@ -59,6 +59,43 @@ function SortableHeader({
 }
 
 /**
+ * The expiry this column reports for one accreditation.
+ *
+ * The certificate's own Date Of Expiry where the vendor gave one, and otherwise
+ * the soonest of the scheme expiries it carries - whichever lapses first is what
+ * an admin scanning the register needs to see. This used to read the NHVAS date
+ * and nothing else, so a vendor who filled in their expiry date but runs no
+ * NHVAS module showed a blank here while their own profile showed the date.
+ *
+ * A date stored as the 1970 epoch is a blank left by an old save bug, not a
+ * certificate that lapsed fifty years ago, so it is passed over rather than
+ * being picked as the soonest. `ExpiryBadge` reads it the same way.
+ */
+const EPOCH_PLACEHOLDER = "1970-01-01";
+
+function accreditationExpiry(
+  accreditation: NonNullable<AdminVendorRow["accreditation"]>,
+): string | null {
+  const real = (value: string | null) =>
+    value && value.slice(0, 10) !== EPOCH_PLACEHOLDER ? value : null;
+
+  const own = real(accreditation.expiryDate);
+  if (own) return own;
+
+  const schemes = [
+    accreditation.massManagementExpiry,
+    accreditation.dangerousGoodsExpiry,
+    accreditation.nhvasExpiry,
+    accreditation.haccpExpiry,
+  ]
+    .map(real)
+    .filter((value): value is string => value !== null);
+
+  // Sorted as text on purpose: these are ISO dates, so that is date order.
+  return schemes.length > 0 ? schemes.sort()[0] : null;
+}
+
+/**
  * The vendor register.
  *
  * Scrolls inside its own container so a wide table never makes the page scroll
@@ -182,13 +219,13 @@ export function VendorTable({
                   </td>
 
                   <td className="px-4 py-3">
-                    {row.accreditation?.accreditationNumber ? (
+                    {row.accreditation ? (
                       <>
                         <p className="text-foreground">
-                          {row.accreditation.accreditationNumber}
+                          {row.accreditation.accreditationNumber || "No number"}
                         </p>
                         <div className="mt-1">
-                          <ExpiryBadge expiry={row.accreditation.nhvasExpiry} />
+                          <ExpiryBadge expiry={accreditationExpiry(row.accreditation)} />
                         </div>
                       </>
                     ) : (
