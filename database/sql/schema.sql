@@ -160,6 +160,7 @@ CREATE TABLE "customer_warehouses" (
     "id" UUID NOT NULL,
     "customer_id" UUID NOT NULL,
     "position" INTEGER NOT NULL DEFAULT 0,
+    "suite" TEXT,
     "street1" TEXT,
     "street2" TEXT,
     "suburb" TEXT,
@@ -192,6 +193,7 @@ CREATE TABLE "customer_addresses" (
     "id" UUID NOT NULL,
     "customer_id" UUID NOT NULL,
     "type" "customer_address_type" NOT NULL,
+    "suite" TEXT,
     "street1" TEXT,
     "street2" TEXT,
     "suburb" TEXT,
@@ -332,6 +334,7 @@ CREATE TABLE "vendor_warehouses" (
     "id" UUID NOT NULL,
     "vendor_id" UUID NOT NULL,
     "position" INTEGER NOT NULL DEFAULT 0,
+    "suite" TEXT,
     "street1" TEXT,
     "street2" TEXT,
     "suburb" TEXT,
@@ -349,6 +352,7 @@ CREATE TABLE "vendor_yards" (
     "id" UUID NOT NULL,
     "vendor_id" UUID NOT NULL,
     "position" INTEGER NOT NULL DEFAULT 0,
+    "suite" TEXT,
     "street1" TEXT,
     "street2" TEXT,
     "suburb" TEXT,
@@ -366,6 +370,7 @@ CREATE TABLE "vendor_addresses" (
     "id" UUID NOT NULL,
     "vendor_id" UUID NOT NULL,
     "type" "vendor_address_type" NOT NULL,
+    "suite" TEXT,
     "street1" TEXT,
     "street2" TEXT,
     "suburb" TEXT,
@@ -500,6 +505,7 @@ CREATE TABLE "driver_addresses" (
     "id" UUID NOT NULL,
     "driver_id" UUID NOT NULL,
     "type" "address_type" NOT NULL,
+    "suite" TEXT,
     "house_number" TEXT,
     "street" TEXT,
     "suburb" TEXT,
@@ -718,7 +724,7 @@ CREATE TABLE "bookings" (
     "account_status" TEXT,
     "agreement_type" TEXT,
     "reference" TEXT,
-    "invoice_term" INTEGER,
+    "invoice_term" TEXT,
     "cargo_type" TEXT,
     "vehicle_type" TEXT,
     "trailer_category" TEXT,
@@ -747,6 +753,18 @@ CREATE TABLE "bookings" (
 );
 
 -- CreateTable
+CREATE TABLE "booking_job_numbers" (
+    "id" UUID NOT NULL,
+    "job_number" TEXT NOT NULL,
+    "financial_year" TEXT,
+    "admin_id" UUID,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "booking_job_numbers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "booking_stops" (
     "id" UUID NOT NULL,
     "booking_id" UUID NOT NULL,
@@ -756,6 +774,7 @@ CREATE TABLE "booking_stops" (
     "trailer" TEXT,
     "scheduled_at" TEXT,
     "company" TEXT,
+    "suite" TEXT,
     "address" TEXT,
     "city" TEXT,
     "suburb" TEXT,
@@ -956,6 +975,12 @@ CREATE INDEX "bookings_vendor_id_idx" ON "bookings"("vendor_id");
 
 -- CreateIndex
 CREATE INDEX "bookings_financial_year_idx" ON "bookings"("financial_year");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "booking_job_numbers_job_number_key" ON "booking_job_numbers"("job_number");
+
+-- CreateIndex
+CREATE INDEX "booking_job_numbers_expires_at_idx" ON "booking_job_numbers"("expires_at");
 
 -- CreateIndex
 CREATE INDEX "booking_stops_booking_id_idx" ON "booking_stops"("booking_id");

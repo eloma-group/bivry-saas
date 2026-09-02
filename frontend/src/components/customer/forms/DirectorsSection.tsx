@@ -57,22 +57,24 @@ export function DirectorsSection() {
                   rules={rules.fullName("Director name")}
                   hint="Full name as per the document."
                 />
+                {/* Both optional: a director's name is what the account needs
+                    on record, and an email or a number for every one of them is
+                    often not to hand when the form is filled in. Whatever is
+                    typed is still checked for shape. */}
                 <TextField
                   name={`directors.${index}.email`}
                   label="Director Email Address"
                   type="email"
                   placeholder="sanket.salve@gmail.com"
-                  required
-                  rules={rules.email}
+                  rules={rules.optionalEmail}
                 />
                 <TextField
                   name={`directors.${index}.contactNumber`}
                   label="Director Contact Number"
                   type="tel"
                   placeholder="0400000000"
-                  required
                   maxLength={PHONE_MAX}
-                  rules={rules.phone}
+                  rules={rules.optionalPhone}
                 />
               </div>
             </motion.div>

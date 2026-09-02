@@ -177,8 +177,15 @@ function SiteCard({
   );
 }
 
-/** One address over three lines: the street, the area, then the country. */
+/**
+ * One address over three lines: the street, the area, then the country.
+ *
+ * The suite leads the street line, which is how the address reads aloud -
+ * "Suite 3, 12 Balaclava Road". An address with none simply starts at the
+ * street.
+ */
 function addressLines(address: {
+  suite?: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;
@@ -186,7 +193,9 @@ function addressLines(address: {
   postCode: string | null;
   country: string | null;
 }): string[] {
-  const street = [address.street1, address.street2].filter(Boolean).join(", ");
+  const street = [address.suite, address.street1, address.street2]
+    .filter(Boolean)
+    .join(", ");
   const region = [address.suburb, address.state, address.postCode].filter(Boolean).join(", ");
   return [street, region, address.country ?? ""].filter((line) => line.trim() !== "");
 }

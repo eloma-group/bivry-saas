@@ -11,6 +11,7 @@ import {
   INVOICE_TERM_MAX,
   REFERENCES,
 } from "@/constants/bookingOptions";
+import { PAYMENT_TERMS } from "@/constants/customerOptions";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -63,12 +64,15 @@ export function BookingDetailsSection() {
           readOnly
           hint="Australian financial year (1 July - 30 June), from the booking date."
         />
+        {/* Held for this admin from the moment the form opened, so the number
+            on screen is the number the save will use and no second admin is
+            offered it in the meantime. */}
         <TextField
           name="jobNumber"
           label="Job Number"
-          placeholder="Assigned when the booking is saved"
+          placeholder="Reserving a job number…"
           readOnly
-          hint="BIVRY-<year>-<number>, given by the server on save so two admins can never be handed the same one."
+          hint="BIVRY-<year>-<number>, given by the server and held for you while this form is open."
         />
         <CustomerField />
         <TextField
@@ -76,7 +80,7 @@ export function BookingDetailsSection() {
           label="Customer Account Number"
           placeholder="Select a customer to fill this"
           readOnly
-          hint="From the selected customer's record."
+          hint="The chosen customer's ID, from their own record."
         />
         <SelectField
           name="accountStatus"
@@ -96,15 +100,16 @@ export function BookingDetailsSection() {
           options={REFERENCES}
           placeholder="Select reference"
         />
-        {/* A count of days, so the box takes digits and nothing else: a letter
-            or a symbol never lands in it, rather than being refused on save. */}
+        {/* Opens on the term saved against the chosen customer - "Net 7", as
+            their billing section words it - and stays a plain box, so an admin
+            can agree something else on this one booking without it having to be
+            one of the terms on the customer's list. */}
         <TextField
           name="invoiceTerm"
           label="Invoice Term"
-          placeholder="15"
-          digitsOnly
+          placeholder={`Select a customer, or type a term (${PAYMENT_TERMS[2]})`}
           maxLength={INVOICE_TERM_MAX}
-          hint="How many days the invoice runs for. Numbers only."
+          hint="From the customer's billing term. Change it here for this booking only."
         />
       </div>
     </SectionCard>

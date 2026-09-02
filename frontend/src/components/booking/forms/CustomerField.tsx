@@ -17,9 +17,12 @@ import { customerLabel } from "@/utils/customer";
 /**
  * The Customer field on the booking form: a dropdown of existing customers.
  *
- * Picking one pulls their account number straight into the read-only Customer
- * Account Number field beside it, from the customer's own record. Their name is
- * kept on the booking too, and their id, so a save knows exactly who was chosen.
+ * Picking one fills the two fields that follow from the choice rather than from
+ * anything typed here: the read-only Customer Account Number, which is the
+ * customer's own ID (BIVCST5000 onwards), and the Invoice Term, which opens on
+ * the payment term saved against that customer and stays editable so an admin
+ * can agree something else on a single booking. Their name is kept on the
+ * booking too, and their id, so a save knows exactly who was chosen.
  */
 export function CustomerField() {
   const { setValue, watch } = useFormContext();
@@ -57,17 +60,28 @@ export function CustomerField() {
 
   function pickCustomer(id: string) {
     const customer = customers.find((row) => row.id === id);
-    const accountNumber = customer?.accountNumber ?? "";
     setValue("customerId", id, { shouldDirty: true });
     setValue("customer", customer ? customerLabel(customer) : "", { shouldDirty: true });
-    setValue("customerAccountNumber", accountNumber, { shouldDirty: true, shouldValidate: true });
+    // The customer ID, not the older CAN account number: it is what the rest of
+    // the product quotes a customer by, so it is what a booking should carry.
+    setValue("customerAccountNumber", customer?.cid ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    // The term this customer is billed on, as their record words it ("Net 7").
+    // Overwritten on every pick, including back to empty for a customer with no
+    // term saved, so the field always answers for the customer now chosen.
+    setValue("invoiceTerm", customer?.billing?.term ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   }
 
   return (
     <FieldShell
       label="Customer"
       required
-      hint="Pick a customer to fill their account number."
+      hint="Pick a customer to fill their ID and invoice term."
     >
       {error ? (
         <div className="flex items-center gap-2">
@@ -88,7 +102,7 @@ export function CustomerField() {
               customers.map((customer) => (
                 <SelectItem key={customer.id} value={customer.id}>
                   {customerLabel(customer)}
-                  {customer.accountNumber ? " (" + customer.accountNumber + ")" : ""}
+                  {customer.cid ? " (" + customer.cid + ")" : ""}
                 </SelectItem>
               ))
             )}

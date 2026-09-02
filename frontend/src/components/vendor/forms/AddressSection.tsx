@@ -25,6 +25,17 @@ import type { VendorFormValues } from "@/types/vendor";
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 /**
+ * Whether the worldwide address search is offered on this form.
+ *
+ * Off, deliberately, and the same way it is off on the customer form: the
+ * search is not ready to be put in front of a vendor yet. The fix from the
+ * browser stays, and every field below is typed anyway, so nothing here depends
+ * on it. Flip this back to true to bring the search box back on every address
+ * block at once.
+ */
+const SHOW_ADDRESS_SEARCH = false;
+
+/**
  * Where one address lives in the form.
  *
  * The two registered addresses sit at a name of their own; a yard or a warehouse
@@ -106,6 +117,7 @@ function applyFoundAddress(
   const filled: Array<[string, string]> = [
     ["country", found.country],
     ["state", found.state],
+    ["suite", found.suite],
     ["street1", street1],
     ["suburb", found.suburb],
     ["postCode", found.postCode],
@@ -120,11 +132,13 @@ function applyFoundAddress(
 }
 
 /**
- * The five fields every address here asks for.
+ * The six fields every address here asks for.
  *
- * Street 1 is typed, not searched. The search sits once above the block, in the
- * tools, so having the street line suggest as well was the same lookup offered
- * twice over. Whatever is picked up there still lands in this field.
+ * All of them are typed. Suite leads, because it is read first when an address
+ * is spoken aloud - "Suite 3, 12 Balaclava Road" - and it is the only optional
+ * one: plenty of addresses are not inside a subdivided building. Whatever the
+ * location tools above pick up still lands in these fields, and every one stays
+ * editable afterwards.
  */
 function AddressFields({
   path,
@@ -138,6 +152,12 @@ function AddressFields({
 
   return (
     <div className={GRID}>
+      <TextField
+        name={`${path}.suite`}
+        label="Suite"
+        placeholder="Suite 3"
+        hint="House, flat or unit number, if the address has one."
+      />
       <TextField
         name={`${path}.street1`}
         label="Street 1"
@@ -175,14 +195,16 @@ function AddressFields({
 
 /**
  * The location tools over one address block: a fix from the browser, and a
- * worldwide search. These are the only lookup an address has; the fields below
- * are all typed, and everything found here is written into them.
+ * worldwide search where SHOW_ADDRESS_SEARCH offers it. These are the only
+ * lookup an address has; the fields below are all typed, and everything found
+ * here is written into them.
  */
 function AddressTools({ path, label }: { path: AddressPath; label: string }) {
   const { setValue, trigger } = useFormContext<VendorFormValues>();
   return (
     <LocationPicker
       label={label}
+      showSearch={SHOW_ADDRESS_SEARCH}
       onPick={(found) => applyFoundAddress(path, found, setValue, trigger)}
       className="mb-4"
     />
@@ -271,6 +293,7 @@ function SiteList({
           onClick={() =>
             sites.append({
               id: crypto.randomUUID(),
+              suite: "",
               street1: "",
               street2: "",
               suburb: "",

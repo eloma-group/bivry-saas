@@ -277,6 +277,10 @@ router.delete('/vendors/:id/documents/:documentId', adminController.deleteVendor
 // Bookings raised from the Admin portal. On their own tables, so nothing here
 // touches the driver, vendor or account records.
 router.get('/bookings', bookingController.list);
+// The job number an open form is holding. Above `/bookings/:id` on purpose:
+// "job-number" would otherwise be read as a booking id.
+router.post('/bookings/job-number', bookingController.reserveJobNumber);
+router.delete('/bookings/job-number/:jobNumber', bookingController.releaseJobNumber);
 router.post('/bookings', validateBody(createBookingSchema), bookingController.create);
 router.get('/bookings/:id', bookingController.get);
 

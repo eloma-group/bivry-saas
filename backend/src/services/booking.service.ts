@@ -82,7 +82,10 @@ function currentFinancialYear(): string {
  * year follows. The year the client sent is used only when no date was given,
  * and today's is the last resort, so a booking can always be numbered.
  */
-function resolveFinancialYear(input: CreateBookingInput): [string, string] {
+function resolveFinancialYear(input: {
+  bookingReceivedDate: string | null;
+  financialYear: string | null;
+}): [string, string] {
   const fromDate = input.bookingReceivedDate ? financialYearOf(input.bookingReceivedDate) : null;
 
   for (const candidate of [fromDate, input.financialYear]) {
@@ -102,12 +105,22 @@ function resolveFinancialYear(input: CreateBookingInput): [string, string] {
  * hands its number on to the next one, and the numbers the old browser side
  * counter already issued are carried on from rather than repeated. The trailing
  * digits are cast to an integer because a text sort puts 10000 before 9999.
+ *
+ * Numbers parked for a form that is open count as taken alongside the bookings
+ * themselves, so the admin who opened it is the only one who can be handed it.
  */
 async function nextJobSequence(prefix: string): Promise<number> {
+  const like = `${prefix}%`;
   const rows = await prisma.$queryRaw<Array<{ max: number | null }>>`
-    SELECT MAX(SUBSTRING(job_number FROM '[0-9]+$')::int) AS max
-    FROM bookings
-    WHERE job_number LIKE ${`${prefix}%`}
+    SELECT MAX(taken) AS max FROM (
+      SELECT SUBSTRING(job_number FROM '[0-9]+$')::int AS taken
+        FROM bookings
+       WHERE job_number LIKE ${like}
+      UNION ALL
+      SELECT SUBSTRING(job_number FROM '[0-9]+$')::int AS taken
+        FROM booking_job_numbers
+       WHERE job_number LIKE ${like}
+    ) AS numbers
   `;
 
   const highest = rows[0]?.max ?? null;
@@ -121,6 +134,107 @@ function isJobNumberClash(error: unknown): boolean {
   const target = meta?.target;
   const fields = Array.isArray(target) ? target.map(String) : [String(target ?? '')];
   return fields.some((field) => field.includes('job_number'));
+}
+
+/**
+ * How long a parked job number is held for without being saved or released.
+ *
+ * A form left open all day still holds its number; a browser that crashed
+ * before it could say so gives the number back the next time one is asked for.
+ * Long enough to cover a working day, short enough that an abandoned tab does
+ * not strand a number for good.
+ */
+const RESERVATION_MS = 12 * 60 * 60 * 1000;
+
+/** Drops every parked number nobody came back for. */
+async function purgeExpiredJobNumbers(): Promise<void> {
+  await prisma.bookingJobNumber.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+}
+
+export interface ReservedJobNumber {
+  jobNumber: string;
+  financialYear: string;
+  expiresAt: Date;
+}
+
+/**
+ * Parks the next job number for one admin while they fill the form in.
+ *
+ * The Create Booking form used to show nothing in its Job Number field until the
+ * booking had been saved, because the number was only allocated on create. Two
+ * admins filling a booking in at the same time were therefore both in line for
+ * the same number, and neither could see it. Reserving here answers both: the
+ * number is on screen from the moment the form opens, and it is held, so the
+ * next admin to open the form is offered the one after it.
+ *
+ * Releasing is the caller's job (see `releaseJobNumber`); `expiresAt` is what
+ * covers the caller that never gets to.
+ */
+export async function reserveJobNumber(
+  input: { bookingReceivedDate?: string | null; financialYear?: string | null },
+  adminId: string,
+): Promise<ReservedJobNumber> {
+  await purgeExpiredJobNumbers();
+
+  const [financialYear, digits] = resolveFinancialYear({
+    bookingReceivedDate: input.bookingReceivedDate ?? null,
+    financialYear: input.financialYear ?? null,
+  });
+  const prefix = `${JOB_PREFIX}-${digits}-`;
+  const first = await nextJobSequence(prefix);
+  const expiresAt = new Date(Date.now() + RESERVATION_MS);
+
+  // The same walk the create does: another admin can take the number between
+  // the MAX above and the insert, which the unique index refuses.
+  for (let attempt = 0; attempt < JOB_ATTEMPTS; attempt += 1) {
+    const jobNumber = `${prefix}${first + attempt}`;
+    try {
+      await prisma.bookingJobNumber.create({
+        data: { jobNumber, financialYear, adminId, expiresAt },
+      });
+      return { jobNumber, financialYear, expiresAt };
+    } catch (error) {
+      if (!isJobNumberClash(error)) throw error;
+    }
+  }
+
+  throw ApiError.internal('Could not reserve a job number');
+}
+
+/**
+ * Gives a parked number back, so the next form to open is offered it.
+ *
+ * Scoped to the admin holding it, so one admin closing their form can never
+ * release the number another one is still looking at. Silent when there is
+ * nothing to release: this is called on the way out of a page, where a number
+ * already consumed by a save is the ordinary case rather than an error.
+ */
+export async function releaseJobNumber(jobNumber: string, adminId: string): Promise<void> {
+  await prisma.bookingJobNumber.deleteMany({ where: { jobNumber, adminId } });
+}
+
+/**
+ * Takes the number this admin had parked, if it is still theirs and still
+ * belongs to the financial year the booking landed in.
+ *
+ * Returns null for anything else - a number nobody reserved, one held by
+ * somebody else, or one parked before the received date was changed into
+ * another financial year - and the caller then allocates in the ordinary way.
+ * A client is never trusted for a job number: this only ever hands back one the
+ * server itself parked for this admin.
+ */
+async function claimReservedJobNumber(
+  jobNumber: string | null,
+  prefix: string,
+  adminId: string,
+): Promise<string | null> {
+  const wanted = jobNumber?.trim();
+  if (!wanted || !wanted.startsWith(prefix)) return null;
+
+  const { count } = await prisma.bookingJobNumber.deleteMany({
+    where: { jobNumber: wanted, adminId, expiresAt: { gte: new Date() } },
+  });
+  return count > 0 ? wanted : null;
 }
 
 export async function createBooking(input: CreateBookingInput, adminId: string) {
@@ -144,6 +258,10 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
   // the two must agree, and the received date is what both are derived from.
   const [financialYear, digits] = resolveFinancialYear(input);
   const prefix = `${JOB_PREFIX}-${digits}-`;
+
+  // The number the form has been showing all along, where this admin still
+  // holds it. Anything else falls through to the ordinary allocation below.
+  const reserved = await claimReservedJobNumber(input.jobNumber, prefix, adminId);
   const first = await nextJobSequence(prefix);
 
   const data = {
@@ -188,9 +306,13 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
   // booking and its stops and lanes are written as one statement, so a refused
   // attempt leaves nothing behind to clean up.
   for (let attempt = 0; attempt < JOB_ATTEMPTS; attempt += 1) {
+    // The reserved number is only tried once: it was held for this admin, so a
+    // clash on it means it is genuinely gone and the walk carries on without it.
+    const jobNumber = reserved !== null && attempt === 0 ? reserved : `${prefix}${first + attempt}`;
+
     try {
       return await prisma.booking.create({
-        data: { ...data, jobNumber: `${prefix}${first + attempt}` },
+        data: { ...data, jobNumber },
         include: BOOKING_INCLUDE,
       });
     } catch (error) {

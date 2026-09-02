@@ -29,6 +29,12 @@ export type LicenceType =
   | "Motorcycle";
 
 export interface AddressBlock {
+  /**
+   * Unit, suite or flat number: "Suite 3", "12A". Its own field, so the
+   * street line stays the street and an address with no suite simply
+   * leaves it empty.
+   */
+  suite: string;
   houseNumber: string;
   street: string;
   suburb: string;

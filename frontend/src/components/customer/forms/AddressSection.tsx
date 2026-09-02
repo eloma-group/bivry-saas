@@ -111,6 +111,7 @@ function applyFoundAddress(
   const filled: Array<[string, string]> = [
     ["country", found.country],
     ["state", found.state],
+    ["suite", found.suite],
     ["street1", street1],
     ["suburb", found.suburb],
     ["postCode", found.postCode],
@@ -125,10 +126,13 @@ function applyFoundAddress(
 }
 
 /**
- * The five fields every address here asks for.
+ * The six fields every address here asks for.
  *
- * All of them are typed. Whatever the tools above pick up still lands in these
- * fields, and every one stays editable afterwards.
+ * All of them are typed. Suite leads, because it is read first when an address
+ * is spoken aloud - "Suite 3, 12 Balaclava Road" - and it is the only optional
+ * one: plenty of addresses are not inside a subdivided building. Whatever the
+ * tools above pick up still lands in these fields, and every one stays editable
+ * afterwards.
  */
 function AddressFields({
   path,
@@ -142,6 +146,12 @@ function AddressFields({
 
   return (
     <div className={GRID}>
+      <TextField
+        name={`${path}.suite`}
+        label="Suite"
+        placeholder="Suite 3"
+        hint="House, flat or unit number, if the address has one."
+      />
       <TextField
         name={`${path}.street1`}
         label="Street 1"
@@ -324,6 +334,7 @@ function WarehouseList() {
           onClick={() =>
             sites.append({
               id: crypto.randomUUID(),
+              suite: "",
               street1: "",
               street2: "",
               suburb: "",
@@ -341,10 +352,17 @@ function WarehouseList() {
   );
 }
 
+/**
+ * Section 2 - every address the customer is asked for.
+ *
+ * The billing address is always asked for in full. It used to sit behind a tick
+ * saying it matched the principal one, which saved a business with one address
+ * a few seconds and left everybody else with a folded away block to find. Both
+ * addresses are typed, and a customer whose billing address is the principal
+ * one types it twice - which is what the tick was hiding anyway, since a ticked
+ * billing address was saved as a verbatim copy either way.
+ */
 export function AddressSection() {
-  const { control, getValues, setValue } = useFormContext<CustomerFormValues>();
-  const billingSameAsPrincipal = useWatch({ control, name: "billingSameAsPrincipal" });
-
   return (
     <SectionCard
       index={2}
@@ -357,47 +375,10 @@ export function AddressSection() {
       <AddressTools path="principalAddress" label="principal address" />
       <AddressFields path="principalAddress" asked={() => true} />
 
-      <div className="mt-6 flex items-center gap-3 rounded-xl border border-border/60 bg-secondary/40 px-4 py-3">
-        <Checkbox
-          id="billingSameAsPrincipal"
-          checked={billingSameAsPrincipal}
-          onCheckedChange={(checked) =>
-            setValue("billingSameAsPrincipal", Boolean(checked), { shouldDirty: true })
-          }
-        />
-        <label
-          htmlFor="billingSameAsPrincipal"
-          className="cursor-pointer text-sm font-medium text-foreground"
-        >
-          Billing address is the same as the principal address
-        </label>
-      </div>
-
-      {/* The billing fields leave the screen when the tick says they match, but
-          they stay registered, so their rules have to ask whether they are on
-          show. The principal address is saved as the billing one either way. */}
-      <AnimatePresence initial={false}>
-        {!billingSameAsPrincipal && (
-          <motion.div
-            key="billing"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="overflow-hidden"
-          >
-            <Separator className="my-6" />
-            <div className="mb-3 text-sm font-semibold text-foreground">Billing Address</div>
-            <AddressTools path="billingAddress" label="billing address" />
-            {/* Hidden fields stay registered, so the rule has to ask whether the
-                block is on show rather than assume it is. */}
-            <AddressFields
-              path="billingAddress"
-              asked={() => !getValues("billingSameAsPrincipal")}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Separator className="my-6" />
+      <div className="mb-3 text-sm font-semibold text-foreground">Billing Address</div>
+      <AddressTools path="billingAddress" label="billing address" />
+      <AddressFields path="billingAddress" asked={() => true} />
 
       <Separator className="my-6" />
       <WarehouseList />

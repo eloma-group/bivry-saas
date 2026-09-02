@@ -28,6 +28,8 @@ const HOUSE_ZOOM = 18;
 const AREA_ZOOM = 14;
 
 interface NominatimAddress {
+  /** A unit or suite, where the building is subdivided. */
+  unit?: string;
   house_number?: string;
   road?: string;
   suburb?: string;
@@ -63,6 +65,7 @@ function toAddressBlock(address: NominatimAddress): AddressBlock {
     address.state ?? address.province ?? address.region ?? address.county ?? address.state_district;
 
   return {
+    suite: address.unit ?? "",
     houseNumber: address.house_number ?? "",
     street: address.road ?? "",
     suburb:
@@ -422,6 +425,8 @@ function componentsToAddressBlock(
     pick("administrative_area_level_2");
 
   return {
+    // Google's own name for a unit or suite within a building.
+    suite: pick("subpremise"),
     houseNumber: pick("street_number"),
     street: pick("route"),
     suburb,

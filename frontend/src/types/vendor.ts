@@ -56,10 +56,16 @@ export interface DirectorRow {
  * A block of address fields.
  *
  * The two addresses the company is registered at and every warehouse are all
- * asked for the same six things, so they are all filled by the same block and
+ * asked for the same seven things, so they are all filled by the same block and
  * the same location tools.
  */
 export interface VendorAddressBlock {
+  /**
+   * Unit, suite or flat number: "Suite 3", "12A". Its own field, so the
+   * street line stays the street and an address with no suite simply
+   * leaves it empty.
+   */
+  suite: string;
   street1: string;
   street2: string;
   suburb: string;

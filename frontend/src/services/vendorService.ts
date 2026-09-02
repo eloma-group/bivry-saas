@@ -83,6 +83,8 @@ export interface VendorAddressesPayload {
 }
 
 export interface VendorAddressPayload {
+  /** Unit, suite or flat number. Kept off the street line. */
+  suite: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;
@@ -92,6 +94,8 @@ export interface VendorAddressPayload {
 }
 
 export interface VendorWarehousePayload {
+  /** Unit, suite or flat number. Kept off the street line. */
+  suite: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;

@@ -148,7 +148,9 @@ function addressLines(
   address: DriverOnboardingData["addresses"][number] | undefined,
 ): string[] {
   if (!address) return [];
-  const street = [address.houseNumber, address.street].filter(Boolean).join(" ");
+  // The suite leads, as the address reads aloud: "Suite 3, 20 Balaclava Road".
+  const numbered = [address.houseNumber, address.street].filter(Boolean).join(" ");
+  const street = [address.suite, numbered].filter(Boolean).join(", ");
   const region = [address.suburb, address.state, address.postCode]
     .filter(Boolean)
     .join(", ");

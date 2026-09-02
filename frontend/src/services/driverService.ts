@@ -62,6 +62,8 @@ export interface DocumentLink {
 }
 
 export interface DriverAddressPayload {
+  /** Unit, suite or flat number. Kept off the street line. */
+  suite: string | null;
   houseNumber: string | null;
   street: string | null;
   suburb: string | null;

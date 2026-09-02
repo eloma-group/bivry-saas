@@ -75,10 +75,16 @@ export interface CustomerDirectorRow {
 
 /**
  * A block of address fields. The two addresses the company is registered at and
- * every warehouse are asked for the same six things, so one block and one set
+ * every warehouse are asked for the same seven things, so one block and one set
  * of location tools serves them all.
  */
 export interface CustomerAddressBlock {
+  /**
+   * Unit, suite or flat number: "Suite 3", "12A". Its own field, so the
+   * street line stays the street and an address with no suite simply
+   * leaves it empty.
+   */
+  suite: string;
   street1: string;
   street2: string;
   suburb: string;
@@ -136,7 +142,7 @@ export interface CustomerFormValues {
   gst: string;
   legalName: string;
   websiteAddress: string;
-  /** Handed out by the server (CUST-3000 onwards), shown read only. */
+  /** Handed out by the server (BIVCST5000 onwards), shown read only. */
   cid: string;
   /** Seeded from the account, and read only: it identifies the account. */
   email: string;
@@ -147,14 +153,8 @@ export interface CustomerFormValues {
   /* Section 2 - Address information */
   /** The principal place of business. Where the company is run from. */
   principalAddress: CustomerAddressBlock;
-  /** Where invoices go. A copy of the principal one when the tick says so. */
+  /** Where invoices go. Always asked for in full, in its own block. */
   billingAddress: CustomerAddressBlock;
-  /**
-   * Whether the billing address was ticked as a copy. The copy itself is still
-   * held above and still saved, so nothing downstream has to follow the tick to
-   * find an address.
-   */
-  billingSameAsPrincipal: boolean;
   /** Every warehouse the customer operates. There may be none. */
   warehouses: CustomerWarehouseRow[];
 

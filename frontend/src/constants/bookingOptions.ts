@@ -12,12 +12,13 @@ export const ACCOUNT_STATUSES = [
 ] as const;
 
 /**
- * The longest invoice term that can be typed, in digits.
+ * The longest invoice term that can be typed.
  *
- * Three is enough for any term anyone bills on and stops a mistyped date being
- * entered as a number of days.
+ * The term is worded rather than counted - "Net 7", "COD", "Prepaid" - so this
+ * caps a phrase, not a number of days. Long enough for any term anyone bills
+ * on, short enough that a paragraph never lands in the field.
  */
-export const INVOICE_TERM_MAX = 3;
+export const INVOICE_TERM_MAX = 40;
 
 export const AGREEMENT_TYPES = [
   "Contract",

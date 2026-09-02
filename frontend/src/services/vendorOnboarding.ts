@@ -88,6 +88,7 @@ function emptyComplianceDocs(): ComplianceDocRow[] {
 /** An address with nothing in it. Australia leads, as most vendors are here. */
 function emptyAddress(): VendorAddressBlock {
   return {
+    suite: "",
     street1: "",
     street2: "",
     suburb: "",
@@ -101,6 +102,7 @@ function emptyAddress(): VendorAddressBlock {
 function siteRow(site: VendorOnboardingData["warehouses"][number]): SiteRow {
   return {
     id: site.id,
+    suite: site.suite ?? "",
     street1: site.street1 ?? "",
     street2: site.street2 ?? "",
     suburb: site.suburb ?? "",
@@ -119,6 +121,7 @@ function addressOfType(
   if (!stored) return emptyAddress();
 
   return {
+    suite: stored.suite ?? "",
     street1: stored.street1 ?? "",
     street2: stored.street2 ?? "",
     suburb: stored.suburb ?? "",
@@ -431,6 +434,7 @@ export type VendorOnboardingGateway = Pick<
 /** One address as the API takes it: trimmed, and empty means null. */
 function addressPayload(address: VendorAddressBlock) {
   return {
+    suite: trimmedOrNull(address.suite),
     street1: trimmedOrNull(address.street1),
     street2: trimmedOrNull(address.street2),
     suburb: trimmedOrNull(address.suburb),

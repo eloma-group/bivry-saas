@@ -21,6 +21,7 @@ function emptyDelivery() {
     trailer: "",
     deliveryTime: "",
     deliveryCompany: "",
+    suite: "",
     deliveryAddress: "",
     city: "",
     suburb: "",

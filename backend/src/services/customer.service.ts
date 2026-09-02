@@ -16,19 +16,20 @@ const CUSTOMER_AREA = 'customer' as const;
 
 /**
  * Where the generated customer reference starts counting from. The first
- * customer is CUST-3000 and it runs on from there, one per customer.
+ * customer is BIVCST5000 and it runs on from there, one per customer.
  *
  * Changing either of these renumbers nothing on its own: the references already
  * handed out are rewritten by a migration, and this only decides what the next
  * one looks like. Keep the two in step.
  */
-const CID_PREFIX = 'CUST-';
-const CID_BASE = 3000;
+const CID_PREFIX = 'BIVCST';
+const CID_BASE = 5000;
 
 /**
- * The older account number series (CAN5000), which the booking form reads to
- * fill its Customer Account Number field. Kept alongside the CID: the two
- * answer different questions and bookings already carry the account number.
+ * The older account number series (CAN5000). Kept alongside the CID, and still
+ * allocated, because bookings raised before this carry it. The booking form
+ * reads the CID now: that is what the rest of the product quotes a customer by,
+ * so it is what a booking's Customer Account Number should show.
  */
 const ACCOUNT_NUMBER_PREFIX = 'CAN';
 const ACCOUNT_NUMBER_BASE = 5000;
@@ -254,6 +255,8 @@ export async function updateDirectors(customerId: string, directors: DirectorInp
 }
 
 export interface AddressInput {
+  /** Unit, suite or flat number. Its own field, kept off the street line. */
+  suite: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;

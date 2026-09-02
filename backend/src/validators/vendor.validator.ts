@@ -170,6 +170,8 @@ export const coverageSectionSchema = z.object({
 });
 
 const addressShape = z.object({
+  /** Unit, suite or flat number. Kept off the street line. */
+  suite: optionalText(50),
   street1: optionalText(150),
   street2: optionalText(150),
   suburb: optionalText(100),
@@ -195,6 +197,8 @@ export const warehousesSectionSchema = z.object({
   warehouses: z
     .array(
       z.object({
+        /** Unit, suite or flat number. Kept off the street line. */
+        suite: optionalText(50),
         street1: optionalText(150),
         street2: optionalText(150),
         suburb: optionalText(100),

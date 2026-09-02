@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, FormProvider, useWatch } from "react-hook-form";
 import { motion } from "framer-motion";
@@ -6,7 +6,6 @@ import {
   ClipboardList,
   PackageCheck,
   Truck,
-  Route,
   Wallet,
   Handshake,
   Loader2,
@@ -21,10 +20,10 @@ import { BookingDetailsSection } from "@/components/booking/forms/BookingDetails
 import { VehicleDetailsSection } from "@/components/booking/forms/VehicleDetailsSection";
 import { PickupDetailsSection } from "@/components/booking/forms/PickupDetailsSection";
 import { DeliveryDetailsSection } from "@/components/booking/forms/DeliveryDetailsSection";
-import { LaneSection } from "@/components/booking/forms/LaneSection";
 import { OurPriceSection } from "@/components/booking/forms/OurPriceSection";
 import { VendorAllotmentSection } from "@/components/booking/forms/VendorAllotmentSection";
 import { bookingService, buildBookingPayload } from "@/services/bookingService";
+import { useJobNumberReservation } from "@/hooks/useJobNumberReservation";
 import { ACCOUNT_STATUSES } from "@/constants/bookingOptions";
 import { ApiRequestError } from "@/services/api";
 import { Stepper } from "@/components/driver/Stepper";
@@ -54,7 +53,6 @@ const SECTIONS = [
   { id: "vehicle", label: "Vehicle Details", icon: Truck },
   { id: "pickup", label: "Pickup Details", icon: PackageCheck },
   { id: "delivery", label: "Delivery Details", icon: Truck },
-  { id: "lane", label: "Lane", icon: Route },
   { id: "price", label: "Our Price", icon: Wallet },
   { id: "vendor", label: "Vendor Allotment & Price", icon: Handshake },
 ] as const;
@@ -63,12 +61,24 @@ function AdminCreateBookingBody({
   submitting,
   onSaveDraft,
   savingDraft,
+  onReservation,
 }: {
   submitting: boolean;
   onSaveDraft: () => void;
   savingDraft: boolean;
+  /** Hands the page the reservation, so a successful save can stop holding it. */
+  onReservation: (forget: () => void) => void;
 }) {
   const busy = submitting || savingDraft;
+
+  // Asks the server for a job number as soon as the form opens and holds it
+  // until the form is saved or left, so the number in the field is the number
+  // the booking will carry and no second admin is offered it meanwhile.
+  const { error: jobNumberError, forget } = useJobNumberReservation();
+
+  useEffect(() => {
+    onReservation(forget);
+  }, [forget, onReservation]);
 
   // No completion logic yet - the stepper renders every section so the page
   // reads like the vendor wizard. Progress fills in once the fields land.
@@ -110,6 +120,12 @@ function AdminCreateBookingBody({
         </Button>
       </motion.div>
 
+      {jobNumberError && (
+        <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {jobNumberError}
+        </p>
+      )}
+
       <div className="mb-6">
         <Stepper steps={steps} activeIndex={0} percent={0} />
       </div>
@@ -120,7 +136,6 @@ function AdminCreateBookingBody({
           <VehicleDetailsSection />
           <PickupDetailsSection />
           <DeliveryDetailsSection />
-          <LaneSection />
           <OurPriceSection />
           <VendorAllotmentSection />
         </div>
@@ -243,6 +258,7 @@ export function AdminCreateBookingPage() {
           trailer: "",
           pickupTime: "",
           pickupCompany: "",
+          suite: "",
           pickupAddress: "",
           city: "",
           suburb: "",
@@ -257,6 +273,7 @@ export function AdminCreateBookingPage() {
           trailer: "",
           deliveryTime: "",
           deliveryCompany: "",
+          suite: "",
           deliveryAddress: "",
           city: "",
           suburb: "",
@@ -271,14 +288,25 @@ export function AdminCreateBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
+  // Set by the body once its reservation is running. Calling it stops the page
+  // holding the number, which is what a successful save wants: the server has
+  // already consumed the reservation, so asking for it back on the way out
+  // would be releasing a row that no longer exists.
+  const forgetJobNumber = useRef<() => void>(() => undefined);
+  const onReservation = useCallback((forget: () => void) => {
+    forgetJobNumber.current = forget;
+  }, []);
+
   const onSubmit = async () => {
     setSubmitting(true);
 
     try {
-      // The job number comes back with the booking: the server allocates it on
-      // save, so it is only known once the create has succeeded.
+      // The form sends the number it has been holding; the server checks it is
+      // genuinely reserved for this admin and hands back the one it used, which
+      // is a fresh one where the reservation had lapsed.
       const created = await bookingService.create(buildBookingPayload(methods.getValues()));
 
+      forgetJobNumber.current();
       toast.success("Booking created", { description: created.jobNumber });
       navigate("/admin");
     } catch (error) {
@@ -318,6 +346,7 @@ export function AdminCreateBookingPage() {
               submitting={submitting}
               savingDraft={savingDraft}
               onSaveDraft={saveDraft}
+              onReservation={onReservation}
             />
           </form>
         </OnboardingCanvas>

@@ -47,6 +47,7 @@ const emptyContact: CustomerContactBlock = {
 /** An address with nothing in it. Australia leads, as most customers are here. */
 function emptyAddress(): CustomerAddressBlock {
   return {
+    suite: "",
     street1: "",
     street2: "",
     suburb: "",
@@ -90,7 +91,6 @@ export function emptyFormValues(): CustomerFormValues {
 
     principalAddress: emptyAddress(),
     billingAddress: emptyAddress(),
-    billingSameAsPrincipal: false,
     warehouses: [],
 
     operations: { ...emptyContact },
@@ -173,6 +173,7 @@ function warehouseRow(
   principal: CustomerAddressBlock,
 ): CustomerWarehouseRow {
   const address: CustomerAddressBlock = {
+    suite: site.suite ?? "",
     street1: site.street1 ?? "",
     street2: site.street2 ?? "",
     suburb: site.suburb ?? "",
@@ -219,6 +220,7 @@ function addressOfType(
   if (!stored) return emptyAddress();
 
   return {
+    suite: stored.suite ?? "",
     street1: stored.street1 ?? "",
     street2: stored.street2 ?? "",
     suburb: stored.suburb ?? "",
@@ -333,7 +335,6 @@ export function toFormValues(data: CustomerOnboardingData): CustomerFormValues {
 
     principalAddress: principal,
     billingAddress: addressOfType(data.addresses, "BILLING"),
-    billingSameAsPrincipal: data.billingSameAsPrincipal,
     // A record saved before warehouses existed carries none, which is also what
     // a customer who runs none looks like. Both open on an empty list.
     warehouses: (data.warehouses ?? []).map((site) => warehouseRow(site, principal)),
@@ -394,6 +395,7 @@ export type CustomerOnboardingGateway = Pick<
 /** One address as the API takes it: trimmed, and empty means null. */
 function addressPayload(address: CustomerAddressBlock) {
   return {
+    suite: trimmedOrNull(address.suite),
     street1: trimmedOrNull(address.street1),
     street2: trimmedOrNull(address.street2),
     suburb: trimmedOrNull(address.suburb),
@@ -470,13 +472,13 @@ export async function saveOnboarding(
   );
 
   await gateway.saveAddresses({
-    billingSameAsPrincipal: values.billingSameAsPrincipal,
+    // The form no longer offers a tick saying the two addresses match, so this
+    // is always false. The column stays on the API for the records that were
+    // saved while it did; nothing reads it to find an address, because both
+    // rows have always been written out in full.
+    billingSameAsPrincipal: false,
     principal: addressPayload(values.principalAddress),
-    // The tick is remembered, but the copy is what is sent: nothing reading the
-    // billing address should have to follow a flag to find one.
-    billing: addressPayload(
-      values.billingSameAsPrincipal ? values.principalAddress : values.billingAddress,
-    ),
+    billing: addressPayload(values.billingAddress),
     // Every warehouse, in the order they sit on screen. The list is replaced
     // wholesale, so a row taken off the form is a warehouse that is gone. A
     // ticked one is sent as a copy of the principal address, which is the whole
@@ -596,11 +598,7 @@ export function submissionBlockers(values: CustomerFormValues): string[] {
   if (!values.companyName.trim()) missing.push("Company name");
   if (!values.abn.trim()) missing.push("ABN");
   if (!values.principalAddress.street1.trim()) missing.push("Principal address");
-  // The tick makes the principal address the billing one, so it is only asked
-  // for separately when the tick is off.
-  if (!values.billingSameAsPrincipal && !values.billingAddress.street1.trim()) {
-    missing.push("Billing address");
-  }
+  if (!values.billingAddress.street1.trim()) missing.push("Billing address");
   if (!values.operations.contactPerson.trim() || !values.operations.email.trim()) {
     missing.push("Operations contact");
   }

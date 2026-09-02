@@ -24,6 +24,7 @@ import type {
  */
 
 const emptyAddress: AddressBlock = {
+  suite: "",
   houseNumber: "",
   street: "",
   suburb: "",
@@ -165,6 +166,7 @@ function storedFileOfType(
 
 function addressBlock(stored?: DriverAddressPayload): AddressBlock {
   return {
+    suite: stored?.suite ?? "",
     houseNumber: stored?.houseNumber ?? "",
     street: stored?.street ?? "",
     suburb: stored?.suburb ?? "",
@@ -180,6 +182,7 @@ function sameAddress(a: AddressBlock, b: AddressBlock): boolean {
 
 function addressPayload(block: AddressBlock): DriverAddressPayload {
   return {
+    suite: trimmedOrNull(block.suite),
     houseNumber: trimmedOrNull(block.houseNumber),
     street: trimmedOrNull(block.street),
     suburb: trimmedOrNull(block.suburb),

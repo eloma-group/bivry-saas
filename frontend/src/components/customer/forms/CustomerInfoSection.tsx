@@ -279,7 +279,7 @@ export function CustomerInfoSection({ showAccountEmail = true }: CustomerInfoSec
           label="Customer ID"
           placeholder="Assigned automatically"
           readOnly
-          hint="Assigned by BIVRY (CUST-3000 onwards). It cannot be changed."
+          hint="Assigned by BIVRY (BIVCST5000 onwards). It cannot be changed."
         />
         <DateField
           name="creationDate"

@@ -50,6 +50,8 @@ export interface CustomerDirectorPayload {
 }
 
 export interface CustomerAddressPayload {
+  /** Unit, suite or flat number. Kept off the street line. */
+  suite: string | null;
   street1: string | null;
   street2: string | null;
   suburb: string | null;

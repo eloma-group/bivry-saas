@@ -14,6 +14,8 @@ export interface BookingStopPayload {
   trailer: string;
   scheduledAt: string;
   company: string;
+  /** Unit, suite or flat number. Kept off the address line. */
+  suite: string;
   address: string;
   city: string;
   suburb: string;
@@ -32,12 +34,13 @@ export interface BookingPricePayload {
   totalAmount: string;
 }
 
-export interface BookingLanePayload {
-  trailer: string;
-  lane: string;
-}
-
 export interface CreateBookingPayload {
+  /**
+   * The number the server parked for this admin when the form opened. Sent back
+   * so the save can consume that reservation; the server checks it is genuinely
+   * held before honouring it, and allocates a fresh one otherwise.
+   */
+  jobNumber: string;
   bookingReceivedDate: string;
   financialYear: string;
   customerId: string;
@@ -46,14 +49,13 @@ export interface CreateBookingPayload {
   accountStatus: string;
   agreementType: string;
   reference: string;
-  /** How many days the invoice runs for, as typed. Digits only, or empty. */
+  /** The invoice term as worded: "Net 7". From the customer, or typed over. */
   invoiceTerm: string;
   cargoType: string;
   vehicleType: string;
   trailerCategory: string;
   pickups: BookingStopPayload[];
   deliveries: BookingStopPayload[];
-  lanes: BookingLanePayload[];
   price: BookingPricePayload;
   vendor: { vendorId: string; vendorName: string };
   vendorPrice: BookingPricePayload;
@@ -93,6 +95,7 @@ function stopOf(row: Record<string, unknown>, kind: "pickup" | "delivery"): Book
     trailer: str(row.trailer),
     scheduledAt: str(row[`${kind}Time`]),
     company: str(row[`${kind}Company`]),
+    suite: str(row.suite),
     address: str(row[`${kind}Address`]),
     city: str(row.city),
     suburb: str(row.suburb),
@@ -107,6 +110,7 @@ export function buildBookingPayload(values: Record<string, unknown>): CreateBook
   const vendor = (values.vendor ?? {}) as Record<string, unknown>;
 
   return {
+    jobNumber: str(values.jobNumber),
     bookingReceivedDate: str(values.bookingReceivedDate),
     financialYear: str(values.financialYear),
     customerId: str(values.customerId),
@@ -121,18 +125,44 @@ export function buildBookingPayload(values: Record<string, unknown>): CreateBook
     trailerCategory: str(values.trailerCategory),
     pickups: toArray(values.pickups).map((row) => stopOf(row, "pickup")),
     deliveries: toArray(values.deliveries).map((row) => stopOf(row, "delivery")),
-    lanes: toArray(values.lanes).map((row) => ({
-      trailer: str(row.trailer),
-      lane: str(row.lane),
-    })),
     price: priceOf(values.price),
     vendor: { vendorId: str(vendor.vendorId), vendorName: str(vendor.vendorName) },
     vendorPrice: priceOf(values.vendorPrice),
   };
 }
 
+/** A job number parked for this admin while the Create Booking form is open. */
+export interface ReservedJobNumber {
+  jobNumber: string;
+  financialYear: string;
+  expiresAt: string;
+}
+
 export const bookingService = {
   create(payload: CreateBookingPayload): Promise<BookingCreated> {
     return request<BookingCreated>({ url: "/admin/bookings", method: "POST", data: payload });
+  },
+
+  /**
+   * Takes the next job number and holds it for this admin, so the form can show
+   * the number it is going to be given and no second admin is offered it.
+   */
+  reserveJobNumber(input: {
+    bookingReceivedDate?: string;
+    financialYear?: string;
+  }): Promise<ReservedJobNumber> {
+    return request<ReservedJobNumber>({
+      url: "/admin/bookings/job-number",
+      method: "POST",
+      data: input,
+    });
+  },
+
+  /** Gives a held number back, so the next form to open is offered it. */
+  releaseJobNumber(jobNumber: string): Promise<null> {
+    return request<null>({
+      url: `/admin/bookings/job-number/${encodeURIComponent(jobNumber)}`,
+      method: "DELETE",
+    });
   },
 };

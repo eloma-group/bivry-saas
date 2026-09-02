@@ -88,19 +88,15 @@ function isContactKey(key: keyof CustomerFormValues): key is ContactKey {
 /**
  * The value a requirement is judged on.
  *
- * A block folded away by a tick is judged on what the tick makes it: the
- * billing address becomes the principal one, and a contact ticked as a copy
- * becomes the operations contact. Otherwise a form that is complete on screen
- * would read as unfinished.
+ * A block folded away by a tick is judged on what the tick makes it: a contact
+ * ticked as a copy becomes the operations contact. Otherwise a form that is
+ * complete on screen would read as unfinished. The billing address is not among
+ * them any more - it is always asked for in full.
  */
 function valueFor(
   values: CustomerFormValues | undefined,
   key: keyof CustomerFormValues,
 ): unknown {
-  if (key === "billingAddress" && values?.billingSameAsPrincipal) {
-    return values.principalAddress;
-  }
-
   if (values && key !== PRIMARY_CONTACT.key && isContactKey(key)) {
     const block = values[key];
     if (block?.sameAsOperations) return values[PRIMARY_CONTACT.key];

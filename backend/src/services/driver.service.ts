@@ -66,6 +66,8 @@ export async function updatePersonal(
 }
 
 type AddressInput = {
+  /** Unit, suite or flat number. Its own field, kept off the street line. */
+  suite: string | null;
   houseNumber: string | null;
   street: string | null;
   suburb: string | null;

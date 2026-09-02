@@ -1,16 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, LocateFixed, MapPin } from "lucide-react";
-import {
-  useFormContext,
-  useWatch,
-  type UseFormSetValue,
-  type UseFormTrigger,
-} from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, SelectField } from "@/components/form/Fields";
-import { AddressAutocompleteField } from "@/components/form/AddressAutocompleteField";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +18,23 @@ import type { AddressBlock as AddressBlockValues, DriverFormValues } from "@/typ
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
 type AddressPrefix = "currentAddress" | "permanentAddress";
+
+/**
+ * The order a found address is written back in.
+ *
+ * Country leads, so the State field has already switched to that country's own
+ * divisions by the time the state lands in it. The rest follow the order they
+ * are asked for on screen.
+ */
+const LOOKUP_ORDER: (keyof AddressBlockValues)[] = [
+  "country",
+  "state",
+  "suite",
+  "houseNumber",
+  "street",
+  "suburb",
+  "postCode",
+];
 
 /**
  * The State field, offering whichever divisions the chosen country actually has.
@@ -81,39 +92,8 @@ function StateField({
   );
 }
 
-/**
- * Writes a found address onto one block's fields.
- *
- * The country is written first, so the State field has already switched to that
- * country's own divisions by the time the state lands in it. Only fields the
- * lookup answered are written, so a correction already typed into one it cannot
- * see is never wiped by an empty result.
- */
-function applyFoundAddress(
-  prefix: AddressPrefix,
-  found: AddressBlockValues,
-  setValue: UseFormSetValue<DriverFormValues>,
-  trigger: UseFormTrigger<DriverFormValues>,
-) {
-  const order: (keyof AddressBlockValues)[] = [
-    "country",
-    "state",
-    "houseNumber",
-    "street",
-    "suburb",
-    "postCode",
-  ];
-
-  for (const key of order) {
-    if (!found[key]) continue;
-    setValue(`${prefix}.${key}`, found[key], { shouldDirty: true });
-  }
-
-  void trigger(prefix);
-}
-
 function AddressBlock({ prefix }: { prefix: AddressPrefix }) {
-  const { getValues, setValue, trigger } = useFormContext<DriverFormValues>();
+  const { getValues } = useFormContext<DriverFormValues>();
 
   // The permanent block leaves the screen when it matches the current one, but
   // its fields stay registered, so the rule has to ask whether it is on show.
@@ -122,20 +102,26 @@ function AddressBlock({ prefix }: { prefix: AddressPrefix }) {
 
   return (
     <div className={GRID}>
+      {/* Optional: a house has no suite, and a flat in a block has both. */}
+      <TextField
+        name={`${prefix}.suite`}
+        label="Suite"
+        placeholder="Suite 3"
+        hint="Flat or unit number, if the address has one."
+      />
       <TextField
         name={`${prefix}.houseNumber`}
         label="House Number"
-        placeholder="12/20"
+        placeholder="20"
         required
         rules={required("House number")}
       />
-      <AddressAutocompleteField
+      <TextField
         name={`${prefix}.street`}
         label="Street"
-        placeholder="Start typing an address"
+        placeholder="Balaclava Road"
         required
         rules={required("Street")}
-        onPickAddress={(found) => applyFoundAddress(prefix, found, setValue, trigger)}
       />
       <TextField
         name={`${prefix}.suburb`}
@@ -184,17 +170,8 @@ export function AddressSection() {
 
       // Country leads, then the rest. Writing it first also lets the state
       // clearing above settle before the new state arrives.
-      const order: (keyof AddressBlockValues)[] = [
-        "country",
-        "state",
-        "houseNumber",
-        "street",
-        "suburb",
-        "postCode",
-      ];
-
       let filled = 0;
-      for (const key of order) {
+      for (const key of LOOKUP_ORDER) {
         if (!found[key]) continue;
         setValue(`currentAddress.${key}`, found[key], { shouldDirty: true });
         filled += 1;
@@ -209,7 +186,7 @@ export function AddressSection() {
 
       await trigger("currentAddress");
 
-      const missing = order.filter((key) => !found[key]);
+      const missing = LOOKUP_ORDER.filter((key) => !found[key]);
       toast.success("Address filled in", {
         description:
           missing.length > 0

@@ -8,8 +8,10 @@ import { z } from 'zod';
  * and Prisma only ever see clean values. Ids are checked as uuids because they
  * land in uuid columns.
  *
- * The job number is not part of this. The server allocates it, so an older
- * bundle still sending one has it dropped here rather than trusted.
+ * The job number is only ever the one the server parked for this admin when the
+ * form was opened. It is carried here so the save can consume that reservation,
+ * and the service checks it is genuinely held before honouring it - a number
+ * invented by a client is ignored and a fresh one allocated.
  */
 
 /** Trimmed text, with empty and absent both meaning null. */
@@ -30,25 +32,6 @@ const amount = z
     if (value === null || value === undefined || value === '') return null;
     const parsed = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
     return Number.isFinite(parsed) ? parsed : null;
-  });
-
-/**
- * A whole number of days. Empty means null; anything that is not digits is
- * refused rather than quietly rounded or dropped, because the form only lets
- * digits be typed and a value that got past it did not come from the form.
- */
-const days = z
-  .union([z.string(), z.number(), z.null()])
-  .optional()
-  .transform((value, ctx) => {
-    if (value === null || value === undefined || value === '') return null;
-    const trimmed = String(value).trim();
-    if (trimmed === '') return null;
-    if (!/^\d+$/.test(trimmed)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a number of days' });
-      return z.NEVER;
-    }
-    return Number(trimmed);
   });
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -73,6 +56,7 @@ const stopSchema = z.object({
   trailer: text,
   scheduledAt: text,
   company: text,
+  suite: text,
   address: text,
   city: text,
   suburb: text,
@@ -99,6 +83,8 @@ const priceSchema = z
   .partial();
 
 export const createBookingSchema = z.object({
+  /** The number the server parked for this admin, checked before it is used. */
+  jobNumber: text,
   bookingReceivedDate: text,
   financialYear: text,
   customerId: uuidText,
@@ -107,7 +93,7 @@ export const createBookingSchema = z.object({
   accountStatus: text,
   agreementType: text,
   reference: text,
-  invoiceTerm: days,
+  invoiceTerm: text,
   cargoType: text,
   vehicleType: text,
   trailerCategory: text,
@@ -131,3 +117,11 @@ export const bookingListQuerySchema = z.object({
 });
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
+
+/** Opening the Create Booking form: which financial year to park a number in. */
+export const reserveJobNumberSchema = z.object({
+  bookingReceivedDate: text,
+  financialYear: text,
+});
+
+export type ReserveJobNumberInput = z.infer<typeof reserveJobNumberSchema>;

@@ -167,6 +167,15 @@ export const rules = {
     pattern: { value: EMAIL_RE, message: "Enter a valid email address" },
   },
   /**
+   * The same rule without the required half, for an address that may be left
+   * out. Still checked for shape once something is typed: react-hook-form skips
+   * `pattern` on an empty value, so a blank field passes and a mistyped one
+   * does not.
+   */
+  optionalEmail: {
+    pattern: { value: EMAIL_RE, message: "Enter a valid email address" },
+  },
+  /**
    * A name as it is written on a document.
    *
    * No letters-only rule, unlike `name` below. This is copied off a passport or

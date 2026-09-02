@@ -22,6 +22,7 @@ function emptyPickup() {
     trailer: "",
     pickupTime: "",
     pickupCompany: "",
+    suite: "",
     pickupAddress: "",
     city: "",
     suburb: "",
@@ -36,8 +37,8 @@ function emptyPickup() {
  *
  * Every pickup asks for the same handful of details, so they are a field array:
  * the form opens with one, and "Add More" appends another exactly like it. The
- * address line suggests real addresses as it is typed and drops the chosen one
- * straight into the field.
+ * address is typed in full: a suite, the address line, and the city, suburb,
+ * state and country under it.
  */
 export function PickupDetailsSection() {
   const { control } = useFormContext();

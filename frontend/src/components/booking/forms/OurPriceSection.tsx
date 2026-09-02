@@ -3,7 +3,7 @@ import { SectionCard } from "@/components/form/SectionCard";
 import { PriceFields } from "./PriceFields";
 
 /**
- * Section 6 - what we charge the customer, in AUD.
+ * Section 5 - what we charge the customer, in AUD.
  *
  * The gross, fuel levy rate and GST rate are typed; the four amounts follow from
  * them. See PriceFields for the arithmetic. This price is our own and stands
@@ -12,7 +12,7 @@ import { PriceFields } from "./PriceFields";
 export function OurPriceSection() {
   return (
     <SectionCard
-      index={6}
+      index={5}
       id="step-price"
       icon={Wallet}
       title="Our Price"

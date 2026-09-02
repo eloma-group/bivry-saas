@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**38 tables, 16 enum types.**
+**39 tables, 16 enum types.**
 
 ## Tables
 
@@ -46,6 +46,7 @@ look up a column. Every table, column, type, default and relation is below.
 - [`password_reset_tokens`](#passwordresettokens)
 - [`login_attempts`](#loginattempts)
 - [`bookings`](#bookings)
+- [`booking_job_numbers`](#bookingjobnumbers)
 - [`booking_stops`](#bookingstops)
 - [`booking_lanes`](#bookinglanes)
 
@@ -102,7 +103,7 @@ look up a column. Every table, column, type, default and relation is below.
 | `phone` | text | NULL |  | unique |
 | `password_hash` | text | NOT NULL |  |  |
 | `account_number` | text | NULL |  | unique; Human readable customer reference (CAN5000). Assigned by the server when\nthe account is created and never typed in; the booking form reads it back. |
-| `cid` | text | NULL |  | unique; The customer identifier the rest of the product quotes (CUST-3000 onwards).\nHanded out by the server on the first onboarding load, never typed in, and\nwhat a customer is looked up by outside this module. |
+| `cid` | text | NULL |  | unique; The customer identifier the rest of the product quotes (BIVCST5000 onwards).\nHanded out by the server on the first onboarding load, never typed in, and\nwhat a customer is looked up by outside this module. |
 | `first_name` | text | NOT NULL |  |  |
 | `last_name` | text | NULL |  |  |
 | `company_name` | text | NULL |  |  |
@@ -197,6 +198,7 @@ A warehouse the customer operates: a site we may collect from or deliver to.\n\n
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
 | `position` | integer | NOT NULL | 0 | Keeps "Warehouse 1", "Warehouse 2" in the order they were entered. |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `street1` | text | NULL |  |  |
 | `street2` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |
@@ -239,6 +241,7 @@ The two addresses a customer is registered at: where the business is run\nfrom, 
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `customer_id` | uuid | NOT NULL |  | FK to `customers` (cascade delete) |
 | `type` | customer_address_type | NOT NULL |  |  |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `street1` | text | NULL |  |  |
 | `street2` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |
@@ -430,6 +433,7 @@ Where the vendor operates. Both columns hold several selections.
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
 | `position` | integer | NOT NULL | 0 | Keeps "Address 1", "Address 2" in the order they were entered. |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `street1` | text | NULL |  |  |
 | `street2` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |
@@ -452,6 +456,7 @@ A yard: a site the vendor parks or stages at, kept apart from the\nwarehouses be
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
 | `position` | integer | NOT NULL | 0 | Keeps "Yard 1", "Yard 2" in the order they were entered. |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `street1` | text | NULL |  |  |
 | `street2` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |
@@ -474,6 +479,7 @@ The two addresses a vendor is registered at: where the business is run\nfrom, an
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `vendor_id` | uuid | NOT NULL |  | FK to `vendors` (cascade delete) |
 | `type` | vendor_address_type | NOT NULL |  |  |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `street1` | text | NULL |  |  |
 | `street2` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |
@@ -645,6 +651,7 @@ Every file a vendor uploads. `category` names the extra compliance rows\nthe ven
 | `id` | uuid | NOT NULL | uuid() | primary key |
 | `driver_id` | uuid | NOT NULL |  | FK to `drivers` (cascade delete) |
 | `type` | address_type | NOT NULL |  |  |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `house_number` | text | NULL |  |  |
 | `street` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |
@@ -902,7 +909,7 @@ Audit trail of every login attempt, used for lockout and security review.
 | `account_status` | text | NULL |  |  |
 | `agreement_type` | text | NULL |  |  |
 | `reference` | text | NULL |  |  |
-| `invoice_term` | integer | NULL |  | How many days the invoice runs for, as the admin types it. A count of\ndays, so it is a number rather than a term worded in prose. |
+| `invoice_term` | text | NULL |  | The invoice term, worded the way the accounts team words it: "Net 7".\nFilled from the customer's own billing term when one is picked, and left\neditable, so an admin can agree something else on a single booking. |
 | `cargo_type` | text | NULL |  |  |
 | `vehicle_type` | text | NULL |  |  |
 | `trailer_category` | text | NULL |  |  |
@@ -932,6 +939,19 @@ Audit trail of every login attempt, used for lockout and security review.
 - many `booking_stops`
 - many `booking_lanes`
 
+### `booking_job_numbers`
+
+A job number held for one admin while the Create Booking form is open.\n\nOpening the form takes the next number and parks it here, so the admin can\nsee the number they are about to be given and no second admin is offered the\nsame one. Saving the booking consumes the row; closing the form releases it.\n`expiresAt` is the backstop for a browser that never got to say either.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `job_number` | text | NOT NULL |  | unique |
+| `financial_year` | text | NULL |  |  |
+| `admin_id` | uuid | NULL |  | Admin the number is held for (no FK - a booking may be raised by an\nemployee later, the same way `created_by_admin_id` allows for). |
+| `expires_at` | timestamp(3) | NOT NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+
 ### `booking_stops`
 
 One pickup or delivery on a booking. The two share every field, so they are\none table split by `type` and ordered by `position`.
@@ -946,6 +966,7 @@ One pickup or delivery on a booking. The two share every field, so they are\none
 | `trailer` | text | NULL |  |  |
 | `scheduled_at` | text | NULL |  | When it is scheduled, as typed (YYYY-MM-DDTHH:mm). |
 | `company` | text | NULL |  |  |
+| `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
 | `address` | text | NULL |  |  |
 | `city` | text | NULL |  |  |
 | `suburb` | text | NULL |  |  |

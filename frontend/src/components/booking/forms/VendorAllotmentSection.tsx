@@ -29,7 +29,7 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
 }
 
 /**
- * Section 7 - which vendor carries the job, and at what price.
+ * Section 6 - which vendor carries the job, and at what price.
  *
  * The dropdown lists every existing vendor; picking one shows who they are and
  * whether their account is live, read-only, so the choice can be checked without
@@ -84,7 +84,7 @@ export function VendorAllotmentSection() {
 
   return (
     <SectionCard
-      index={7}
+      index={6}
       id="step-vendor"
       icon={Handshake}
       title="Vendor Allotment & Price"

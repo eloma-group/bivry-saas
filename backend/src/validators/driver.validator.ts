@@ -35,6 +35,8 @@ export const personalSectionSchema = z.object({
 });
 
 const addressBlockSchema = z.object({
+  /** Unit, suite or flat number. Kept off the street line. */
+  suite: optionalText(50),
   houseNumber: optionalText(50),
   street: optionalText(150),
   suburb: optionalText(100),
