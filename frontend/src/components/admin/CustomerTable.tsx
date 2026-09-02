@@ -80,7 +80,7 @@ export function CustomerTable({
   return (
     <div className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-card">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[64rem] border-collapse text-sm">
+        <table className="w-full min-w-[56rem] border-collapse text-sm">
           <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th scope="col" className="w-12 px-4 py-3">
@@ -115,9 +115,6 @@ export function CustomerTable({
                 Billing
               </th>
               <th scope="col" className="whitespace-nowrap px-4 py-3 text-left font-semibold">
-                Location
-              </th>
-              <th scope="col" className="whitespace-nowrap px-4 py-3 text-left font-semibold">
                 Docs
               </th>
               <SortableHeader
@@ -139,12 +136,6 @@ export function CustomerTable({
               const account = ACCOUNT_STATUS[row.status];
               const isSelected = selected.has(row.id);
               const name = customerLabel(row);
-              const principal = row.addresses.find((address) => address.type === "PRINCIPAL");
-              const location = principal
-                ? [principal.suburb, principal.state, principal.country]
-                    .filter(Boolean)
-                    .join(", ")
-                : "";
 
               return (
                 <tr
@@ -204,19 +195,6 @@ export function CustomerTable({
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    {location ? (
-                      <p className="max-w-[14rem] truncate text-foreground" title={location}>
-                        {location}
-                      </p>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {row.accountNumber ?? "No account number"}
-                    </p>
                   </td>
 
                   <td className="px-4 py-3">
