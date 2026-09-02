@@ -52,7 +52,7 @@ function adminNav(): NavItem[] {
       children: [
         // Reads as live and answers to hover, but carries no href yet, so a
         // click does nothing until the page behind it is built.
-        { label: "All Bookings", enabled: true },
+        { label: "Manage Bookings", enabled: true },
         { label: "Create Booking", enabled: true, href: "/admin/bookings/new" },
         { label: "Calendar" },
       ],
@@ -106,7 +106,7 @@ function selfServiceNav(ownModule: "Driver" | "Vendor", href: string): NavItem[]
     {
       label: "Bookings",
       icon: CalendarDays,
-      children: [{ label: "All Bookings" }, { label: "Create Booking" }, { label: "Calendar" }],
+      children: [{ label: "Manage Bookings" }, { label: "Create Booking" }, { label: "Calendar" }],
     },
     {
       label: "Operations",
@@ -170,12 +170,9 @@ function vendorNav(): NavItem[] {
       label: "Bookings",
       icon: CalendarDays,
       enabled: true,
-      children: [
-        { label: "Manage Bookings", enabled: true },
-        // Reads as live and answers to hover, but carries no href yet, so a
-        // click does nothing until the page behind it is built.
-        { label: "All Bookings", enabled: true },
-      ],
+      // Reads as live and answers to hover, but carries no href yet, so a
+      // click does nothing until the page behind it is built.
+      children: [{ label: "Manage Bookings", enabled: true }],
     },
     {
       label: "Management",
