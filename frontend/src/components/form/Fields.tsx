@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   useFormContext,
   Controller,
@@ -7,7 +7,7 @@ import {
   type RegisterOptions,
 } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarClock, CalendarDays, Check, ChevronDown, Clock } from "lucide-react";
+import { CalendarClock, CalendarDays, Check, ChevronDown, Clock, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,6 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AddOptionEditor } from "@/components/form/AddOptionEditor";
+import { useOptionLists } from "@/context/OptionListsContext";
 
 /**
  * The shared field kit.
@@ -367,9 +369,64 @@ export function DateField({
   );
 }
 
+/**
+ * The value the "Add" row at the bottom of a dropdown carries.
+ *
+ * A sentinel rather than a button parked under the list, because a select owns
+ * every keystroke and pointer event inside its own popup - anything that is not
+ * one of its items is not reliably clickable, and is skipped by the keyboard.
+ * Picking it is caught before the value ever reaches the form, so the sentinel
+ * itself can never be stored.
+ */
+const ADD_OPTION = "__bivry_add_option__";
+
+/**
+ * The options one dropdown offers: what it ships with, then what people have
+ * added to it.
+ *
+ * The two are merged rather than replaced, so the built in list is always
+ * offered even before anything is read from the API, and an addition that
+ * repeats one of them - in any casing - is dropped rather than listed twice.
+ */
+function useMergedOptions(
+  options: readonly string[],
+  listKey: string | undefined,
+): readonly string[] {
+  const { added } = useOptionLists();
+  const extra = added(listKey);
+
+  return useMemo(() => {
+    if (extra.length === 0) return options;
+    const seen = new Set(options.map((option) => option.toLowerCase()));
+    return [...options, ...extra.filter((option) => !seen.has(option.toLowerCase()))];
+  }, [options, extra]);
+}
+
+/** The row that opens the "add an option" box, shown at the foot of a list. */
+function AddOptionRow() {
+  return (
+    <SelectItem
+      value={ADD_OPTION}
+      className="mt-1 border-t border-border/60 pt-2 font-medium text-primary"
+    >
+      <span className="flex items-center gap-1.5">
+        <Plus className="h-3.5 w-3.5" /> Add
+      </span>
+    </SelectItem>
+  );
+}
+
 interface SelectFieldProps extends BaseFieldProps {
   options: readonly string[];
   placeholder?: string;
+  /**
+   * Which stored list this dropdown belongs to, from `constants/optionLists.ts`.
+   *
+   * Given one, the list ends in an "Add" row: what somebody types there is
+   * saved against this key and offered in every dropdown that names it, from
+   * then on and for everybody. Left out, the dropdown offers `options` alone.
+   */
+  listKey?: string;
 }
 
 /** Reusable select wired to react-hook-form via Controller. */
@@ -380,6 +437,7 @@ export function SelectField({
   placeholder = "Select…",
   rules,
   required,
+  listKey,
   className,
 }: SelectFieldProps) {
   const {
@@ -387,6 +445,15 @@ export function SelectField({
     formState: { errors },
   } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
+  const { canAdd } = useOptionLists();
+  const merged = useMergedOptions(options, listKey);
+  const [adding, setAdding] = useState(false);
+  const offersAdd = Boolean(listKey) && canAdd;
+
+  // Picking "Add" is noted here and acted on once the list has closed. Radix
+  // reports the pick before the close, and opening the box in between would
+  // hand focus to a text field the closing popup is about to take back.
+  const wantsAdd = useRef(false);
 
   return (
     <FieldShell
@@ -400,23 +467,52 @@ export function SelectField({
         name={name}
         rules={rules}
         render={({ field }) => (
-          <Select
-            value={(field.value as string) || ""}
-            onValueChange={field.onChange}
-          >
-            <SelectTrigger
-              className={cn(error && "border-red-300 focus:ring-red-500/10")}
+          <>
+            <Select
+              value={(field.value as string) || ""}
+              onValueChange={(value) => {
+                // The "Add" row is not an answer: it opens the box instead, and
+                // whatever the field was holding stays selected meanwhile.
+                if (value === ADD_OPTION) {
+                  wantsAdd.current = true;
+                  return;
+                }
+                field.onChange(value);
+              }}
+              onOpenChange={(open) => {
+                if (open || !wantsAdd.current) return;
+                wantsAdd.current = false;
+                setAdding(true);
+              }}
             >
-              <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                className={cn(error && "border-red-300 focus:ring-red-500/10")}
+              >
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {merged.map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
+                ))}
+                {offersAdd && <AddOptionRow />}
+              </SelectContent>
+            </Select>
+
+            {offersAdd && (
+              <AddOptionEditor
+                open={adding}
+                onClose={() => setAdding(false)}
+                listKey={listKey as string}
+                label={label}
+                existing={merged}
+                // Adding one is also choosing it: nobody adds an option to a
+                // field they are filling in and then means to pick another.
+                onAdded={(value) => field.onChange(value)}
+              />
+            )}
+          </>
         )}
       />
     </FieldShell>
@@ -426,6 +522,8 @@ export function SelectField({
 interface MultiSelectFieldProps extends BaseFieldProps {
   options: readonly string[];
   placeholder?: string;
+  /** Same as `SelectField`'s: the stored list this one adds to. */
+  listKey?: string;
 }
 
 /**
@@ -439,6 +537,7 @@ export function MultiSelectField({
   placeholder = "Select…",
   rules,
   required,
+  listKey,
   className,
 }: MultiSelectFieldProps) {
   const {
@@ -446,6 +545,10 @@ export function MultiSelectField({
     formState: { errors },
   } = useFormContext();
   const error = get(errors, name)?.message as string | undefined;
+  const { canAdd } = useOptionLists();
+  const merged = useMergedOptions(options, listKey);
+  const [adding, setAdding] = useState(false);
+  const offersAdd = Boolean(listKey) && canAdd;
 
   return (
     <FieldShell label={label} required={required} error={error} className={className}>
@@ -465,48 +568,80 @@ export function MultiSelectField({
           };
 
           return (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-invalid={!!error}
-                  className={cn(
-                    "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-white px-3.5 text-left text-sm transition-colors hover:border-primary/50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/10",
-                    error && "border-red-300 focus-visible:ring-red-500/10",
-                  )}
-                >
-                  <span
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-invalid={!!error}
                     className={cn(
-                      "truncate",
-                      selected.length === 0 && "text-muted-foreground",
+                      "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-white px-3.5 text-left text-sm transition-colors hover:border-primary/50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/10",
+                      error && "border-red-300 focus-visible:ring-red-500/10",
                     )}
                   >
-                    {selected.length === 0 ? placeholder : selected.join(", ")}
-                  </span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="max-h-72 w-[--radix-popover-trigger-width] overflow-y-auto p-1.5">
-                <ul className="space-y-0.5">
-                  {options.map((option) => {
-                    const checked = selected.includes(option);
-                    return (
-                      <li key={option}>
+                    <span
+                      className={cn(
+                        "truncate",
+                        selected.length === 0 && "text-muted-foreground",
+                      )}
+                    >
+                      {selected.length === 0 ? placeholder : selected.join(", ")}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="max-h-72 w-[--radix-popover-trigger-width] overflow-y-auto p-1.5">
+                  <ul className="space-y-0.5">
+                    {merged.map((option) => {
+                      const checked = selected.includes(option);
+                      return (
+                        <li key={option}>
+                          <button
+                            type="button"
+                            onClick={() => toggle(option)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-slate-600 transition-colors hover:bg-secondary hover:text-foreground"
+                          >
+                            <Checkbox checked={checked} className="pointer-events-none" />
+                            <span className="flex-1">{option}</span>
+                            {checked && <Check className="h-3.5 w-3.5 text-primary" />}
+                          </button>
+                        </li>
+                      );
+                    })}
+
+                    {/* The same "Add" row the single select offers, at the foot
+                        of the list. This popup holds plain buttons rather than
+                        select items, so it is one more of them. */}
+                    {offersAdd && (
+                      <li className="mt-1 border-t border-border/60 pt-1">
                         <button
                           type="button"
-                          onClick={() => toggle(option)}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-slate-600 transition-colors hover:bg-secondary hover:text-foreground"
+                          onClick={() => setAdding(true)}
+                          className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-primary transition-colors hover:bg-secondary"
                         >
-                          <Checkbox checked={checked} className="pointer-events-none" />
-                          <span className="flex-1">{option}</span>
-                          {checked && <Check className="h-3.5 w-3.5 text-primary" />}
+                          <Plus className="h-3.5 w-3.5" /> Add
                         </button>
                       </li>
-                    );
-                  })}
-                </ul>
-              </PopoverContent>
-            </Popover>
+                    )}
+                  </ul>
+                </PopoverContent>
+              </Popover>
+
+              {offersAdd && (
+                <AddOptionEditor
+                  open={adding}
+                  onClose={() => setAdding(false)}
+                  listKey={listKey as string}
+                  label={label}
+                  existing={merged}
+                  // Adding one ticks it. It is stored either way, so adding
+                  // something already ticked changes nothing here.
+                  onAdded={(value) => {
+                    if (!selected.includes(value)) field.onChange([...selected, value]);
+                  }}
+                />
+              )}
+            </>
           );
         }}
       />

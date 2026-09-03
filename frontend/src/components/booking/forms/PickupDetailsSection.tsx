@@ -11,6 +11,7 @@ import {
 import { BookingAddressFields } from "./BookingAddressFields";
 import { Button } from "@/components/ui/button";
 import { TRAILERS } from "@/constants/bookingOptions";
+import { OPTION_LISTS } from "@/constants/optionLists";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -23,10 +24,10 @@ function emptyPickup() {
     pickupTime: "",
     pickupCompany: "",
     suite: "",
-    pickupAddress: "",
-    city: "",
+    street1: "",
     suburb: "",
     state: "",
+    postCode: "",
     country: "Australia",
     instructions: "",
   };
@@ -37,8 +38,8 @@ function emptyPickup() {
  *
  * Every pickup asks for the same handful of details, so they are a field array:
  * the form opens with one, and "Add More" appends another exactly like it. The
- * address is typed in full: a suite, the address line, and the city, suburb,
- * state and country under it.
+ * address is asked for in the same six fields the customer form's Address
+ * Information block uses - see `BookingAddressFields`.
  */
 export function PickupDetailsSection() {
   const { control } = useFormContext();
@@ -91,6 +92,7 @@ export function PickupDetailsSection() {
                   name={`pickups.${index}.trailer`}
                   label="Trailer"
                   options={TRAILERS}
+                  listKey={OPTION_LISTS.trailer}
                   placeholder="Select trailer"
                 />
                 <DateField
@@ -103,11 +105,7 @@ export function PickupDetailsSection() {
                   label="Pick-Up Company"
                   placeholder="Company collecting from"
                 />
-                <BookingAddressFields
-                  base={`pickups.${index}`}
-                  addressName="pickupAddress"
-                  label="Pick-Up Address"
-                />
+                <BookingAddressFields base={`pickups.${index}`} />
                 <TextAreaField
                   name={`pickups.${index}.instructions`}
                   label="Instructions"

@@ -11,6 +11,7 @@ import {
 import { BookingAddressFields } from "./BookingAddressFields";
 import { Button } from "@/components/ui/button";
 import { TRAILERS } from "@/constants/bookingOptions";
+import { OPTION_LISTS } from "@/constants/optionLists";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -22,10 +23,10 @@ function emptyDelivery() {
     deliveryTime: "",
     deliveryCompany: "",
     suite: "",
-    deliveryAddress: "",
-    city: "",
+    street1: "",
     suburb: "",
     state: "",
+    postCode: "",
     country: "Australia",
     instructions: "",
   };
@@ -83,6 +84,7 @@ export function DeliveryDetailsSection() {
                   name={`deliveries.${index}.trailer`}
                   label="Trailer"
                   options={TRAILERS}
+                  listKey={OPTION_LISTS.trailer}
                   placeholder="Select trailer"
                 />
                 <DateField
@@ -95,11 +97,7 @@ export function DeliveryDetailsSection() {
                   label="Delivery Company"
                   placeholder="Company delivering to"
                 />
-                <BookingAddressFields
-                  base={`deliveries.${index}`}
-                  addressName="deliveryAddress"
-                  label="Delivery Address"
-                />
+                <BookingAddressFields base={`deliveries.${index}`} />
                 <TextAreaField
                   name={`deliveries.${index}.instructions`}
                   label="Instructions"

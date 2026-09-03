@@ -47,7 +47,7 @@ export const VEHICLE_TYPES = [
 ] as const;
 
 /** Which trailer a pickup loads onto. */
-export const TRAILERS = ["A", "B"] as const;
+export const TRAILERS = ["A", "B", "Double-B"] as const;
 
 export const TRAILER_CATEGORIES = [
   "Pan",

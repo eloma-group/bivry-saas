@@ -2,6 +2,7 @@ import { Truck } from "lucide-react";
 import { SectionCard } from "@/components/form/SectionCard";
 import { SelectField } from "@/components/form/Fields";
 import { CARGO_TYPES, VEHICLE_TYPES, TRAILER_CATEGORIES } from "@/constants/bookingOptions";
+import { OPTION_LISTS } from "@/constants/optionLists";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -27,18 +28,21 @@ export function VehicleDetailsSection() {
           name="vehicleType"
           label="Vehicle Type"
           options={VEHICLE_TYPES}
+          listKey={OPTION_LISTS.vehicleType}
           placeholder="Select vehicle"
         />
         <SelectField
           name="cargoType"
           label="Cargo Type"
           options={CARGO_TYPES}
+          listKey={OPTION_LISTS.cargoType}
           placeholder="Select cargo"
         />
         <SelectField
           name="trailerCategory"
           label="Trailer Category"
           options={TRAILER_CATEGORIES}
+          listKey={OPTION_LISTS.trailerCategory}
           placeholder="Select trailer"
         />
       </div>

@@ -775,10 +775,10 @@ CREATE TABLE "booking_stops" (
     "scheduled_at" TEXT,
     "company" TEXT,
     "suite" TEXT,
-    "address" TEXT,
-    "city" TEXT,
+    "street1" TEXT,
     "suburb" TEXT,
     "state" TEXT,
+    "post_code" TEXT,
     "country" TEXT,
     "instructions" TEXT,
 
@@ -794,6 +794,18 @@ CREATE TABLE "booking_lanes" (
     "lane" TEXT,
 
     CONSTRAINT "booking_lanes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "option_values" (
+    "id" UUID NOT NULL,
+    "list_key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "created_by_type" TEXT,
+    "created_by_id" UUID,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "option_values_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -987,6 +999,12 @@ CREATE INDEX "booking_stops_booking_id_idx" ON "booking_stops"("booking_id");
 
 -- CreateIndex
 CREATE INDEX "booking_lanes_booking_id_idx" ON "booking_lanes"("booking_id");
+
+-- CreateIndex
+CREATE INDEX "option_values_list_key_idx" ON "option_values"("list_key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "option_values_list_key_value_key" ON "option_values"("list_key", "value");
 
 -- AddForeignKey
 ALTER TABLE "customer_contacts" ADD CONSTRAINT "customer_contacts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;

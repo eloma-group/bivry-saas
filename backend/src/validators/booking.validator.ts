@@ -57,10 +57,10 @@ const stopSchema = z.object({
   scheduledAt: text,
   company: text,
   suite: text,
-  address: text,
-  city: text,
+  street1: text,
   suburb: text,
   state: text,
+  postCode: text,
   country: text,
   instructions: text,
 });

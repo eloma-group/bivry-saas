@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**39 tables, 16 enum types.**
+**40 tables, 16 enum types.**
 
 ## Tables
 
@@ -49,6 +49,7 @@ look up a column. Every table, column, type, default and relation is below.
 - [`booking_job_numbers`](#bookingjobnumbers)
 - [`booking_stops`](#bookingstops)
 - [`booking_lanes`](#bookinglanes)
+- [`option_values`](#optionvalues)
 
 ## Enum types
 
@@ -967,10 +968,10 @@ One pickup or delivery on a booking. The two share every field, so they are\none
 | `scheduled_at` | text | NULL |  | When it is scheduled, as typed (YYYY-MM-DDTHH:mm). |
 | `company` | text | NULL |  |  |
 | `suite` | text | NULL |  | Unit, suite or flat number, kept apart from the street line so an address\nthat has one reads "Suite 3" alongside "12 Balaclava Road" rather than\nboth at once. Optional: plenty of addresses have none. |
-| `address` | text | NULL |  |  |
-| `city` | text | NULL |  |  |
+| `street1` | text | NULL |  | The street line, the way every other address in the product holds it:\n"12 Balaclava Road". It used to be one free `address` line alongside a\n`city`, which asked for the same address twice in two different shapes. |
 | `suburb` | text | NULL |  |  |
 | `state` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
 | `country` | text | NULL |  |  |
 | `instructions` | text | NULL |  |  |
 
@@ -980,7 +981,7 @@ One pickup or delivery on a booking. The two share every field, so they are\none
 
 ### `booking_lanes`
 
-A lane worked out from a pickup/delivery pair: the trailer and the\n"Pick-Up City - Delivery City" line, kept so a saved booking carries them.
+A lane worked out from a pickup/delivery pair: the trailer and the\n"Pick-Up Suburb - Delivery Suburb" line, kept so a saved booking carries them.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -993,3 +994,18 @@ A lane worked out from a pickup/delivery pair: the trailer and the\n"Pick-Up Cit
 **Relations**
 
 - one `bookings`
+
+### `option_values`
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `list_key` | text | NOT NULL |  | Which dropdown it belongs to, e.g. "booking.trailer". Named in\n`frontend/src/constants/optionLists.ts`, which is the only place that\ndecides what a key means. |
+| `value` | text | NOT NULL |  | The option itself, stored and shown verbatim. |
+| `created_by_type` | text | NULL |  | Who added it. No FK: any portal can add one, so this is the actor type and\nid the token carried, the same way the auth tables do it. |
+| `created_by_id` | uuid | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+
+**Constraints**
+
+- unique: (`listKey`, `value`)

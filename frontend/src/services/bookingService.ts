@@ -6,7 +6,9 @@ import { request } from "./api";
  *
  * The form keeps pickups and deliveries in their own field shapes (pickupTime,
  * deliveryCompany, and so on); the backend takes one shared stop shape, so the
- * mapping happens here rather than leaking either shape into the other.
+ * mapping happens here rather than leaking either shape into the other. The
+ * address is the exception: both hold it under the same six names, so it maps
+ * straight across.
  */
 
 export interface BookingStopPayload {
@@ -14,12 +16,12 @@ export interface BookingStopPayload {
   trailer: string;
   scheduledAt: string;
   company: string;
-  /** Unit, suite or flat number. Kept off the address line. */
+  /** Unit, suite or flat number. Kept off the street line. */
   suite: string;
-  address: string;
-  city: string;
+  street1: string;
   suburb: string;
   state: string;
+  postCode: string;
   country: string;
   instructions: string;
 }
@@ -96,10 +98,10 @@ function stopOf(row: Record<string, unknown>, kind: "pickup" | "delivery"): Book
     scheduledAt: str(row[`${kind}Time`]),
     company: str(row[`${kind}Company`]),
     suite: str(row.suite),
-    address: str(row[`${kind}Address`]),
-    city: str(row.city),
+    street1: str(row.street1),
     suburb: str(row.suburb),
     state: str(row.state),
+    postCode: str(row.postCode),
     country: str(row.country),
     instructions: str(row.instructions),
   };

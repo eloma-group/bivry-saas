@@ -5,6 +5,7 @@ import { TextField, DateField, SelectField } from "@/components/form/Fields";
 import { FormUpload } from "@/components/upload/FormUpload";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { AU_STATES, LICENCE_TYPES } from "@/constants/options";
+import { OPTION_LISTS } from "@/constants/optionLists";
 import { ACCEPT_IMAGE, rules } from "@/utils/validation";
 import type { DriverFormValues } from "@/types/driver";
 
@@ -41,6 +42,7 @@ export function LicenceSection() {
           name="licenceType"
           label="Licence Type"
           options={LICENCE_TYPES}
+          listKey={OPTION_LISTS.licenceType}
           required
           rules={rules.required("Licence type")}
         />
@@ -48,6 +50,7 @@ export function LicenceSection() {
           name="licenceState"
           label="State"
           options={AU_STATES}
+          listKey={OPTION_LISTS.licenceState}
           required
           rules={rules.required("State")}
         />

@@ -2,6 +2,7 @@ import { Globe2 } from "lucide-react";
 import { SectionCard } from "@/components/form/SectionCard";
 import { MultiSelectField } from "@/components/form/Fields";
 import { BUSINESS_OPERATIONS, COVERAGE_AREAS } from "@/constants/vendorOptions";
+import { OPTION_LISTS } from "@/constants/optionLists";
 import { rules } from "@/utils/validation";
 
 export function BusinessCoverageSection() {
@@ -18,6 +19,7 @@ export function BusinessCoverageSection() {
           name="areasCovered"
           label="Area Covered"
           options={COVERAGE_AREAS}
+          listKey={OPTION_LISTS.coverageArea}
           placeholder="Select states and territories"
           required
           rules={rules.requiredList("Area covered")}
@@ -26,6 +28,7 @@ export function BusinessCoverageSection() {
           name="businessOperations"
           label="Business Operations"
           options={BUSINESS_OPERATIONS}
+          listKey={OPTION_LISTS.businessOperation}
           placeholder="Select operations"
           required
           rules={rules.requiredList("Business operations")}

@@ -7,6 +7,7 @@ import { FormUpload } from "@/components/upload/FormUpload";
 import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
 import { ExpiryBadge } from "@/components/driver/ExpiryBadge";
 import { COUNTRIES, VISA_STATUSES, VISA_TYPES } from "@/constants/options";
+import { OPTION_LISTS } from "@/constants/optionLists";
 import type { DriverFormValues } from "@/types/driver";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -41,6 +42,7 @@ export function VisaSection() {
           name="country"
           label="Country"
           options={COUNTRIES}
+          listKey={OPTION_LISTS.country}
           required
           rules={rules.required("Country")}
         />
@@ -165,6 +167,7 @@ export function VisaSection() {
                 name="visaStatus"
                 label="Visa Status"
                 options={VISA_STATUSES}
+                listKey={OPTION_LISTS.visaStatus}
                 required
                 rules={visaOnly("Visa status")}
               />
@@ -172,6 +175,7 @@ export function VisaSection() {
                 name="visaType"
                 label="Visa Type"
                 options={VISA_TYPES}
+                listKey={OPTION_LISTS.visaType}
                 required
                 rules={visaOnly("Visa type")}
               />

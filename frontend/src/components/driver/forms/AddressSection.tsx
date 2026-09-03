@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { COUNTRIES } from "@/constants/options";
 import { isStateOfCountry, statesFor } from "@/constants/regions";
+import { OPTION_LISTS, statesListKey } from "@/constants/optionLists";
 import { locateCurrentAddress } from "@/services/geocode";
 import { rules } from "@/utils/validation";
 import type { FieldRules } from "@/components/form/Fields";
@@ -86,6 +87,9 @@ function StateField({
       name={`${prefix}.state`}
       label="State / Province"
       options={options}
+      // Per country: a division added under Australia is not offered under
+      // Canada, so the key carries the country it was added against.
+      listKey={statesListKey(country)}
       required
       rules={fieldRules}
     />
@@ -135,6 +139,7 @@ function AddressBlock({ prefix }: { prefix: AddressPrefix }) {
         name={`${prefix}.country`}
         label="Country"
         options={COUNTRIES}
+        listKey={OPTION_LISTS.country}
         required
         rules={required("Country")}
       />

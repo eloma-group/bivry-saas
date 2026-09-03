@@ -1108,10 +1108,13 @@ model BookingStop {
   /// that has one reads "Suite 3" alongside "12 Balaclava Road" rather than
   /// both at once. Optional: plenty of addresses have none.
   suite           String?
-  address         String?
-  city            String?
+  /// The street line, the way every other address in the product holds it:
+  /// "12 Balaclava Road". It used to be one free `address` line alongside a
+  /// `city`, which asked for the same address twice in two different shapes.
+  street1         String?
   suburb          String?
   state           String?
+  postCode        String?         @map("post_code")
   country         String?
   instructions    String?
   booking         Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
@@ -1121,7 +1124,7 @@ model BookingStop {
 }
 
 /// A lane worked out from a pickup/delivery pair: the trailer and the
-/// "Pick-Up City - Delivery City" line, kept so a saved booking carries them.
+/// "Pick-Up Suburb - Delivery Suburb" line, kept so a saved booking carries them.
 model BookingLane {
   id        String  @id @default(uuid()) @db.Uuid
   bookingId String  @map("booking_id") @db.Uuid
@@ -1139,4 +1142,38 @@ enum BookingStopType {
   DELIVERY
 
   @@map("booking_stop_type")
+}
+
+// ---------------------------------------------------------------------------
+// Dropdown options
+//
+// Every dropdown in the product ships with a list written in the frontend's
+// constants. A row here is one option somebody added from a form instead, kept
+// so the next person to open that dropdown is offered it too.
+//
+// The built in lists stay in code: this table holds only the additions, and the
+// two are merged when a field renders. Nothing reads a value back through this
+// table - the answer a form stores is the text itself - so a row disappearing
+// costs an option in the list and never a saved answer.
+// ---------------------------------------------------------------------------
+
+model OptionValue {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// Which dropdown it belongs to, e.g. "booking.trailer". Named in
+  /// `frontend/src/constants/optionLists.ts`, which is the only place that
+  /// decides what a key means.
+  listKey       String   @map("list_key")
+  /// The option itself, stored and shown verbatim.
+  value         String
+  /// Who added it. No FK: any portal can add one, so this is the actor type and
+  /// id the token carried, the same way the auth tables do it.
+  createdByType String?  @map("created_by_type")
+  createdById   String?  @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  /// One option per list. Case is settled in the service, so "Semi" and "semi"
+  /// cannot both be added.
+  @@unique([listKey, value])
+  @@index([listKey])
+  @@map("option_values")
 }

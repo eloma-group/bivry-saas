@@ -5,6 +5,7 @@ import customerRoutes from './customer.routes';
 import vendorRoutes from './vendor.routes';
 import employeeRoutes from './employee.routes';
 import driverRoutes from './driver.routes';
+import optionRoutes from './option.routes';
 import { prisma } from '../config/prisma';
 import { buildInfo } from '../config/buildInfo';
 import { mailStatus } from '../services/mail.service';
@@ -44,6 +45,10 @@ router.get('/health', async (_req, res) => {
 
 // Authentication, one isolated portal per role.
 router.use('/auth', authRoutes);
+
+// The dropdown options anyone has added. Shared by every portal, so it is
+// mounted above them and locked to nothing but being signed in.
+router.use('/options', optionRoutes);
 
 // Feature modules, each locked to its own role.
 router.use('/admin', adminRoutes);

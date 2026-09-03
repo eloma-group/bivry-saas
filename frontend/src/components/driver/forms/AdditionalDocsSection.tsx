@@ -7,6 +7,7 @@ import { FormUpload } from "@/components/upload/FormUpload";
 import { ACCEPT_DOCUMENT, rules } from "@/utils/validation";
 import { Button } from "@/components/ui/button";
 import { ADDITIONAL_DOC_CATEGORIES } from "@/constants/options";
+import { OPTION_LISTS } from "@/constants/optionLists";
 import type { DriverFormValues } from "@/types/driver";
 
 export function AdditionalDocsSection() {
@@ -49,6 +50,7 @@ export function AdditionalDocsSection() {
                 name={`additionalDocs.${i}.category`}
                 label="Document Type"
                 options={ADDITIONAL_DOC_CATEGORIES}
+                listKey={OPTION_LISTS.documentCategory}
                 required
                 rules={rules.required("Document type")}
               />

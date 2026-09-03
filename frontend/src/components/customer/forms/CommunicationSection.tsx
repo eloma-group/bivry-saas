@@ -13,6 +13,7 @@ import {
   PRIMARY_CONTACT,
 } from "@/constants/customerOptions";
 import { NAME_MAX, PHONE_MAX, rules } from "@/utils/validation";
+import { OPTION_LISTS } from "@/constants/optionLists";
 import type { CustomerFormValues } from "@/types/customer";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -72,6 +73,7 @@ function ContactBlockFields({
         name={`${path}.designation`}
         label="Designation"
         options={DESIGNATIONS}
+        listKey={OPTION_LISTS.designation}
         required={required}
         rules={rules.requiredWhen(`${label} designation`, asked)}
       />

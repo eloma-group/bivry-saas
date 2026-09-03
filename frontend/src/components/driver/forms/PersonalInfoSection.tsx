@@ -3,6 +3,7 @@ import { SectionCard } from "@/components/form/SectionCard";
 import { TextField, DateField, SelectField } from "@/components/form/Fields";
 import { AvatarUpload } from "@/components/driver/AvatarUpload";
 import { COUNTRIES } from "@/constants/options";
+import { OPTION_LISTS } from "@/constants/optionLists";
 import {
   MIN_AGE,
   NAME_MAX,
@@ -78,6 +79,7 @@ export function PersonalInfoSection({
           name="country"
           label="Country"
           options={COUNTRIES}
+          listKey={OPTION_LISTS.country}
           required
           rules={rules.required("Country")}
         />

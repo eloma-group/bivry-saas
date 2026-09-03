@@ -12,6 +12,7 @@ import {
   REFERENCES,
 } from "@/constants/bookingOptions";
 import { PAYMENT_TERMS } from "@/constants/customerOptions";
+import { OPTION_LISTS } from "@/constants/optionLists";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -86,18 +87,21 @@ export function BookingDetailsSection() {
           name="accountStatus"
           label="Account Status"
           options={ACCOUNT_STATUSES}
+          listKey={OPTION_LISTS.accountStatus}
           placeholder="Select status"
         />
         <SelectField
           name="agreementType"
           label="Agreement Type"
           options={AGREEMENT_TYPES}
+          listKey={OPTION_LISTS.agreementType}
           placeholder="Select agreement"
         />
         <SelectField
           name="reference"
           label="Reference"
           options={REFERENCES}
+          listKey={OPTION_LISTS.reference}
           placeholder="Select reference"
         />
         {/* Opens on the term saved against the chosen customer - "Net 7", as
