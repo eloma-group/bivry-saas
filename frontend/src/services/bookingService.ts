@@ -64,7 +64,14 @@ export interface CreateBookingPayload {
   trailerCategory: string;
   pickups: BookingStopPayload[];
   deliveries: BookingStopPayload[];
-  price: BookingPricePayload;
+  /**
+   * What we charge, one entry per price column on the form. A booking that
+   * loads at one place sends one; one that loads at two sends two, and the
+   * order here is the order they were shown in.
+   */
+  prices: BookingPricePayload[];
+  /** Every price total added together, as shown on the form. */
+  priceFinalAmount: string;
   vendor: { vendorId: string; vendorName: string };
   vendorPrice: BookingPricePayload;
 }
@@ -134,7 +141,8 @@ export function buildBookingPayload(values: Record<string, unknown>): CreateBook
     trailerCategory: str(values.trailerCategory),
     pickups: toArray(values.pickups).map((row) => stopOf(row, "pickup")),
     deliveries: toArray(values.deliveries).map((row) => stopOf(row, "delivery")),
-    price: priceOf(values.price),
+    prices: toArray(values.prices).map(priceOf),
+    priceFinalAmount: str(values.priceFinalAmount),
     vendor: { vendorId: str(vendor.vendorId), vendorName: str(vendor.vendorName) },
     vendorPrice: priceOf(values.vendorPrice),
   };

@@ -728,13 +728,7 @@ CREATE TABLE "bookings" (
     "cargo_type" TEXT,
     "vehicle_type" TEXT,
     "trailer_category" TEXT,
-    "price_gross_amount" DECIMAL(12,2),
-    "price_fuel_levy_pct" DECIMAL(7,2),
-    "price_fuel_levy_amount" DECIMAL(12,2),
-    "price_gst_pct" DECIMAL(7,2),
-    "price_gst_amount" DECIMAL(12,2),
-    "price_net_amount" DECIMAL(12,2),
-    "price_total_amount" DECIMAL(12,2),
+    "price_final_amount" DECIMAL(12,2),
     "vendor_id" UUID,
     "vendor_name" TEXT,
     "vendor_gross_amount" DECIMAL(12,2),
@@ -784,6 +778,22 @@ CREATE TABLE "booking_stops" (
     "instructions" TEXT,
 
     CONSTRAINT "booking_stops_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "booking_prices" (
+    "id" UUID NOT NULL,
+    "booking_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL,
+    "gross_amount" DECIMAL(12,2),
+    "fuel_levy_pct" DECIMAL(7,2),
+    "fuel_levy_amount" DECIMAL(12,2),
+    "gst_pct" DECIMAL(7,2),
+    "gst_amount" DECIMAL(12,2),
+    "net_amount" DECIMAL(12,2),
+    "total_amount" DECIMAL(12,2),
+
+    CONSTRAINT "booking_prices_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -999,6 +1009,9 @@ CREATE INDEX "booking_job_numbers_expires_at_idx" ON "booking_job_numbers"("expi
 CREATE INDEX "booking_stops_booking_id_idx" ON "booking_stops"("booking_id");
 
 -- CreateIndex
+CREATE INDEX "booking_prices_booking_id_idx" ON "booking_prices"("booking_id");
+
+-- CreateIndex
 CREATE INDEX "booking_lanes_booking_id_idx" ON "booking_lanes"("booking_id");
 
 -- CreateIndex
@@ -1090,6 +1103,9 @@ ALTER TABLE "driver_documents" ADD CONSTRAINT "driver_documents_driver_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "booking_stops" ADD CONSTRAINT "booking_stops_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "booking_prices" ADD CONSTRAINT "booking_prices_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "booking_lanes" ADD CONSTRAINT "booking_lanes_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;

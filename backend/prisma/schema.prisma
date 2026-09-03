@@ -1036,14 +1036,11 @@ model Booking {
   vehicleType     String? @map("vehicle_type")
   trailerCategory String? @map("trailer_category")
 
-  // Our price (AUD).
-  priceGrossAmount    Decimal? @map("price_gross_amount") @db.Decimal(12, 2)
-  priceFuelLevyPct    Decimal? @map("price_fuel_levy_pct") @db.Decimal(7, 2)
-  priceFuelLevyAmount Decimal? @map("price_fuel_levy_amount") @db.Decimal(12, 2)
-  priceGstPct         Decimal? @map("price_gst_pct") @db.Decimal(7, 2)
-  priceGstAmount      Decimal? @map("price_gst_amount") @db.Decimal(12, 2)
-  priceNetAmount      Decimal? @map("price_net_amount") @db.Decimal(12, 2)
-  priceTotalAmount    Decimal? @map("price_total_amount") @db.Decimal(12, 2)
+  // Our price (AUD). The prices themselves are rows in booking_prices, one per
+  // price column on the form; this is their totals added together, stored
+  // rather than summed on read so a booking always quotes the figure the admin
+  // actually saw when they saved it.
+  priceFinalAmount Decimal? @map("price_final_amount") @db.Decimal(12, 2)
 
   // Vendor allotment and its own, separate price (AUD).
   vendorId             String?  @map("vendor_id") @db.Uuid
@@ -1068,8 +1065,9 @@ model Booking {
   updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
 
-  stops BookingStop[]
-  lanes BookingLane[]
+  stops  BookingStop[]
+  lanes  BookingLane[]
+  prices BookingPrice[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -1127,6 +1125,31 @@ model BookingStop {
 
   @@index([bookingId])
   @@map("booking_stops")
+}
+
+/// One price we charge the customer, in AUD.
+///
+/// A booking used to hold exactly one, as seven columns on the booking itself.
+/// A booking that loads at two places is two things to charge for, so they are
+/// rows here instead, ordered by `position` - the order the columns are shown
+/// in on the form. The vendor's own price is unaffected and stays on the
+/// booking: we agree one figure with a vendor for the job.
+model BookingPrice {
+  id              String   @id @default(uuid()) @db.Uuid
+  bookingId       String   @map("booking_id") @db.Uuid
+  /// Order on the form, from 0. What makes "Gross Amount 2" the second one.
+  position        Int
+  grossAmount     Decimal? @map("gross_amount") @db.Decimal(12, 2)
+  fuelLevyPct     Decimal? @map("fuel_levy_pct") @db.Decimal(7, 2)
+  fuelLevyAmount  Decimal? @map("fuel_levy_amount") @db.Decimal(12, 2)
+  gstPct          Decimal? @map("gst_pct") @db.Decimal(7, 2)
+  gstAmount       Decimal? @map("gst_amount") @db.Decimal(12, 2)
+  netAmount       Decimal? @map("net_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal? @map("total_amount") @db.Decimal(12, 2)
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_prices")
 }
 
 /// A lane worked out from a pickup/delivery pair: the trailer and the

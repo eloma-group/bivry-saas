@@ -20,6 +20,7 @@ import { VehicleDetailsSection } from "@/components/booking/forms/VehicleDetails
 import { PickupDetailsSection } from "@/components/booking/forms/PickupDetailsSection";
 import { DeliveryDetailsSection } from "@/components/booking/forms/DeliveryDetailsSection";
 import { OurPriceSection } from "@/components/booking/forms/OurPriceSection";
+import { emptyPrice } from "@/components/booking/forms/priceMath";
 import { VendorAllotmentSection } from "@/components/booking/forms/VendorAllotmentSection";
 import { bookingService, buildBookingPayload } from "@/services/bookingService";
 import { useJobNumberReservation } from "@/hooks/useJobNumberReservation";
@@ -281,6 +282,10 @@ export function AdminCreateBookingPage() {
           instructions: "",
         },
       ],
+
+      // One price to begin with, matching the one pickup above. A second
+      // pickup brings a second price with it; see OurPriceSection.
+      prices: [emptyPrice()],
     },
     mode: "onTouched",
   });

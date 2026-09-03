@@ -5,15 +5,18 @@ import type { CreateBookingInput } from '../validators/booking.validator';
 /**
  * Bookings raised in the Admin portal.
  *
- * A booking owns its pickups and deliveries (booking_stops, split by type) and
- * its lanes (booking_lanes); both prices are columns on the booking itself. The
- * customer and vendor are held by id and by a name snapshot, with no relation,
- * so those account tables are untouched by this feature.
+ * A booking owns its pickups and deliveries (booking_stops, split by type), its
+ * lanes (booking_lanes) and what we charge (booking_prices, one row per price
+ * column on the form). The vendor price stays as columns on the booking itself:
+ * we agree one figure with a vendor for the whole job. The customer and vendor
+ * are held by id and by a name snapshot, with no relation, so those account
+ * tables are untouched by this feature.
  */
 
 const BOOKING_INCLUDE = {
   stops: { orderBy: [{ type: 'asc' }, { position: 'asc' }] },
   lanes: { orderBy: { position: 'asc' } },
+  prices: { orderBy: { position: 'asc' } },
 } satisfies import('@prisma/client').Prisma.BookingInclude;
 
 export interface BookingListQuery {
@@ -250,7 +253,19 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
   }));
   const lanes = input.lanes.map((lane, index) => ({ ...lane, position: index }));
 
-  const price = input.price ?? {};
+  // One row per price column, keeping the order they were shown in: that order
+  // is what "Gross Amount 2" refers to.
+  const prices = input.prices.map((price, index) => ({
+    position: index,
+    grossAmount: price.grossAmount ?? null,
+    fuelLevyPct: price.fuelLevyPct ?? null,
+    fuelLevyAmount: price.fuelLevyAmount ?? null,
+    gstPct: price.gstPct ?? null,
+    gstAmount: price.gstAmount ?? null,
+    netAmount: price.netAmount ?? null,
+    totalAmount: price.totalAmount ?? null,
+  }));
+
   const vendorPrice = input.vendorPrice ?? {};
   const vendor = input.vendor ?? {};
 
@@ -278,13 +293,7 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
     vehicleType: input.vehicleType,
     trailerCategory: input.trailerCategory,
 
-    priceGrossAmount: price.grossAmount ?? null,
-    priceFuelLevyPct: price.fuelLevyPct ?? null,
-    priceFuelLevyAmount: price.fuelLevyAmount ?? null,
-    priceGstPct: price.gstPct ?? null,
-    priceGstAmount: price.gstAmount ?? null,
-    priceNetAmount: price.netAmount ?? null,
-    priceTotalAmount: price.totalAmount ?? null,
+    priceFinalAmount: input.priceFinalAmount ?? null,
 
     vendorId: vendor.vendorId ?? null,
     vendorName: vendor.vendorName ?? null,
@@ -300,6 +309,7 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
     createdByAdminId: adminId,
     stops: { create: [...pickups, ...deliveries] },
     lanes: { create: lanes },
+    prices: { create: prices },
   };
 
   // Another create can take the number between the MAX above and the insert,

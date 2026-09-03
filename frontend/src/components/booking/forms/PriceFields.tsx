@@ -1,26 +1,17 @@
 import { useEffect } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { TextField } from "@/components/form/Fields";
+import { money, num } from "./priceMath";
 
 const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 
-/** Reads a money/percent input as a number, treating blank or junk as zero. */
-function num(value: unknown): number {
-  const parsed = parseFloat(String(value ?? "").replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/** Two-decimal string, the shape every amount field carries. */
-function money(value: number): string {
-  return value.toFixed(2);
-}
-
 /**
- * The price grid, in AUD, reused wherever a booking is costed.
+ * The vendor's price grid, in AUD.
  *
- * Everything lives under `base`, so two of these on one form - our price and the
- * vendor's - stay completely apart: their inputs and their derived amounts never
- * touch. The figures typed are a gross, a fuel levy rate and a GST rate; the
+ * Everything lives under `base`, so this and Our Price stay completely apart:
+ * their inputs and their derived amounts never touch. Our Price is its own
+ * component now, because it counts a price per pickup rather than a gross per
+ * trailer; the arithmetic below is still the same arithmetic. The figures typed are a gross, a fuel levy rate and a GST rate; the
  * four amounts follow from them and recompute as the inputs change:
  *   Fuel Levy Amount = Gross x Fuel Levy %
  *   GST Amount       = Gross x GST %

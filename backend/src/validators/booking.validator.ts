@@ -106,7 +106,13 @@ export const createBookingSchema = z.object({
   pickups: z.array(stopSchema).default([]),
   deliveries: z.array(stopSchema).default([]),
   lanes: z.array(laneSchema).default([]),
-  price: priceSchema.optional(),
+  /**
+   * What we charge, one entry per price column on the form, in the order they
+   * were shown. A booking that loads at one place sends one.
+   */
+  prices: z.array(priceSchema).default([]),
+  /** Their totals added together, as the form showed it. */
+  priceFinalAmount: amount,
   vendor: z
     .object({ vendorId: uuidText, vendorName: text })
     .partial()

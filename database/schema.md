@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**40 tables, 16 enum types.**
+**41 tables, 16 enum types.**
 
 ## Tables
 
@@ -48,6 +48,7 @@ look up a column. Every table, column, type, default and relation is below.
 - [`bookings`](#bookings)
 - [`booking_job_numbers`](#bookingjobnumbers)
 - [`booking_stops`](#bookingstops)
+- [`booking_prices`](#bookingprices)
 - [`booking_lanes`](#bookinglanes)
 - [`option_values`](#optionvalues)
 
@@ -914,13 +915,7 @@ Audit trail of every login attempt, used for lockout and security review.
 | `cargo_type` | text | NULL |  |  |
 | `vehicle_type` | text | NULL |  |  |
 | `trailer_category` | text | NULL |  |  |
-| `price_gross_amount` | decimal | NULL |  |  |
-| `price_fuel_levy_pct` | decimal | NULL |  |  |
-| `price_fuel_levy_amount` | decimal | NULL |  |  |
-| `price_gst_pct` | decimal | NULL |  |  |
-| `price_gst_amount` | decimal | NULL |  |  |
-| `price_net_amount` | decimal | NULL |  |  |
-| `price_total_amount` | decimal | NULL |  |  |
+| `price_final_amount` | decimal | NULL |  |  |
 | `vendor_id` | uuid | NULL |  |  |
 | `vendor_name` | text | NULL |  |  |
 | `vendor_gross_amount` | decimal | NULL |  |  |
@@ -940,6 +935,7 @@ Audit trail of every login attempt, used for lockout and security review.
 
 - many `booking_stops`
 - many `booking_lanes`
+- many `booking_prices`
 
 ### `booking_job_numbers`
 
@@ -975,6 +971,27 @@ One pickup or delivery on a booking. The two share every field, so they are\none
 | `post_code` | text | NULL |  |  |
 | `country` | text | NULL |  |  |
 | `instructions` | text | NULL |  |  |
+
+**Relations**
+
+- one `bookings`
+
+### `booking_prices`
+
+One price we charge the customer, in AUD.\n\nA booking used to hold exactly one, as seven columns on the booking itself.\nA booking that loads at two places is two things to charge for, so they are\nrows here instead, ordered by `position` - the order the columns are shown\nin on the form. The vendor's own price is unaffected and stays on the\nbooking: we agree one figure with a vendor for the job.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `booking_id` | uuid | NOT NULL |  | FK to `bookings` (cascade delete) |
+| `position` | integer | NOT NULL |  | Order on the form, from 0. What makes "Gross Amount 2" the second one. |
+| `gross_amount` | decimal | NULL |  |  |
+| `fuel_levy_pct` | decimal | NULL |  |  |
+| `fuel_levy_amount` | decimal | NULL |  |  |
+| `gst_pct` | decimal | NULL |  |  |
+| `gst_amount` | decimal | NULL |  |  |
+| `net_amount` | decimal | NULL |  |  |
+| `total_amount` | decimal | NULL |  |  |
 
 **Relations**
 
