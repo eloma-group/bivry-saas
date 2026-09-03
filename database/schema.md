@@ -924,6 +924,7 @@ Audit trail of every login attempt, used for lockout and security review.
 | `vendor_id` | uuid | NULL |  |  |
 | `vendor_name` | text | NULL |  |  |
 | `vendor_gross_amount` | decimal | NULL |  |  |
+| `vendor_gross_amount_2` | decimal | NULL |  | The vendor's gross for the second trailer. That grid asks for a gross per\ntrailer, because a load split across two is quoted as two figures, and the\nlevy, GST and totals are all worked out from their sum. `vendorGrossAmount`\nabove is trailer A. Our own price takes a single gross for the whole job,\nwhich is why there is no matching column for it. |
 | `vendor_fuel_levy_pct` | decimal | NULL |  |  |
 | `vendor_fuel_levy_amount` | decimal | NULL |  |  |
 | `vendor_gst_pct` | decimal | NULL |  |  |

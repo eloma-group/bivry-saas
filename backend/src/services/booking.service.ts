@@ -289,6 +289,7 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
     vendorId: vendor.vendorId ?? null,
     vendorName: vendor.vendorName ?? null,
     vendorGrossAmount: vendorPrice.grossAmount ?? null,
+    vendorGrossAmount2: vendorPrice.grossAmount2 ?? null,
     vendorFuelLevyPct: vendorPrice.fuelLevyPct ?? null,
     vendorFuelLevyAmount: vendorPrice.fuelLevyAmount ?? null,
     vendorGstPct: vendorPrice.gstPct ?? null,

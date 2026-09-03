@@ -738,6 +738,7 @@ CREATE TABLE "bookings" (
     "vendor_id" UUID,
     "vendor_name" TEXT,
     "vendor_gross_amount" DECIMAL(12,2),
+    "vendor_gross_amount_2" DECIMAL(12,2),
     "vendor_fuel_levy_pct" DECIMAL(7,2),
     "vendor_fuel_levy_amount" DECIMAL(12,2),
     "vendor_gst_pct" DECIMAL(7,2),

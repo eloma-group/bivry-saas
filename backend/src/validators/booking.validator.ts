@@ -73,6 +73,12 @@ const laneSchema = z.object({
 const priceSchema = z
   .object({
     grossAmount: amount,
+    /**
+     * The gross for the second trailer. Only the vendor price asks per trailer
+     * - that grid takes a gross for each and derives everything from their sum
+     * - so this arrives null on our own price and only the vendor's is stored.
+     */
+    grossAmount2: amount,
     fuelLevyPct: amount,
     fuelLevyAmount: amount,
     gstPct: amount,

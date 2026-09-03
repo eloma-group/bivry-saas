@@ -28,6 +28,12 @@ export interface BookingStopPayload {
 
 export interface BookingPricePayload {
   grossAmount: string;
+  /**
+   * The gross for the second trailer, on the vendor price only: that grid asks
+   * for a gross per trailer and works everything else out from their sum. Our
+   * Price sends it empty, and the API stores it for the vendor alone.
+   */
+  grossAmount2: string;
   fuelLevyPct: string;
   fuelLevyAmount: string;
   gstPct: string;
@@ -81,6 +87,7 @@ function priceOf(value: unknown): BookingPricePayload {
   const p = (value ?? {}) as Record<string, unknown>;
   return {
     grossAmount: str(p.grossAmount),
+    grossAmount2: str(p.grossAmount2),
     fuelLevyPct: str(p.fuelLevyPct),
     fuelLevyAmount: str(p.fuelLevyAmount),
     gstPct: str(p.gstPct),

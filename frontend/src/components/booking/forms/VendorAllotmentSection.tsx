@@ -36,6 +36,9 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
  * leaving the booking.
  * The price grid below is a second, independent copy of the Our Price fields -
  * same arithmetic, its own values (base "vendorPrice"), never linked to ours.
+ * It asks for the gross once per trailer rather than once for the job, because a
+ * load split across two trailers is quoted as two figures; everything under them
+ * is worked out from the sum. Our Price still asks for a single gross.
  */
 export function VendorAllotmentSection() {
   const { setValue, watch } = useFormContext();
@@ -147,7 +150,7 @@ export function VendorAllotmentSection() {
         </div>
       )}
 
-      <PriceFields base="vendorPrice" />
+      <PriceFields base="vendorPrice" splitGross />
     </SectionCard>
   );
 }

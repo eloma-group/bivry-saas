@@ -120,6 +120,18 @@ interface TextFieldProps extends BaseFieldProps {
    */
   digitsOnly?: boolean;
   /**
+   * An amount the field holds as digits and at most one dot - a price.
+   *
+   * The alternative is `type="number"`, and it is worse for money on three
+   * counts: the browser puts a spinner in the box, so a price can be nudged up
+   * and down a dollar at a time by a stray click; the scroll wheel changes the
+   * value while the page is being scrolled past it; and it accepts "1e5" and a
+   * leading minus, neither of which is a price. This is a plain text box that
+   * simply refuses anything but digits and a decimal point as they are typed
+   * or pasted, so none of the three can happen.
+   */
+  decimalOnly?: boolean;
+  /**
    * A control parked at the right hand end of the input, inside its border.
    *
    * Used where a field can fill itself in (the ABN and its lookup) or clear
@@ -134,6 +146,21 @@ interface TextFieldProps extends BaseFieldProps {
   prefix?: string;
 }
 
+/**
+ * Digits and a single decimal point, for `decimalOnly`.
+ *
+ * Everything else is dropped where it is typed or pasted, and only the first
+ * dot survives, so "12..5" and "1.2.3" cannot be entered at all rather than
+ * being accepted and refused later. A dot typed first is kept, because ".50"
+ * is a reasonable way to start typing fifty cents.
+ */
+function decimals(raw: string): string {
+  const cleaned = raw.replace(/[^\d.]/g, "");
+  const dot = cleaned.indexOf(".");
+  if (dot === -1) return cleaned;
+  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "");
+}
+
 /** Reusable text/email/number input wired to react-hook-form. */
 export function TextField({
   name,
@@ -146,6 +173,7 @@ export function TextField({
   hint,
   maxLength,
   digitsOnly,
+  decimalOnly,
   action,
   actionSize = "label",
   prefix,
@@ -177,7 +205,7 @@ export function TextField({
         <Input
           id={name}
           type={type}
-          inputMode={digitsOnly ? "numeric" : undefined}
+          inputMode={digitsOnly ? "numeric" : decimalOnly ? "decimal" : undefined}
           placeholder={placeholder}
           readOnly={readOnly}
           maxLength={maxLength}
@@ -198,7 +226,13 @@ export function TextField({
                   void field.onChange(event);
                   void trigger(name);
                 }
-              : field.onChange
+              : decimalOnly
+                ? (event) => {
+                    const cleaned = decimals(event.target.value);
+                    if (cleaned !== event.target.value) event.target.value = cleaned;
+                    void field.onChange(event);
+                  }
+                : field.onChange
           }
         />
         {action && (

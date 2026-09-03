@@ -1049,6 +1049,12 @@ model Booking {
   vendorId             String?  @map("vendor_id") @db.Uuid
   vendorName           String?  @map("vendor_name")
   vendorGrossAmount    Decimal? @map("vendor_gross_amount") @db.Decimal(12, 2)
+  /// The vendor's gross for the second trailer. That grid asks for a gross per
+  /// trailer, because a load split across two is quoted as two figures, and the
+  /// levy, GST and totals are all worked out from their sum. `vendorGrossAmount`
+  /// above is trailer A. Our own price takes a single gross for the whole job,
+  /// which is why there is no matching column for it.
+  vendorGrossAmount2   Decimal? @map("vendor_gross_amount_2") @db.Decimal(12, 2)
   vendorFuelLevyPct    Decimal? @map("vendor_fuel_levy_pct") @db.Decimal(7, 2)
   vendorFuelLevyAmount Decimal? @map("vendor_fuel_levy_amount") @db.Decimal(12, 2)
   vendorGstPct         Decimal? @map("vendor_gst_pct") @db.Decimal(7, 2)
