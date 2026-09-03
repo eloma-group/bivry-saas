@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { OnboardingCanvas } from "@/components/form/OnboardingCanvas";
 import { BookingDetailsSection } from "@/components/booking/forms/BookingDetailsSection";
 import { VehicleDetailsSection } from "@/components/booking/forms/VehicleDetailsSection";
 import { PickupDetailsSection } from "@/components/booking/forms/PickupDetailsSection";
@@ -340,16 +339,19 @@ export function AdminCreateBookingPage() {
   return (
     <DashboardLayout>
       <FormProvider {...methods}>
-        <OnboardingCanvas>
-          <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
-            <AdminCreateBookingBody
-              submitting={submitting}
-              savingDraft={savingDraft}
-              onSaveDraft={saveDraft}
-              onReservation={onReservation}
-            />
-          </form>
-        </OnboardingCanvas>
+        {/* No OnboardingCanvas here, deliberately. That wrapper insets a form by
+            a few percent either side, which suits the onboarding wizards; this
+            page is worked through side by side with a customer on the phone and
+            wants the screen it is given, so it sits straight on the layout's own
+            padding and fills the width at every size. */}
+        <form onSubmit={methods.handleSubmit(onSubmit, onError)} noValidate>
+          <AdminCreateBookingBody
+            submitting={submitting}
+            savingDraft={savingDraft}
+            onSaveDraft={saveDraft}
+            onReservation={onReservation}
+          />
+        </form>
       </FormProvider>
     </DashboardLayout>
   );
