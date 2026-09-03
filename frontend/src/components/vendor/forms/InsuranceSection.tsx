@@ -102,10 +102,15 @@ function PolicyFields({
               required
               rules={rules.required(`${label} valid till`)}
             />
+            {/* A whole number of days, so digits and nothing else. It was a
+                number input, which put a spinner in the box and changed the
+                value on the scroll wheel, and would take "365.5" - which
+                parseInt quietly truncates on the way out and the API refuses
+                anyway. */}
             <TextField
               name={`${prefix}.dueInDays`}
               label="Due In Days"
-              type="number"
+              digitsOnly
               placeholder="365"
               required
               rules={rules.required(`${label} due in days`)}
