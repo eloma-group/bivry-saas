@@ -213,6 +213,24 @@ export function OurPriceSection() {
 
   const many = count > 1;
 
+  /**
+   * "Add Price". It sits under the single price, where it reads as the next
+   * thing to do, and moves up beside the heading once the columns are tall
+   * enough to push it off the screen - which also gives the section back the
+   * row it was standing in.
+   */
+  const addPrice = (
+    <Button
+      type="button"
+      variant="outline"
+      size={many ? "sm" : "default"}
+      className={many ? undefined : "mt-5"}
+      onClick={() => append(emptyPrice())}
+    >
+      <Plus className="h-4 w-4" /> Add Price
+    </Button>
+  );
+
   return (
     <SectionCard
       index={5}
@@ -220,6 +238,7 @@ export function OurPriceSection() {
       icon={Wallet}
       title="Our Price"
       description="What we charge the customer. Amounts are in AUD; the levy, the charges, GST at 10% and the totals all work themselves out."
+      action={many ? addPrice : undefined}
     >
       {many ? (
         <div className={COLUMNS}>
@@ -258,14 +277,7 @@ export function OurPriceSection() {
         <PriceColumn index={0} numbered={false} stacked={false} />
       )}
 
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-5"
-        onClick={() => append(emptyPrice())}
-      >
-        <Plus className="h-4 w-4" /> Add Price
-      </Button>
+      {!many && addPrice}
 
       <Separator className="my-6" />
 

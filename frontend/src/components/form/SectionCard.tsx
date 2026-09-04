@@ -11,11 +11,20 @@ interface SectionCardProps {
   children?: React.ReactNode;
   className?: string;
   id?: string;
+  /**
+   * A control parked at the right of the header - "Add Price", say.
+   *
+   * A section that grows a row at a time usually carries its add button under
+   * the rows, which is where it reads best. Once the rows are tall the button
+   * sits below the fold with a whole section between it and the heading, and
+   * up here it costs the section no height at all.
+   */
+  action?: React.ReactNode;
 }
 
 /** Reusable numbered section shell with a subtle scroll-in animation. */
 export const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(
-  ({ index, title, description, icon: Icon, children, className, id }, ref) => {
+  ({ index, title, description, icon: Icon, children, className, id, action }, ref) => {
     return (
       <motion.section
         ref={ref}
@@ -29,25 +38,28 @@ export const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(
           className
         )}
       >
-        <header className="mb-6 flex items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-            <Icon className="h-5 w-5" />
-          </span>
-          <div className="pt-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold tracking-wide text-primary">
-                {String(index).padStart(2, "0")}
-              </span>
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                {title}
-              </h2>
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="pt-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold tracking-wide text-primary">
+                  {String(index).padStart(2, "0")}
+                </span>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                  {title}
+                </h2>
+              </div>
+              {description && (
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {description}
+                </p>
+              )}
             </div>
-            {description && (
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {description}
-              </p>
-            )}
           </div>
+          {action && <div className="ml-auto shrink-0">{action}</div>}
         </header>
         {children}
       </motion.section>
