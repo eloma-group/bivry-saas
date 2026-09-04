@@ -823,6 +823,66 @@ CREATE TABLE "option_values" (
     CONSTRAINT "option_values_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "permanent_customers" (
+    "id" UUID NOT NULL,
+    "client_job_id" TEXT NOT NULL,
+    "pick_up_company" TEXT NOT NULL,
+    "agreement_type" TEXT,
+    "reference" TEXT,
+    "trailer" TEXT,
+    "suite" TEXT,
+    "street_1" TEXT,
+    "suburb" TEXT,
+    "state" TEXT,
+    "post_code" TEXT,
+    "country" TEXT,
+    "full_address" TEXT,
+    "gross_amount" DECIMAL(12,2),
+    "fuel_levy_pct" DECIMAL(7,2),
+    "fuel_levy_amount" DECIMAL(12,2),
+    "split_charge_pct" DECIMAL(7,2),
+    "split_charge_amount" DECIMAL(12,2),
+    "other_charges_pct" DECIMAL(7,2),
+    "other_charges_amount" DECIMAL(12,2),
+    "gst_pct" DECIMAL(7,2),
+    "gst_amount" DECIMAL(12,2),
+    "net_amount" DECIMAL(12,2),
+    "total_amount" DECIMAL(12,2),
+    "final_amount" DECIMAL(12,2),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "permanent_customers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "permanent_vendors" (
+    "id" UUID NOT NULL,
+    "vendor_job_id" TEXT NOT NULL,
+    "vendor_id" UUID NOT NULL,
+    "vendor_name" TEXT,
+    "gross_amount" DECIMAL(12,2),
+    "gross_amount_2" DECIMAL(12,2),
+    "fuel_levy_pct" DECIMAL(7,2),
+    "fuel_levy_amount" DECIMAL(12,2),
+    "gst_pct" DECIMAL(7,2),
+    "gst_amount" DECIMAL(12,2),
+    "net_amount" DECIMAL(12,2),
+    "total_amount" DECIMAL(12,2),
+    "suite" TEXT,
+    "street_1" TEXT,
+    "suburb" TEXT,
+    "state" TEXT,
+    "post_code" TEXT,
+    "country" TEXT,
+    "full_address" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "permanent_vendors_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "admins_email_key" ON "admins"("email");
 
@@ -1024,6 +1084,21 @@ CREATE INDEX "option_values_list_key_idx" ON "option_values"("list_key");
 -- CreateIndex
 CREATE UNIQUE INDEX "option_values_list_key_value_key" ON "option_values"("list_key", "value");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "permanent_customers_client_job_id_key" ON "permanent_customers"("client_job_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "permanent_customers_pick_up_company_key" ON "permanent_customers"("pick_up_company");
+
+-- CreateIndex
+CREATE INDEX "permanent_customers_pick_up_company_idx" ON "permanent_customers"("pick_up_company");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "permanent_vendors_vendor_job_id_key" ON "permanent_vendors"("vendor_job_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "permanent_vendors_vendor_id_key" ON "permanent_vendors"("vendor_id");
+
 -- AddForeignKey
 ALTER TABLE "customer_contacts" ADD CONSTRAINT "customer_contacts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -1113,4 +1188,7 @@ ALTER TABLE "booking_prices" ADD CONSTRAINT "booking_prices_booking_id_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "booking_lanes" ADD CONSTRAINT "booking_lanes_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "permanent_vendors" ADD CONSTRAINT "permanent_vendors_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

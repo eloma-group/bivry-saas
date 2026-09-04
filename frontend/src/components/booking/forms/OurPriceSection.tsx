@@ -7,7 +7,7 @@ import { TextField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { RateAmountField } from "./RateAmountField";
-import { emptyPrice, money, num, GST_PCT } from "./priceMath";
+import { emptyPrice, money, num, ourPriceTotals, GST_PCT } from "./priceMath";
 
 /** The flat layout a single price keeps: the three-across grid, as before. */
 const FLAT = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -67,15 +67,14 @@ function PriceColumn({
   const splitChargePct = num(useWatch({ control, name: `${base}.splitChargePct` }));
   const otherChargesPct = num(useWatch({ control, name: `${base}.otherChargesPct` }));
 
-  const fuelLevyAmount = gross * (fuelLevyPct / 100);
-  const splitChargeAmount = gross * (splitChargePct / 100);
-  const otherChargesAmount = gross * (otherChargesPct / 100);
-
-  // Everything we bill for before tax, which is what GST is charged on.
-  const charged = gross + fuelLevyAmount + splitChargeAmount + otherChargesAmount;
-  const gstAmount = charged * (GST_PCT / 100);
-  const netAmount = gross + gstAmount;
-  const totalAmount = charged + gstAmount;
+  const {
+    fuelLevyAmount,
+    splitChargeAmount,
+    otherChargesAmount,
+    gstAmount,
+    netAmount,
+    totalAmount,
+  } = ourPriceTotals({ gross, fuelLevyPct, splitChargePct, otherChargesPct });
 
   // Keep the derived amounts in form state so a submit carries them too, and so
   // the Final Amount below can simply read every total back. The GST rate goes

@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adminService, type AdminVendorRow } from "@/services/adminService";
+import {
+  permanentDataService,
+  type PermanentVendor,
+} from "@/services/permanentDataService";
 import { ACCOUNT_STATUS } from "@/constants/adminStatus";
 import { ApiRequestError } from "@/services/api";
 
@@ -33,7 +37,10 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
  *
  * The dropdown lists every existing vendor; picking one shows who they are and
  * whether their account is live, read-only, so the choice can be checked without
- * leaving the booking.
+ * leaving the booking. Where we have a price on file for them - Permanent Data,
+ * Vendor tab - picking them fills the grid below with it, so an agreed rate is
+ * not typed out again on every job. It is filled in, not locked: the figures
+ * stay editable for the job that runs at something else.
  * The price grid below is a second, independent copy of the Our Price fields -
  * same arithmetic, its own values (base "vendorPrice"), never linked to ours.
  * It asks for the gross once per trailer rather than once for the job, because a
@@ -45,6 +52,8 @@ export function VendorAllotmentSection() {
   const [vendors, setVendors] = useState<AdminVendorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** What we have agreed with each vendor, by vendor id. */
+  const [saved, setSaved] = useState<Map<string, PermanentVendor>>(new Map());
 
   const selectedId = watch("vendor.vendorId") as string | undefined;
 
@@ -74,15 +83,49 @@ export function VendorAllotmentSection() {
     void loadVendors();
   }, []);
 
+  // The saved prices, loaded alongside the vendors. A booking is still workable
+  // without them - the grid is simply typed in - so a failure here is silent
+  // rather than an error over a section that otherwise works.
+  useEffect(() => {
+    let live = true;
+    void permanentDataService
+      .listVendors()
+      .then((rows) => {
+        if (live) setSaved(new Map(rows.map((row) => [row.vendorId, row])));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const selected = useMemo(
     () => vendors.find((vendor) => vendor.id === selectedId) ?? null,
     [vendors, selectedId],
   );
 
+  /** The saved price behind the vendor on screen, if there is one. */
+  const agreed = selectedId ? saved.get(selectedId) : undefined;
+
   function pickVendor(id: string) {
     const vendor = vendors.find((row) => row.id === id);
     setValue("vendor.vendorId", id, { shouldDirty: true });
     setValue("vendor.vendorName", vendor?.companyName ?? "", { shouldDirty: true });
+
+    // The price we have on file for them. Only the typed figures are written:
+    // the levy amount, GST, net and total are worked out from these by the grid
+    // itself, so setting them here would be a second, staler answer. A vendor
+    // with nothing saved clears the grid, so it always answers for the vendor
+    // now chosen rather than for the last one.
+    const agreed = saved.get(id);
+    const write = (field: string, value: string | null) =>
+      setValue(`vendorPrice.${field}`, value ?? "", { shouldDirty: true });
+
+    write("grossAmount", agreed?.grossAmount ?? "");
+    write("grossAmount2", agreed?.grossAmount2 ?? "");
+    write("fuelLevyPct", agreed?.fuelLevyPct ?? "");
+    write("gstPct", agreed?.gstPct ?? "");
   }
 
   return (
@@ -146,6 +189,10 @@ export function VendorAllotmentSection() {
             <Detail label="Company Name" value={selected.companyName} />
             <Detail label="Vendor ID" value={selected.vendorCode} />
             <Detail label="Status" value={ACCOUNT_STATUS[selected.status]?.label} />
+            <Detail
+              label="Saved Price"
+              value={agreed ? `${agreed.vendorJobId}, filled in below` : "None on file"}
+            />
           </div>
         </div>
       )}

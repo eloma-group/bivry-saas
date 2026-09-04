@@ -314,6 +314,7 @@ model Vendor {
   insurances             VendorInsurance[]
   warehouses             VendorWarehouse[]
   yards                  VendorYard[]
+  permanentPrice         PermanentVendor?
 
   @@index([status])
   @@index([onboardingStatus])
@@ -1213,4 +1214,99 @@ model OptionValue {
   @@unique([listKey, value])
   @@index([listKey])
   @@map("option_values")
+}
+
+/// A pickup we run often enough to keep on file, so a booking is picked rather
+/// than typed.
+///
+/// One row is one place a customer loads from, not one customer: Amazon loads
+/// from Cranbourne West, Craigieburn and Kemps Creek, each with its own address
+/// and its own price, so `pickUpCompany` carries the site in its name
+/// ("Amazon - AVV2 - Cranbourne West") and is what the Create Booking dropdown
+/// searches. That name is unique for the same reason - two rows under it would
+/// be two answers to the question the booking form asks.
+model PermanentCustomer {
+  id                 String   @id @default(uuid()) @db.Uuid
+  /// BIVRY-CJOB-5000. Handed out by the server when the row is created and
+  /// never changed after: it is the number the customer knows the job by, so a
+  /// row that keeps being re-numbered would defeat the point of storing it.
+  clientJobId        String   @unique @map("client_job_id")
+  /// The site as it is chosen on a booking, e.g. "Amazon - Mel 8 - Craigiburn".
+  pickUpCompany      String   @unique @map("pick_up_company")
+  agreementType      String?  @map("agreement_type")
+  reference          String?
+  trailer            String?
+  suite              String?
+  street1            String?  @map("street_1")
+  suburb             String?
+  state              String?
+  postCode           String?  @map("post_code")
+  country            String?
+  /// The address as one line, kept alongside the parts rather than derived, so
+  /// what an admin pasted in survives however the parts are read back.
+  fullAddress        String?  @map("full_address")
+
+  /// What we charge for this pickup, in the shape Our Price asks for it: a
+  /// gross, three rates on it, and the figures they work out to.
+  grossAmount        Decimal? @map("gross_amount") @db.Decimal(12, 2)
+  fuelLevyPct        Decimal? @map("fuel_levy_pct") @db.Decimal(7, 2)
+  fuelLevyAmount     Decimal? @map("fuel_levy_amount") @db.Decimal(12, 2)
+  splitChargePct     Decimal? @map("split_charge_pct") @db.Decimal(7, 2)
+  splitChargeAmount  Decimal? @map("split_charge_amount") @db.Decimal(12, 2)
+  otherChargesPct    Decimal? @map("other_charges_pct") @db.Decimal(7, 2)
+  otherChargesAmount Decimal? @map("other_charges_amount") @db.Decimal(12, 2)
+  gstPct             Decimal? @map("gst_pct") @db.Decimal(7, 2)
+  gstAmount          Decimal? @map("gst_amount") @db.Decimal(12, 2)
+  netAmount          Decimal? @map("net_amount") @db.Decimal(12, 2)
+  totalAmount        Decimal? @map("total_amount") @db.Decimal(12, 2)
+  finalAmount        Decimal? @map("final_amount") @db.Decimal(12, 2)
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([pickUpCompany])
+  @@map("permanent_customers")
+}
+
+/// What we have agreed with a vendor, kept on file so allotting a job to them
+/// fills the price in rather than asking for it again.
+///
+/// One row per vendor, unlike the customer table above: we agree one set of
+/// figures with a vendor for the work, not one per site. The gross is asked for
+/// per trailer because a load split across two is quoted as two.
+model PermanentVendor {
+  id             String   @id @default(uuid()) @db.Uuid
+  /// BIVRY-VJOB-5000, handed out by the server the same way the customer one is.
+  vendorJobId    String   @unique @map("vendor_job_id")
+  /// The vendor this belongs to. Unique because a vendor has one agreed price;
+  /// the row goes when the vendor does.
+  vendorId       String   @unique @map("vendor_id") @db.Uuid
+  /// Their company name as it was when the row was saved, so a list reads
+  /// correctly without joining, and a renamed vendor is still recognisable.
+  vendorName     String?  @map("vendor_name")
+
+  grossAmount    Decimal? @map("gross_amount") @db.Decimal(12, 2)
+  /// The gross for the second trailer. Null where the job runs on one.
+  grossAmount2   Decimal? @map("gross_amount_2") @db.Decimal(12, 2)
+  fuelLevyPct    Decimal? @map("fuel_levy_pct") @db.Decimal(7, 2)
+  fuelLevyAmount Decimal? @map("fuel_levy_amount") @db.Decimal(12, 2)
+  gstPct         Decimal? @map("gst_pct") @db.Decimal(7, 2)
+  gstAmount      Decimal? @map("gst_amount") @db.Decimal(12, 2)
+  netAmount      Decimal? @map("net_amount") @db.Decimal(12, 2)
+  totalAmount    Decimal? @map("total_amount") @db.Decimal(12, 2)
+
+  suite          String?
+  street1        String?  @map("street_1")
+  suburb         String?
+  state          String?
+  postCode       String?  @map("post_code")
+  country        String?
+  fullAddress    String?  @map("full_address")
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("permanent_vendors")
 }

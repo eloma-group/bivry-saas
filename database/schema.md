@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**41 tables, 16 enum types.**
+**43 tables, 16 enum types.**
 
 ## Tables
 
@@ -51,6 +51,8 @@ look up a column. Every table, column, type, default and relation is below.
 - [`booking_prices`](#bookingprices)
 - [`booking_lanes`](#bookinglanes)
 - [`option_values`](#optionvalues)
+- [`permanent_customers`](#permanentcustomers)
+- [`permanent_vendors`](#permanentvendors)
 
 ## Enum types
 
@@ -350,6 +352,7 @@ Every file a customer uploads. `category` names the extra document rows the\ncus
 - many `vendor_insurances`
 - many `vendor_warehouses`
 - many `vendor_yards`
+- optional one `permanent_vendors`
 
 ### `vendor_contacts`
 
@@ -1031,3 +1034,69 @@ A lane worked out from a pickup/delivery pair: the trailer and the\n"Pick-Up Sub
 **Constraints**
 
 - unique: (`listKey`, `value`)
+
+### `permanent_customers`
+
+A pickup we run often enough to keep on file, so a booking is picked rather\nthan typed.\n\nOne row is one place a customer loads from, not one customer: Amazon loads\nfrom Cranbourne West, Craigieburn and Kemps Creek, each with its own address\nand its own price, so `pickUpCompany` carries the site in its name\n("Amazon - AVV2 - Cranbourne West") and is what the Create Booking dropdown\nsearches. That name is unique for the same reason - two rows under it would\nbe two answers to the question the booking form asks.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `client_job_id` | text | NOT NULL |  | unique; BIVRY-CJOB-5000. Handed out by the server when the row is created and\nnever changed after: it is the number the customer knows the job by, so a\nrow that keeps being re-numbered would defeat the point of storing it. |
+| `pick_up_company` | text | NOT NULL |  | unique; The site as it is chosen on a booking, e.g. "Amazon - Mel 8 - Craigiburn". |
+| `agreement_type` | text | NULL |  |  |
+| `reference` | text | NULL |  |  |
+| `trailer` | text | NULL |  |  |
+| `suite` | text | NULL |  |  |
+| `street_1` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `full_address` | text | NULL |  | The address as one line, kept alongside the parts rather than derived, so\nwhat an admin pasted in survives however the parts are read back. |
+| `gross_amount` | decimal | NULL |  | What we charge for this pickup, in the shape Our Price asks for it: a\ngross, three rates on it, and the figures they work out to. |
+| `fuel_levy_pct` | decimal | NULL |  |  |
+| `fuel_levy_amount` | decimal | NULL |  |  |
+| `split_charge_pct` | decimal | NULL |  |  |
+| `split_charge_amount` | decimal | NULL |  |  |
+| `other_charges_pct` | decimal | NULL |  |  |
+| `other_charges_amount` | decimal | NULL |  |  |
+| `gst_pct` | decimal | NULL |  |  |
+| `gst_amount` | decimal | NULL |  |  |
+| `net_amount` | decimal | NULL |  |  |
+| `total_amount` | decimal | NULL |  |  |
+| `final_amount` | decimal | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+### `permanent_vendors`
+
+What we have agreed with a vendor, kept on file so allotting a job to them\nfills the price in rather than asking for it again.\n\nOne row per vendor, unlike the customer table above: we agree one set of\nfigures with a vendor for the work, not one per site. The gross is asked for\nper trailer because a load split across two is quoted as two.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `vendor_job_id` | text | NOT NULL |  | unique; BIVRY-VJOB-5000, handed out by the server the same way the customer one is. |
+| `vendor_id` | uuid | NOT NULL |  | unique; FK to `vendors` (cascade delete); The vendor this belongs to. Unique because a vendor has one agreed price;\nthe row goes when the vendor does. |
+| `vendor_name` | text | NULL |  | Their company name as it was when the row was saved, so a list reads\ncorrectly without joining, and a renamed vendor is still recognisable. |
+| `gross_amount` | decimal | NULL |  |  |
+| `gross_amount_2` | decimal | NULL |  | The gross for the second trailer. Null where the job runs on one. |
+| `fuel_levy_pct` | decimal | NULL |  |  |
+| `fuel_levy_amount` | decimal | NULL |  |  |
+| `gst_pct` | decimal | NULL |  |  |
+| `gst_amount` | decimal | NULL |  |  |
+| `net_amount` | decimal | NULL |  |  |
+| `total_amount` | decimal | NULL |  |  |
+| `suite` | text | NULL |  |  |
+| `street_1` | text | NULL |  |  |
+| `suburb` | text | NULL |  |  |
+| `state` | text | NULL |  |  |
+| `post_code` | text | NULL |  |  |
+| `country` | text | NULL |  |  |
+| `full_address` | text | NULL |  |  |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+
+**Relations**
+
+- one `vendors`

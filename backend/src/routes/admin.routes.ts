@@ -71,6 +71,13 @@ import {
 } from '../validators/customer.validator';
 import { bookingController } from '../controllers/booking.controller';
 import { createBookingSchema } from '../validators/booking.validator';
+import { permanentDataController } from '../controllers/permanentData.controller';
+import {
+  permanentCustomerSchema,
+  permanentCustomerUpdateSchema,
+  permanentVendorSchema,
+  permanentVendorUpdateSchema,
+} from '../validators/permanentData.validator';
 
 const router = Router();
 
@@ -283,6 +290,35 @@ router.post('/bookings/job-number', bookingController.reserveJobNumber);
 router.delete('/bookings/job-number/:jobNumber', bookingController.releaseJobNumber);
 router.post('/bookings', validateBody(createBookingSchema), bookingController.create);
 router.get('/bookings/:id', bookingController.get);
+
+// Permanent Data: the pickups and the vendor prices kept on file, so a booking
+// is picked from rather than typed out. Read by the Create Booking form as well
+// as by the page that maintains them.
+router.get('/permanent/customers', permanentDataController.listCustomers);
+router.post(
+  '/permanent/customers',
+  validateBody(permanentCustomerSchema),
+  permanentDataController.createCustomer,
+);
+router.put(
+  '/permanent/customers/:id',
+  validateBody(permanentCustomerUpdateSchema),
+  permanentDataController.updateCustomer,
+);
+router.delete('/permanent/customers/:id', permanentDataController.deleteCustomer);
+
+router.get('/permanent/vendors', permanentDataController.listVendors);
+router.post(
+  '/permanent/vendors',
+  validateBody(permanentVendorSchema),
+  permanentDataController.createVendor,
+);
+router.put(
+  '/permanent/vendors/:id',
+  validateBody(permanentVendorUpdateSchema),
+  permanentDataController.updateVendor,
+);
+router.delete('/permanent/vendors/:id', permanentDataController.deleteVendor);
 
 // Customers: the same shape as vendors, backed by the customer tables.
 router.get('/customers', adminController.listCustomers);

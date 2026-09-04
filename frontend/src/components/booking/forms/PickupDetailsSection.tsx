@@ -9,6 +9,7 @@ import {
   DateField,
 } from "@/components/form/Fields";
 import { BookingAddressFields } from "./BookingAddressFields";
+import { PickupCompanyField } from "./PickupCompanyField";
 import { Button } from "@/components/ui/button";
 import { TRAILERS } from "@/constants/bookingOptions";
 import { OPTION_LISTS } from "@/constants/optionLists";
@@ -100,11 +101,10 @@ export function PickupDetailsSection() {
                   label="Pick-Up Time"
                   type="datetime-local"
                 />
-                <TextField
-                  name={`pickups.${index}.pickupCompany`}
-                  label="Pick-Up Company"
-                  placeholder="Company collecting from"
-                />
+                {/* Searches the pickups we keep on file; picking one fills the
+                    address, the trailer, the client job number and this
+                    pickup's price. Typing something new is still allowed. */}
+                <PickupCompanyField index={index} />
                 <BookingAddressFields base={`pickups.${index}`} />
                 <TextAreaField
                   name={`pickups.${index}.instructions`}
