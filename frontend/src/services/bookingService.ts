@@ -165,7 +165,7 @@ export const bookingService = {
    * the number it is going to be given and no second admin is offered it.
    */
   reserveJobNumber(input: {
-    bookingReceivedDate?: string;
+    pickupTime?: string;
     financialYear?: string;
   }): Promise<ReservedJobNumber> {
     return request<ReservedJobNumber>({

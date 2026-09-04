@@ -57,8 +57,8 @@ export function useJobNumberReservation() {
     const year = (financialYear ?? "").trim();
 
     // Keep what is already held unless the form has moved into a different
-    // financial year. The field starts empty and fills itself from the booking
-    // date, so an empty year is "not said yet" rather than a change of mind,
+    // financial year. The field starts empty and fills itself from the pick-up
+    // time, so an empty year is "not said yet" rather than a change of mind,
     // and re-reserving on it would make the number on screen jump for nothing.
     const satisfied = () => {
       const current = held.current;

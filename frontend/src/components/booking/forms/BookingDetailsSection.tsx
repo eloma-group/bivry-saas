@@ -21,7 +21,8 @@ const GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
  *
  * The year runs 1 July to 30 June: a date in July or later belongs to the year
  * that starts that calendar year, an earlier date to the one before. Empty in,
- * empty out.
+ * empty out. The value is read field by field, so a "YYYY-MM-DDTHH:mm" pick-up
+ * time answers the same as a plain "YYYY-MM-DD" date.
  */
 function australianFinancialYear(date: string | undefined): string {
   if (!date) return "";
@@ -36,12 +37,15 @@ function australianFinancialYear(date: string | undefined): string {
 /** Section 1 - the booking's own particulars: who it is for and its terms. */
 export function BookingDetailsSection() {
   const { control, setValue } = useFormContext();
-  const receivedDate = useWatch({ control, name: "bookingReceivedDate" }) as string | undefined;
+  // The year follows when the job is collected, not when the booking came in,
+  // so it is the first pickup's time that is watched - a booking received in
+  // June for a July pick-up belongs to the year it is picked up in.
+  const pickupTime = useWatch({ control, name: "pickups.0.pickupTime" }) as string | undefined;
 
-  // The financial year is not typed: it follows the received date.
+  // The financial year is not typed: it follows the pick-up time.
   useEffect(() => {
-    setValue("financialYear", australianFinancialYear(receivedDate));
-  }, [receivedDate, setValue]);
+    setValue("financialYear", australianFinancialYear(pickupTime));
+  }, [pickupTime, setValue]);
 
   return (
     <SectionCard
@@ -61,9 +65,9 @@ export function BookingDetailsSection() {
         <TextField
           name="financialYear"
           label="Financial Year"
-          placeholder="Set from the booking date"
+          placeholder="Set from the pick-up time"
           readOnly
-          hint="Australian financial year (1 July - 30 June), from the booking date."
+          hint="Australian financial year (1 July - 30 June), from the first pickup's pick-up time."
         />
         {/* Held for this admin from the moment the form opened, so the number
             on screen is the number the save will use and no second admin is

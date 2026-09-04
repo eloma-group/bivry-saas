@@ -132,7 +132,7 @@ export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 
 /** Opening the Create Booking form: which financial year to park a number in. */
 export const reserveJobNumberSchema = z.object({
-  bookingReceivedDate: text,
+  pickupTime: text,
   financialYear: text,
 });
 

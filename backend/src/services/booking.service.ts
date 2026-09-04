@@ -63,7 +63,8 @@ function formatFinancialYear(startYear: number): string {
  *
  * The year runs 1 July to 30 June, so July onwards belongs to the year it
  * starts. The string is read field by field rather than through `Date`, so the
- * answer cannot move with the server's timezone.
+ * answer cannot move with the server's timezone, and a pick-up time carrying a
+ * "THH:mm" tail answers the same as the bare date would.
  */
 function financialYearOf(date: string): string | null {
   const [year, month] = date.split('-').map(Number);
@@ -81,15 +82,17 @@ function currentFinancialYear(): string {
 /**
  * The financial year a booking belongs to, as ["26-27", "2627"].
  *
- * Taken from the received date where there is one, because that is the fact the
- * year follows. The year the client sent is used only when no date was given,
- * and today's is the last resort, so a booking can always be numbered.
+ * Taken from the pick-up time where there is one, because when the job is
+ * collected is the fact the year follows - a booking taken in June for a July
+ * pick-up belongs to the year it is picked up in. The year the client sent is
+ * used only when no pick-up time was given, and today's is the last resort, so
+ * a booking can always be numbered.
  */
 function resolveFinancialYear(input: {
-  bookingReceivedDate: string | null;
+  pickupTime: string | null;
   financialYear: string | null;
 }): [string, string] {
-  const fromDate = input.bookingReceivedDate ? financialYearOf(input.bookingReceivedDate) : null;
+  const fromDate = input.pickupTime ? financialYearOf(input.pickupTime) : null;
 
   for (const candidate of [fromDate, input.financialYear]) {
     const digits = yearDigits(candidate);
@@ -174,13 +177,13 @@ export interface ReservedJobNumber {
  * covers the caller that never gets to.
  */
 export async function reserveJobNumber(
-  input: { bookingReceivedDate?: string | null; financialYear?: string | null },
+  input: { pickupTime?: string | null; financialYear?: string | null },
   adminId: string,
 ): Promise<ReservedJobNumber> {
   await purgeExpiredJobNumbers();
 
   const [financialYear, digits] = resolveFinancialYear({
-    bookingReceivedDate: input.bookingReceivedDate ?? null,
+    pickupTime: input.pickupTime ?? null,
     financialYear: input.financialYear ?? null,
   });
   const prefix = `${JOB_PREFIX}-${digits}-`;
@@ -221,7 +224,7 @@ export async function releaseJobNumber(jobNumber: string, adminId: string): Prom
  * belongs to the financial year the booking landed in.
  *
  * Returns null for anything else - a number nobody reserved, one held by
- * somebody else, or one parked before the received date was changed into
+ * somebody else, or one parked before the pick-up time was changed into
  * another financial year - and the caller then allocates in the ordinary way.
  * A client is never trusted for a job number: this only ever hands back one the
  * server itself parked for this admin.
@@ -270,8 +273,12 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
   const vendor = input.vendor ?? {};
 
   // The financial year is settled here too: the job number is keyed to it, so
-  // the two must agree, and the received date is what both are derived from.
-  const [financialYear, digits] = resolveFinancialYear(input);
+  // the two must agree, and the first pickup's time is what both are derived
+  // from - the same field the form's Financial Year box follows.
+  const [financialYear, digits] = resolveFinancialYear({
+    pickupTime: pickups[0]?.scheduledAt ?? null,
+    financialYear: input.financialYear,
+  });
   const prefix = `${JOB_PREFIX}-${digits}-`;
 
   // The number the form has been showing all along, where this admin still
