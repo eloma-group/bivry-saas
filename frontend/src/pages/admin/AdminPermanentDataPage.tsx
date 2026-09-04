@@ -1,15 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Building2, MapPin, Plus, RotateCcw, Search, Table2, Trash2, Truck, Wallet } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  Plus,
+  RotateCcw,
+  Search,
+  Table2,
+  Trash2,
+  Truck,
+  Wallet,
+} from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { DEFAULT_PAGE_SIZE, TablePager } from "@/components/admin/TablePager";
 import { PermanentCustomerDialog } from "@/components/admin/permanent/PermanentCustomerDialog";
 import { PermanentVendorDialog } from "@/components/admin/permanent/PermanentVendorDialog";
+import {
+  usePermanentCustomers,
+  usePermanentVendors,
+  useRefreshPermanentData,
+} from "@/hooks/usePermanentData";
 import {
   permanentDataService,
   type PermanentCustomer,
@@ -33,6 +49,10 @@ import { cn } from "@/lib/utils";
  * edited whole, in one dialog, whichever section it was opened from - so the
  * price of a pickup can never end up attached to a different address than the
  * one it was quoted for.
+ *
+ * Both lists are fetched once and cached. Searching, turning a page and moving
+ * between the tabs are all done against what is already in the browser, so the
+ * only time this page waits on the server is the first load and a save.
  */
 
 type TabKey = "customer" | "vendor";
@@ -57,6 +77,16 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof MapPin }[] = [
   { key: "address", label: "Address", icon: MapPin },
   { key: "price", label: "Price", icon: Wallet },
 ];
+
+/**
+ * How tall the scrolling part of a table is: ten rows under the header.
+ *
+ * Ten is what fits on a laptop without the page itself having to scroll, and it
+ * stays ten whether the page holds 25 rows or 100 - the rest are reached by
+ * scrolling the table, which keeps the pager and the header in view. Rows are a
+ * fixed height for the same reason, so the tenth row always lands on the fold.
+ */
+const ROWS_ON_SCREEN = "max-h-[32.75rem]";
 
 /** An amount as it reads in a table. A missing figure is a dash, not "0.00". */
 function amount(value: string | null): string {
@@ -112,25 +142,24 @@ function SectionNav({
   );
 }
 
-/** The shell every table sits in: one border, one scroller, one header row. */
-function TableShell({
-  headers,
-  children,
-}: {
-  headers: string[];
-  children: React.ReactNode;
-}) {
+/**
+ * The shell every table sits in.
+ *
+ * The header is sticky inside the scroller rather than above it, so a column
+ * name is still there on the fortieth row of a hundred-row page.
+ */
+function TableShell({ headers, children }: { headers: string[]; children: React.ReactNode }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-card">
-      <div className="overflow-x-auto">
+      <div className={cn("overflow-auto", ROWS_ON_SCREEN)}>
         <table className="w-full min-w-[52rem] border-collapse text-sm">
-          <thead>
-            <tr className="bg-secondary/50">
+          <thead className="sticky top-0 z-10">
+            <tr className="h-11 bg-secondary">
               {headers.map((header, index) => (
                 <th
-                  key={header}
+                  key={header || `col-${index}`}
                   className={cn(
-                    "whitespace-nowrap px-4 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground",
+                    "whitespace-nowrap border-b border-border/60 bg-secondary px-4 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground",
                     index === headers.length - 1 && "text-right",
                   )}
                 >
@@ -146,10 +175,19 @@ function TableShell({
   );
 }
 
+/** A cell whose content can outgrow its column: one line, full text on hover. */
+function Clipped({ value, className }: { value: string; className?: string }) {
+  return (
+    <div className={cn("truncate", className)} title={value === "-" ? undefined : value}>
+      {value}
+    </div>
+  );
+}
+
 /** Edit and Delete, the same pair on every row. */
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
-    <td className="whitespace-nowrap px-4 py-3 text-right">
+    <td className="whitespace-nowrap px-4 text-right">
       <div className="flex justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
           Edit
@@ -197,18 +235,31 @@ function Empty({ searching, onAdd }: { searching: boolean; onAdd: () => void }) 
   );
 }
 
+/** Whether any of a row's searchable fields contains the term. */
+function matches(term: string, ...fields: (string | null)[]): boolean {
+  if (!term) return true;
+  const needle = term.toLowerCase();
+  return fields.some((field) => (field ?? "").toLowerCase().includes(needle));
+}
+
+const ROW = "h-12 align-middle";
+const CELL = "whitespace-nowrap px-4 text-muted-foreground";
+const CELL_STRONG = "whitespace-nowrap px-4 font-medium text-foreground";
+const CELL_NUM = "whitespace-nowrap px-4 tabular-nums text-muted-foreground";
+const CELL_NUM_STRONG = "whitespace-nowrap px-4 tabular-nums font-medium text-foreground";
+
 export function AdminPermanentDataPage() {
   const [params, setParams] = useSearchParams();
   const tab: TabKey = params.get("tab") === "vendor" ? "vendor" : "customer";
   const section: SectionKey = params.get("section") === "price" ? "price" : "address";
 
   const [search, setSearch] = useState("");
-  const [debounced, setDebounced] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
-  const [customers, setCustomers] = useState<PermanentCustomer[] | null>(null);
-  const [vendors, setVendors] = useState<PermanentVendor[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const customers = usePermanentCustomers();
+  const vendors = usePermanentVendors();
+  const refresh = useRefreshPermanentData();
 
   const [customerDialog, setCustomerDialog] = useState<{
     open: boolean;
@@ -220,9 +271,9 @@ export function AdminPermanentDataPage() {
   }>({ open: false, row: null });
   const [saving, setSaving] = useState(false);
 
-  const [removing, setRemoving] = useState<
-    { kind: TabKey; id: string; label: string } | null
-  >(null);
+  const [removing, setRemoving] = useState<{ kind: TabKey; id: string; label: string } | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState(false);
 
   /**
@@ -237,46 +288,57 @@ export function AdminPermanentDataPage() {
     setParams(next, { replace: true });
   };
 
+  // Page 4 of the customers is not page 4 of the vendors, and a search that
+  // leaves three rows has no page 4 at all. Both send the table back to the top.
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(search.trim()), 300);
-    return () => window.clearTimeout(timer);
-  }, [search]);
+    setPage(1);
+  }, [tab, search, pageSize]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Both halves are fetched together: the tabs are two views of one page,
-      // and switching between them should not wait on a request.
-      const [savedCustomers, savedVendors] = await Promise.all([
-        permanentDataService.listCustomers(debounced || undefined),
-        permanentDataService.listVendors(debounced || undefined),
-      ]);
-      setCustomers(savedCustomers);
-      setVendors(savedVendors);
-    } catch (caught) {
-      setError(
-        caught instanceof ApiRequestError
-          ? caught.message
-          : "Could not load the permanent data. Please try again.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [debounced]);
+  const loading = tab === "customer" ? customers.isPending : vendors.isPending;
+  const error = tab === "customer" ? customers.error : vendors.error;
+  const refetching = customers.isFetching || vendors.isFetching;
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const term = search.trim();
+
+  const filteredCustomers = useMemo(
+    () =>
+      (customers.data ?? []).filter((row) =>
+        matches(
+          term,
+          row.pickUpCompany,
+          row.clientJobId,
+          row.reference,
+          row.agreementType,
+          row.suburb,
+          row.state,
+          row.fullAddress,
+        ),
+      ),
+    [customers.data, term],
+  );
+
+  const filteredVendors = useMemo(
+    () =>
+      (vendors.data ?? []).filter((row) =>
+        matches(term, row.vendorName, row.vendorJobId, row.suburb, row.state, row.fullAddress),
+      ),
+    [vendors.data, term],
+  );
+
+  const total = tab === "customer" ? filteredCustomers.length : filteredVendors.length;
+
+  // The slice on screen. Everything above is already in memory, so turning a
+  // page costs an array slice rather than a request.
+  const start = (page - 1) * pageSize;
+  const pageCustomers = filteredCustomers.slice(start, start + pageSize);
+  const pageVendors = filteredVendors.slice(start, start + pageSize);
 
   const current = TABS.find((entry) => entry.key === tab) ?? TABS[0];
-  const rows = tab === "customer" ? customers : vendors;
-  const count = rows?.length ?? 0;
 
-  const openAdd = useCallback(() => {
+  function openAdd() {
     if (tab === "customer") setCustomerDialog({ open: true, row: null });
     else setVendorDialog({ open: true, row: null });
-  }, [tab]);
+  }
 
   async function saveCustomer(values: PermanentCustomerInput) {
     setSaving(true);
@@ -286,7 +348,7 @@ export function AdminPermanentDataPage() {
       else await permanentDataService.createCustomer(values);
       toast.success(editing ? "Saved pickup updated" : "Saved pickup added");
       setCustomerDialog({ open: false, row: null });
-      await load();
+      await refresh();
     } catch (caught) {
       toast.error(
         caught instanceof ApiRequestError ? caught.message : "Could not save that pickup.",
@@ -308,7 +370,7 @@ export function AdminPermanentDataPage() {
       }
       toast.success(editing ? "Saved vendor price updated" : "Saved vendor price added");
       setVendorDialog({ open: false, row: null });
-      await load();
+      await refresh();
     } catch (caught) {
       toast.error(
         caught instanceof ApiRequestError ? caught.message : "Could not save that vendor price.",
@@ -326,7 +388,7 @@ export function AdminPermanentDataPage() {
       else await permanentDataService.deleteVendor(removing.id);
       toast.success("Deleted");
       setRemoving(null);
-      await load();
+      await refresh();
     } catch (caught) {
       toast.error(caught instanceof ApiRequestError ? caught.message : "Could not delete that.");
     } finally {
@@ -334,9 +396,14 @@ export function AdminPermanentDataPage() {
     }
   }
 
-  const addLabel = useMemo(
-    () => (tab === "customer" ? "Add pickup" : "Add vendor price"),
-    [tab],
+  const pager = (
+    <TablePager
+      total={total}
+      page={page}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      onPageSizeChange={setPageSize}
+    />
   );
 
   return (
@@ -359,12 +426,21 @@ export function AdminPermanentDataPage() {
               className="w-72 pl-9"
             />
           </div>
-          <Button type="button" variant="outline" size="icon" onClick={() => void load()}>
-            <RotateCcw className="h-4 w-4" />
+          {/* Searching and paging never ask the server, so this is the only way
+              to pick up a record somebody else added while the page was open. */}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={refetching}
+            onClick={() => void refresh()}
+          >
+            <RotateCcw className={cn("h-4 w-4", refetching && "animate-spin")} />
             <span className="sr-only">Reload</span>
           </Button>
           <Button type="button" onClick={openAdd}>
-            <Plus className="h-4 w-4" /> {addLabel}
+            <Plus className="h-4 w-4" />
+            {tab === "customer" ? "Add pickup" : "Add vendor price"}
           </Button>
         </div>
       </div>
@@ -394,207 +470,190 @@ export function AdminPermanentDataPage() {
               />
 
               <div className="min-w-0">
-                {loading && rows === null ? (
+                {loading ? (
                   <PanelLoader label="Loading permanent data" />
                 ) : error ? (
-                  <PanelError message={error} onRetry={() => void load()} />
-                ) : count === 0 ? (
-                  <Empty searching={debounced !== ""} onAdd={openAdd} />
+                  <PanelError
+                    message={
+                      error instanceof ApiRequestError
+                        ? error.message
+                        : "Could not load the permanent data. Please try again."
+                    }
+                    onRetry={() => void refresh()}
+                  />
+                ) : total === 0 ? (
+                  <Empty searching={term !== ""} onAdd={openAdd} />
                 ) : entry.key === "customer" ? (
                   section === "address" ? (
+                    <>
+                      <TableShell
+                        headers={[
+                          "Client Job No",
+                          "Pick-Up Company",
+                          "Agreement",
+                          "Reference",
+                          "Trailer",
+                          "Address",
+                          "",
+                        ]}
+                      >
+                        {pageCustomers.map((row) => (
+                          <tr key={row.id} className={ROW}>
+                            <td className={CELL_STRONG}>{row.clientJobId}</td>
+                            <td className={cn(CELL_STRONG, "max-w-[18rem]")}>
+                              <Clipped value={row.pickUpCompany} />
+                            </td>
+                            <td className={CELL}>{text(row.agreementType)}</td>
+                            <td className={CELL}>{text(row.reference)}</td>
+                            <td className={CELL}>{text(row.trailer)}</td>
+                            <td className={cn(CELL, "max-w-[24rem]")}>
+                              <Clipped value={text(row.fullAddress)} />
+                            </td>
+                            <RowActions
+                              onEdit={() => setCustomerDialog({ open: true, row })}
+                              onDelete={() =>
+                                setRemoving({
+                                  kind: "customer",
+                                  id: row.id,
+                                  label: row.pickUpCompany,
+                                })
+                              }
+                            />
+                          </tr>
+                        ))}
+                      </TableShell>
+                      {pager}
+                    </>
+                  ) : (
+                    <>
+                      <TableShell
+                        headers={[
+                          "Client Job No",
+                          "Pick-Up Company",
+                          "Gross",
+                          "Fuel Levy",
+                          "Split Charge",
+                          "Other Charges",
+                          "GST",
+                          "Net",
+                          "Total",
+                          "Final",
+                          "",
+                        ]}
+                      >
+                        {pageCustomers.map((row) => (
+                          <tr key={row.id} className={ROW}>
+                            <td className={CELL_STRONG}>{row.clientJobId}</td>
+                            <td className={cn(CELL_STRONG, "max-w-[16rem]")}>
+                              <Clipped value={row.pickUpCompany} />
+                            </td>
+                            <td className={CELL_NUM}>{amount(row.grossAmount)}</td>
+                            <td className={CELL_NUM}>
+                              {percent(row.fuelLevyPct)} / {amount(row.fuelLevyAmount)}
+                            </td>
+                            <td className={CELL_NUM}>
+                              {percent(row.splitChargePct)} / {amount(row.splitChargeAmount)}
+                            </td>
+                            <td className={CELL_NUM}>
+                              {percent(row.otherChargesPct)} / {amount(row.otherChargesAmount)}
+                            </td>
+                            <td className={CELL_NUM}>{amount(row.gstAmount)}</td>
+                            <td className={CELL_NUM}>{amount(row.netAmount)}</td>
+                            <td className={CELL_NUM_STRONG}>{amount(row.totalAmount)}</td>
+                            <td className={CELL_NUM_STRONG}>{amount(row.finalAmount)}</td>
+                            <RowActions
+                              onEdit={() => setCustomerDialog({ open: true, row })}
+                              onDelete={() =>
+                                setRemoving({
+                                  kind: "customer",
+                                  id: row.id,
+                                  label: row.pickUpCompany,
+                                })
+                              }
+                            />
+                          </tr>
+                        ))}
+                      </TableShell>
+                      {pager}
+                    </>
+                  )
+                ) : section === "address" ? (
+                  <>
                     <TableShell
-                      headers={[
-                        "Client Job No",
-                        "Pick-Up Company",
-                        "Agreement",
-                        "Reference",
-                        "Trailer",
-                        "Address",
-                        "",
-                      ]}
+                      headers={["Vendor Job No", "Vendor", "Suburb", "State", "Address", ""]}
                     >
-                      {(customers ?? []).map((row) => (
-                        <tr key={row.id} className="align-top">
-                          <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
-                            {row.clientJobId}
+                      {pageVendors.map((row) => (
+                        <tr key={row.id} className={ROW}>
+                          <td className={CELL_STRONG}>{row.vendorJobId}</td>
+                          <td className={cn(CELL_STRONG, "max-w-[18rem]")}>
+                            <Clipped value={text(row.vendorName)} />
                           </td>
-                          <td className="px-4 py-3 font-medium text-foreground">
-                            {row.pickUpCompany}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                            {text(row.agreementType)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                            {text(row.reference)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                            {text(row.trailer)}
-                          </td>
-                          <td className="min-w-[18rem] px-4 py-3 text-muted-foreground">
-                            {text(row.fullAddress)}
+                          <td className={CELL}>{text(row.suburb)}</td>
+                          <td className={CELL}>{text(row.state)}</td>
+                          <td className={cn(CELL, "max-w-[24rem]")}>
+                            <Clipped value={text(row.fullAddress)} />
                           </td>
                           <RowActions
-                            onEdit={() => setCustomerDialog({ open: true, row })}
+                            onEdit={() => setVendorDialog({ open: true, row })}
                             onDelete={() =>
                               setRemoving({
-                                kind: "customer",
+                                kind: "vendor",
                                 id: row.id,
-                                label: row.pickUpCompany,
+                                label: row.vendorName ?? row.vendorJobId,
                               })
                             }
                           />
                         </tr>
                       ))}
                     </TableShell>
-                  ) : (
+                    {pager}
+                  </>
+                ) : (
+                  <>
                     <TableShell
                       headers={[
-                        "Client Job No",
-                        "Pick-Up Company",
-                        "Gross",
+                        "Vendor Job No",
+                        "Vendor",
+                        "Gross A",
+                        "Gross B",
                         "Fuel Levy",
-                        "Split Charge",
-                        "Other Charges",
                         "GST",
                         "Net",
                         "Total",
-                        "Final",
                         "",
                       ]}
                     >
-                      {(customers ?? []).map((row) => (
-                        <tr key={row.id}>
-                          <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
-                            {row.clientJobId}
+                      {pageVendors.map((row) => (
+                        <tr key={row.id} className={ROW}>
+                          <td className={CELL_STRONG}>{row.vendorJobId}</td>
+                          <td className={cn(CELL_STRONG, "max-w-[18rem]")}>
+                            <Clipped value={text(row.vendorName)} />
                           </td>
-                          <td className="px-4 py-3 font-medium text-foreground">
-                            {row.pickUpCompany}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                            {amount(row.grossAmount)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
+                          <td className={CELL_NUM}>{amount(row.grossAmount)}</td>
+                          <td className={CELL_NUM}>{amount(row.grossAmount2)}</td>
+                          <td className={CELL_NUM}>
                             {percent(row.fuelLevyPct)} / {amount(row.fuelLevyAmount)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                            {percent(row.splitChargePct)} / {amount(row.splitChargeAmount)}
+                          <td className={CELL_NUM}>
+                            {percent(row.gstPct)} / {amount(row.gstAmount)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                            {percent(row.otherChargesPct)} / {amount(row.otherChargesAmount)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                            {amount(row.gstAmount)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                            {amount(row.netAmount)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums font-medium text-foreground">
-                            {amount(row.totalAmount)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums font-medium text-foreground">
-                            {amount(row.finalAmount)}
-                          </td>
+                          <td className={CELL_NUM}>{amount(row.netAmount)}</td>
+                          <td className={CELL_NUM_STRONG}>{amount(row.totalAmount)}</td>
                           <RowActions
-                            onEdit={() => setCustomerDialog({ open: true, row })}
+                            onEdit={() => setVendorDialog({ open: true, row })}
                             onDelete={() =>
                               setRemoving({
-                                kind: "customer",
+                                kind: "vendor",
                                 id: row.id,
-                                label: row.pickUpCompany,
+                                label: row.vendorName ?? row.vendorJobId,
                               })
                             }
                           />
                         </tr>
                       ))}
                     </TableShell>
-                  )
-                ) : section === "address" ? (
-                  <TableShell
-                    headers={["Vendor Job No", "Vendor", "Suburb", "State", "Address", ""]}
-                  >
-                    {(vendors ?? []).map((row) => (
-                      <tr key={row.id} className="align-top">
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
-                          {row.vendorJobId}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-foreground">
-                          {text(row.vendorName)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                          {text(row.suburb)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                          {text(row.state)}
-                        </td>
-                        <td className="min-w-[18rem] px-4 py-3 text-muted-foreground">
-                          {text(row.fullAddress)}
-                        </td>
-                        <RowActions
-                          onEdit={() => setVendorDialog({ open: true, row })}
-                          onDelete={() =>
-                            setRemoving({
-                              kind: "vendor",
-                              id: row.id,
-                              label: row.vendorName ?? row.vendorJobId,
-                            })
-                          }
-                        />
-                      </tr>
-                    ))}
-                  </TableShell>
-                ) : (
-                  <TableShell
-                    headers={[
-                      "Vendor Job No",
-                      "Vendor",
-                      "Gross A",
-                      "Gross B",
-                      "Fuel Levy",
-                      "GST",
-                      "Net",
-                      "Total",
-                      "",
-                    ]}
-                  >
-                    {(vendors ?? []).map((row) => (
-                      <tr key={row.id}>
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
-                          {row.vendorJobId}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-foreground">
-                          {text(row.vendorName)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                          {amount(row.grossAmount)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                          {amount(row.grossAmount2)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                          {percent(row.fuelLevyPct)} / {amount(row.fuelLevyAmount)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                          {percent(row.gstPct)} / {amount(row.gstAmount)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">
-                          {amount(row.netAmount)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums font-medium text-foreground">
-                          {amount(row.totalAmount)}
-                        </td>
-                        <RowActions
-                          onEdit={() => setVendorDialog({ open: true, row })}
-                          onDelete={() =>
-                            setRemoving({
-                              kind: "vendor",
-                              id: row.id,
-                              label: row.vendorName ?? row.vendorJobId,
-                            })
-                          }
-                        />
-                      </tr>
-                    ))}
-                  </TableShell>
+                    {pager}
+                  </>
                 )}
               </div>
             </div>

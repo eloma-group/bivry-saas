@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -23,8 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { adminService, type AdminVendorRow, type VendorListResult } from "@/services/adminService";
+import { adminService, type AdminVendorRow } from "@/services/adminService";
 import { ApiRequestError } from "@/services/api";
+import { cn } from "@/lib/utils";
+import { useVendorList, useRefreshAdminList } from "@/hooks/useAdminLists";
 import { ONBOARDING_STATUS, ONBOARDING_STATUS_ORDER } from "@/constants/adminStatus";
 import { downloadWorkbook, stampedFileName, type SheetColumn } from "@/utils/spreadsheet";
 import { prettyDate } from "@/utils/date";
@@ -103,9 +105,6 @@ export function AdminVendorsPage() {
   const [sortBy, setSortBy] = useState<SortBy>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const [result, setResult] = useState<VendorListResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -122,34 +121,31 @@ export function AdminVendorsPage() {
     setPage(1);
   }, [debouncedSearch, status, sortBy, sortDir]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setResult(
-        await adminService.listVendors({
-          search: debouncedSearch || undefined,
-          onboardingStatus: status === ALL ? undefined : status,
-          page,
-          pageSize: PAGE_SIZE,
-          sortBy,
-          sortDir,
-        }),
-      );
-    } catch (caught) {
-      setError(
-        caught instanceof ApiRequestError
-          ? caught.message
-          : "Could not load the vendors. Please try again.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, status, page, sortBy, sortDir]);
+  // The parameters are the cache key: a page of rows is only as good as what
+  // fetched it, so page 2 sorted by name is its own entry and going back to
+  // page 1 shows what is already in hand.
+  const query = useMemo(
+    () => ({
+      search: debouncedSearch || undefined,
+      onboardingStatus: status === ALL ? undefined : status,
+      page,
+      pageSize: PAGE_SIZE,
+      sortBy,
+      sortDir,
+    }),
+    [debouncedSearch, status, page, sortBy, sortDir],
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { data: result, isPending: loading, error: loadError, isFetching, refetch } =
+    useVendorList(query);
+  const refresh = useRefreshAdminList("vendors");
+
+  const error =
+    loadError === null
+      ? null
+      : loadError instanceof ApiRequestError
+        ? loadError.message
+        : "Could not load the vendors. Please try again.";
 
   // Memoised because of the `?? []`: while nothing is loaded that literal is a
   // new array on every render, and the memo below takes it as a dependency, so
@@ -259,7 +255,7 @@ export function AdminVendorsPage() {
         return next;
       });
       setPendingDelete(null);
-      await load();
+      await refresh();
     } catch (caught) {
       toast.error("Could not remove that vendor", {
         description:
@@ -351,10 +347,11 @@ export function AdminVendorsPage() {
           type="button"
           variant="ghost"
           size="icon"
-          onClick={() => void load()}
+          disabled={isFetching}
+          onClick={() => void refetch()}
           aria-label="Refresh"
         >
-          <RotateCcw className="h-4 w-4" />
+          <RotateCcw className={cn("h-4 w-4", isFetching && "animate-spin")} />
         </Button>
 
         {selected.size > 0 && (
@@ -367,7 +364,7 @@ export function AdminVendorsPage() {
       {loading && !result ? (
         <PanelLoader label="Loading vendors" />
       ) : error ? (
-        <PanelError message={error} onRetry={() => void load()} />
+        <PanelError message={error} onRetry={() => void refetch()} />
       ) : total === 0 && !debouncedSearch && status === ALL ? (
         <div className="grid min-h-[40vh] w-full place-items-center rounded-3xl border border-dashed border-border bg-card/50">
           <div className="flex max-w-sm flex-col items-center gap-4 text-center">

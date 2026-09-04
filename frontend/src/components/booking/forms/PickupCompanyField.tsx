@@ -3,7 +3,7 @@ import { useFormContext, useWatch } from "react-hook-form";
 import { Check, Loader2 } from "lucide-react";
 import { FieldShell } from "@/components/form/Fields";
 import { Input } from "@/components/ui/input";
-import { usePermanentCustomers } from "@/hooks/usePermanentCustomers";
+import { usePermanentCustomers } from "@/hooks/usePermanentData";
 import { cn } from "@/lib/utils";
 import type { PermanentCustomer } from "@/services/permanentDataService";
 
@@ -31,7 +31,10 @@ export function PickupCompanyField({ index }: { index: number }) {
   const base = `pickups.${index}`;
   const name = `${base}.pickupCompany`;
 
-  const { rows, loading, failed } = usePermanentCustomers();
+  // Cached for the session and shared with every other pickup row on the form,
+  // so a booking that loads at three places asks the server once.
+  const { data, isPending: loading, isError: failed } = usePermanentCustomers();
+  const rows = useMemo(() => data ?? [], [data]);
   const typed = (useWatch({ control, name }) as string | undefined) ?? "";
 
   const [open, setOpen] = useState(false);

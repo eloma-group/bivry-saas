@@ -13,10 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adminService, type AdminVendorRow } from "@/services/adminService";
-import {
-  permanentDataService,
-  type PermanentVendor,
-} from "@/services/permanentDataService";
+import { usePermanentVendors } from "@/hooks/usePermanentData";
 import { ACCOUNT_STATUS } from "@/constants/adminStatus";
 import { ApiRequestError } from "@/services/api";
 
@@ -52,8 +49,6 @@ export function VendorAllotmentSection() {
   const [vendors, setVendors] = useState<AdminVendorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  /** What we have agreed with each vendor, by vendor id. */
-  const [saved, setSaved] = useState<Map<string, PermanentVendor>>(new Map());
 
   const selectedId = watch("vendor.vendorId") as string | undefined;
 
@@ -83,22 +78,15 @@ export function VendorAllotmentSection() {
     void loadVendors();
   }, []);
 
-  // The saved prices, loaded alongside the vendors. A booking is still workable
-  // without them - the grid is simply typed in - so a failure here is silent
+  // What we have agreed with each vendor, by vendor id. Cached for the session
+  // and shared with the Permanent Data page. A booking is still workable
+  // without it - the grid is simply typed in - so a failure here is silent
   // rather than an error over a section that otherwise works.
-  useEffect(() => {
-    let live = true;
-    void permanentDataService
-      .listVendors()
-      .then((rows) => {
-        if (live) setSaved(new Map(rows.map((row) => [row.vendorId, row])));
-      })
-      .catch(() => undefined);
-
-    return () => {
-      live = false;
-    };
-  }, []);
+  const { data: savedPrices } = usePermanentVendors();
+  const saved = useMemo(
+    () => new Map((savedPrices ?? []).map((row) => [row.vendorId, row])),
+    [savedPrices],
+  );
 
   const selected = useMemo(
     () => vendors.find((vendor) => vendor.id === selectedId) ?? null,
