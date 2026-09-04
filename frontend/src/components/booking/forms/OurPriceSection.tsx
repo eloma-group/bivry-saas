@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { Plus, Trash2, Wallet } from "lucide-react";
@@ -6,7 +6,8 @@ import { SectionCard } from "@/components/form/SectionCard";
 import { TextField } from "@/components/form/Fields";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { emptyPrice, money, num } from "./priceMath";
+import { RateAmountField } from "./RateAmountField";
+import { emptyPrice, money, num, GST_PCT } from "./priceMath";
 
 /** The flat layout a single price keeps: the three-across grid, as before. */
 const FLAT = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
@@ -15,17 +16,39 @@ const FLAT = "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3";
 const COLUMNS = "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3";
 
 /**
- * One price: a gross, a levy rate and a GST rate typed, four amounts derived.
+ * The three charges taken as a rate on the gross, in the order they are shown.
+ * Each is a `<key>Pct` typed and a `<key>Amount` derived from it.
+ */
+const CHARGES = [
+  { key: "fuelLevy", label: "Fuel Levy" },
+  { key: "splitCharge", label: "Split Charge" },
+  { key: "otherCharges", label: "Other Charges" },
+] as const;
+
+/**
+ * One price: a gross and three rates typed, the amounts under them derived.
  *
- *   Fuel Levy Amount = Gross x Fuel Levy %
- *   GST Amount       = Gross x GST %
- *   Net Amount       = Gross + GST Amount
- *   Total Amount     = Gross + Fuel Levy Amount + GST Amount
+ *   Fuel Levy Amount    = Gross x Fuel Levy %
+ *   Split Charge Amount = Gross x Split Charge %
+ *   Other Charges Amt   = Gross x Other Charges %
+ *   Charged             = Gross + those three amounts
+ *   GST Amount          = Charged x 10%
+ *   Net Amount          = Gross + GST Amount
+ *   Total Amount        = Charged + GST Amount
+ *
+ * GST is charged on everything we bill for rather than on the gross alone: a
+ * levy or a split charge is part of the fare, so it is part of what GST is due
+ * on. Net Amount is deliberately left as gross plus GST - it answers a
+ * different question, which is what the job itself came to with tax on it.
  *
  * `numbered` puts the index on the Gross and Total labels, which only earns its
  * place once there are two prices to tell apart. `stacked` runs the fields down
  * a column instead of across the section, which is what lets several prices sit
- * beside each other.
+ * beside each other - and there each charge is one field holding its rate and
+ * its amount rather than two, because a column is read top to bottom and six
+ * boxes for three charges made it far longer than the booking warranted. The
+ * single flat price keeps them apart: that grid is three across, so the pairs
+ * cost it no height at all.
  */
 function PriceColumn({
   index,
@@ -41,21 +64,41 @@ function PriceColumn({
 
   const gross = num(useWatch({ control, name: `${base}.grossAmount` }));
   const fuelLevyPct = num(useWatch({ control, name: `${base}.fuelLevyPct` }));
-  const gstPct = num(useWatch({ control, name: `${base}.gstPct` }));
+  const splitChargePct = num(useWatch({ control, name: `${base}.splitChargePct` }));
+  const otherChargesPct = num(useWatch({ control, name: `${base}.otherChargesPct` }));
 
   const fuelLevyAmount = gross * (fuelLevyPct / 100);
-  const gstAmount = gross * (gstPct / 100);
+  const splitChargeAmount = gross * (splitChargePct / 100);
+  const otherChargesAmount = gross * (otherChargesPct / 100);
+
+  // Everything we bill for before tax, which is what GST is charged on.
+  const charged = gross + fuelLevyAmount + splitChargeAmount + otherChargesAmount;
+  const gstAmount = charged * (GST_PCT / 100);
   const netAmount = gross + gstAmount;
-  const totalAmount = gross + fuelLevyAmount + gstAmount;
+  const totalAmount = charged + gstAmount;
 
   // Keep the derived amounts in form state so a submit carries them too, and so
-  // the Final Amount below can simply read every total back.
+  // the Final Amount below can simply read every total back. The GST rate goes
+  // with them: it is no longer typed, and a saved booking should still say what
+  // it was charged at rather than leave it to be inferred.
   useEffect(() => {
     setValue(`${base}.fuelLevyAmount`, money(fuelLevyAmount));
+    setValue(`${base}.splitChargeAmount`, money(splitChargeAmount));
+    setValue(`${base}.otherChargesAmount`, money(otherChargesAmount));
+    setValue(`${base}.gstPct`, String(GST_PCT));
     setValue(`${base}.gstAmount`, money(gstAmount));
     setValue(`${base}.netAmount`, money(netAmount));
     setValue(`${base}.totalAmount`, money(totalAmount));
-  }, [base, fuelLevyAmount, gstAmount, netAmount, totalAmount, setValue]);
+  }, [
+    base,
+    fuelLevyAmount,
+    splitChargeAmount,
+    otherChargesAmount,
+    gstAmount,
+    netAmount,
+    totalAmount,
+    setValue,
+  ]);
 
   const n = numbered ? ` ${index + 1}` : "";
 
@@ -68,21 +111,39 @@ function PriceColumn({
         prefix="$"
         placeholder="0.00"
       />
-      <TextField name={`${base}.fuelLevyPct`} label="Fuel Levy (%)" decimalOnly placeholder="0" />
-      <TextField
-        name={`${base}.fuelLevyAmount`}
-        label="Fuel Levy Amount"
-        prefix="$"
-        readOnly
-        hint={`Gross Amount${n} x Fuel Levy %.`}
-      />
-      <TextField name={`${base}.gstPct`} label="GST (%)" decimalOnly placeholder="0" />
+      {stacked
+        ? CHARGES.map((charge) => (
+            <RateAmountField
+              key={charge.key}
+              label={charge.label}
+              rateName={`${base}.${charge.key}Pct`}
+              amountName={`${base}.${charge.key}Amount`}
+            />
+          ))
+        : CHARGES.map((charge) => (
+            <Fragment key={charge.key}>
+              <TextField
+                name={`${base}.${charge.key}Pct`}
+                label={`${charge.label} (%)`}
+                decimalOnly
+                placeholder="0"
+              />
+              <TextField
+                name={`${base}.${charge.key}Amount`}
+                label={`${charge.label} Amount`}
+                prefix="$"
+                readOnly
+                hint={`Gross Amount${n} x ${charge.label} %.`}
+              />
+            </Fragment>
+          ))}
+      {/* No hint: the rate is on the label already, and spelling the base out
+          ran to a second line that pushed every column below it down. */}
       <TextField
         name={`${base}.gstAmount`}
-        label="GST Amount"
+        label={`GST Amount (${GST_PCT}%)`}
         prefix="$"
         readOnly
-        hint={`Gross Amount${n} x GST %.`}
       />
       <TextField
         name={`${base}.netAmount`}
@@ -96,7 +157,7 @@ function PriceColumn({
         label={`Total Amount${n}`}
         prefix="$"
         readOnly
-        hint={`Gross Amount${n} + Fuel Levy Amount + GST Amount.`}
+        hint={`Gross Amount${n} + Fuel Levy + Split Charge + Other Charges + GST Amount.`}
       />
     </div>
   );
@@ -158,7 +219,7 @@ export function OurPriceSection() {
       id="step-price"
       icon={Wallet}
       title="Our Price"
-      description="What we charge the customer. Amounts are in AUD; the levy, GST and totals work themselves out."
+      description="What we charge the customer. Amounts are in AUD; the levy, the charges, GST at 10% and the totals all work themselves out."
     >
       {many ? (
         <div className={COLUMNS}>

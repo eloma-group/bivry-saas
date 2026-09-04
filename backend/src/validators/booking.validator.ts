@@ -81,6 +81,14 @@ const priceSchema = z
     grossAmount2: amount,
     fuelLevyPct: amount,
     fuelLevyAmount: amount,
+    /**
+     * Two further rates charged on the gross, alongside the fuel levy. Our
+     * Price asks for them; the vendor grid does not and leaves them null.
+     */
+    splitChargePct: amount,
+    splitChargeAmount: amount,
+    otherChargesPct: amount,
+    otherChargesAmount: amount,
     gstPct: amount,
     gstAmount: amount,
     netAmount: amount,

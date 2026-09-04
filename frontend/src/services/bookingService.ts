@@ -36,6 +36,15 @@ export interface BookingPricePayload {
   grossAmount2: string;
   fuelLevyPct: string;
   fuelLevyAmount: string;
+  /**
+   * Two further rates charged on the gross, the same way the fuel levy is.
+   * Our Price asks for them; the vendor grid does not, and sends them empty.
+   */
+  splitChargePct: string;
+  splitChargeAmount: string;
+  otherChargesPct: string;
+  otherChargesAmount: string;
+  /** Fixed at 10 by Our Price rather than typed. Sent so the rate is stored. */
   gstPct: string;
   gstAmount: string;
   netAmount: string;
@@ -97,6 +106,10 @@ function priceOf(value: unknown): BookingPricePayload {
     grossAmount2: str(p.grossAmount2),
     fuelLevyPct: str(p.fuelLevyPct),
     fuelLevyAmount: str(p.fuelLevyAmount),
+    splitChargePct: str(p.splitChargePct),
+    splitChargeAmount: str(p.splitChargeAmount),
+    otherChargesPct: str(p.otherChargesPct),
+    otherChargesAmount: str(p.otherChargesAmount),
     gstPct: str(p.gstPct),
     gstAmount: str(p.gstAmount),
     netAmount: str(p.netAmount),

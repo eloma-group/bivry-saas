@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { AddOptionEditor } from "@/components/form/AddOptionEditor";
 import { useOptionLists } from "@/context/OptionListsContext";
+import { decimals } from "@/utils/decimals";
 
 /**
  * The shared field kit.
@@ -144,21 +145,6 @@ interface TextFieldProps extends BaseFieldProps {
   actionSize?: "icon" | "label";
   /** A fixed adornment parked inside the left of the box - a "$" on a money field. */
   prefix?: string;
-}
-
-/**
- * Digits and a single decimal point, for `decimalOnly`.
- *
- * Everything else is dropped where it is typed or pasted, and only the first
- * dot survives, so "12..5" and "1.2.3" cannot be entered at all rather than
- * being accepted and refused later. A dot typed first is kept, because ".50"
- * is a reasonable way to start typing fifty cents.
- */
-function decimals(raw: string): string {
-  const cleaned = raw.replace(/[^\d.]/g, "");
-  const dot = cleaned.indexOf(".");
-  if (dot === -1) return cleaned;
-  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "");
 }
 
 /** Reusable text/email/number input wired to react-hook-form. */

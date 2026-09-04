@@ -988,7 +988,11 @@ One price we charge the customer, in AUD.\n\nA booking used to hold exactly one,
 | `gross_amount` | decimal | NULL |  |  |
 | `fuel_levy_pct` | decimal | NULL |  |  |
 | `fuel_levy_amount` | decimal | NULL |  |  |
-| `gst_pct` | decimal | NULL |  |  |
+| `split_charge_pct` | decimal | NULL |  | A split charge, as a rate on the gross and the amount it came to. |
+| `split_charge_amount` | decimal | NULL |  |  |
+| `other_charges_pct` | decimal | NULL |  | Anything else charged on the gross, the same shape as the split charge. |
+| `other_charges_amount` | decimal | NULL |  |  |
+| `gst_pct` | decimal | NULL |  | 10 on every price Our Price raises. Stored so a booking says what it\ncharged rather than leaving the rate to be inferred later. |
 | `gst_amount` | decimal | NULL |  |  |
 | `net_amount` | decimal | NULL |  |  |
 | `total_amount` | decimal | NULL |  |  |

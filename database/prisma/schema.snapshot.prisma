@@ -1142,6 +1142,14 @@ model BookingPrice {
   grossAmount     Decimal? @map("gross_amount") @db.Decimal(12, 2)
   fuelLevyPct     Decimal? @map("fuel_levy_pct") @db.Decimal(7, 2)
   fuelLevyAmount  Decimal? @map("fuel_levy_amount") @db.Decimal(12, 2)
+  /// A split charge, as a rate on the gross and the amount it came to.
+  splitChargePct  Decimal? @map("split_charge_pct") @db.Decimal(7, 2)
+  splitChargeAmount Decimal? @map("split_charge_amount") @db.Decimal(12, 2)
+  /// Anything else charged on the gross, the same shape as the split charge.
+  otherChargesPct Decimal? @map("other_charges_pct") @db.Decimal(7, 2)
+  otherChargesAmount Decimal? @map("other_charges_amount") @db.Decimal(12, 2)
+  /// 10 on every price Our Price raises. Stored so a booking says what it
+  /// charged rather than leaving the rate to be inferred later.
   gstPct          Decimal? @map("gst_pct") @db.Decimal(7, 2)
   gstAmount       Decimal? @map("gst_amount") @db.Decimal(12, 2)
   netAmount       Decimal? @map("net_amount") @db.Decimal(12, 2)
