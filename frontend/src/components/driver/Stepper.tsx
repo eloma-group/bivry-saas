@@ -30,7 +30,11 @@ export function Stepper({ steps, activeIndex, percent }: StepperProps) {
 
       <Progress value={percent} className="mb-7 h-2" />
 
-      <ol className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
+      {/* Horizontal scroll clips the cross axis too, so the active circle - which
+          scales up a touch and carries a ring - needs vertical room or it reads
+          as a flattened, cut-off circle. A little side padding keeps the first
+          and last circles off the scroll edges for the same reason. */}
+      <ol className="no-scrollbar flex items-center gap-2 overflow-x-auto px-1 py-1.5">
         {steps.map((step, i) => {
           const isActive = i === activeIndex;
           const isDone = step.complete;

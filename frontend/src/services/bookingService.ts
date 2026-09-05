@@ -168,9 +168,245 @@ export interface ReservedJobNumber {
   expiresAt: string;
 }
 
+/**
+ * A booking as the Manage Bookings list reads it back.
+ *
+ * The money columns arrive as strings: Prisma's Decimal serialises to a string
+ * over JSON so no precision is lost on the way. The stops carry both pickups and
+ * deliveries, told apart by `type`, so the list can show where a job loads and
+ * where it goes.
+ */
+export interface BookingStopRow {
+  id: string;
+  type: "PICKUP" | "DELIVERY";
+  position: number;
+  clientJobNumber: string | null;
+  trailer: string | null;
+  scheduledAt: string | null;
+  company: string | null;
+  suite: string | null;
+  street1: string | null;
+  suburb: string | null;
+  state: string | null;
+  postCode: string | null;
+  country: string | null;
+  instructions: string | null;
+}
+
+export interface BookingPriceRow {
+  id: string;
+  position: number;
+  grossAmount: string | null;
+  fuelLevyPct: string | null;
+  fuelLevyAmount: string | null;
+  splitChargePct: string | null;
+  splitChargeAmount: string | null;
+  otherChargesPct: string | null;
+  otherChargesAmount: string | null;
+  gstPct: string | null;
+  gstAmount: string | null;
+  netAmount: string | null;
+  totalAmount: string | null;
+}
+
+export interface BookingLaneRow {
+  id: string;
+  position: number;
+  trailer: string | null;
+  lane: string | null;
+}
+
+export interface BookingRow {
+  id: string;
+  jobNumber: string;
+  bookingReceivedDate: string | null;
+  financialYear: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  customerAccountNumber: string | null;
+  accountStatus: string | null;
+  agreementType: string | null;
+  reference: string | null;
+  invoiceTerm: string | null;
+  cargoType: string | null;
+  vehicleType: string | null;
+  trailerCategory: string | null;
+  priceFinalAmount: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  vendorTotalAmount: string | null;
+  createdAt: string;
+  stops: BookingStopRow[];
+  prices: BookingPriceRow[];
+}
+
+/**
+ * A booking with everything the detail page reads: the whole booking record, its
+ * stops, its price rows and its lanes. Mirrors what `getBooking` returns on the
+ * server, so the detail view can lay the saved booking back out section by
+ * section the way the Create Booking form does.
+ */
+export interface BookingDetail extends BookingRow {
+  updatedAt: string;
+  vendorGrossAmount: string | null;
+  vendorGrossAmount2: string | null;
+  vendorFuelLevyPct: string | null;
+  vendorFuelLevyAmount: string | null;
+  vendorGstPct: string | null;
+  vendorGstAmount: string | null;
+  vendorNetAmount: string | null;
+  lanes: BookingLaneRow[];
+}
+
+export interface BookingListQuery {
+  search?: string;
+  page: number;
+  pageSize: number;
+  sortBy: "createdAt" | "jobNumber" | "bookingReceivedDate";
+  sortDir: "asc" | "desc";
+}
+
+export interface BookingListResult {
+  rows: BookingRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/** A stored value back into a form string: null and undefined both read empty. */
+function fromValue(value: string | null | undefined): string {
+  return value === null || value === undefined ? "" : value;
+}
+
+/**
+ * Turns a saved booking back into the shape the Create Booking form fills, so
+ * the same form can edit it. The reverse of `buildBookingPayload`: the shared
+ * stop shape is split back into the form's pickup/delivery field names, and the
+ * amounts come back as the strings the fields hold. The job number rides along
+ * read-only - editing never changes it.
+ */
+export function bookingToFormValues(booking: BookingDetail): Record<string, unknown> {
+  const stopToForm = (stop: BookingStopRow, kind: "pickup" | "delivery") => ({
+    id: stop.id,
+    clientJobNumber: fromValue(stop.clientJobNumber),
+    trailer: fromValue(stop.trailer),
+    [`${kind}Time`]: fromValue(stop.scheduledAt),
+    [`${kind}Company`]: fromValue(stop.company),
+    suite: fromValue(stop.suite),
+    street1: fromValue(stop.street1),
+    suburb: fromValue(stop.suburb),
+    state: fromValue(stop.state),
+    postCode: fromValue(stop.postCode),
+    country: fromValue(stop.country) || "Australia",
+    instructions: fromValue(stop.instructions),
+  });
+
+  const priceToForm = (price: BookingPriceRow) => ({
+    id: price.id,
+    grossAmount: fromValue(price.grossAmount),
+    grossAmount2: "",
+    fuelLevyPct: fromValue(price.fuelLevyPct),
+    fuelLevyAmount: fromValue(price.fuelLevyAmount),
+    splitChargePct: fromValue(price.splitChargePct),
+    splitChargeAmount: fromValue(price.splitChargeAmount),
+    otherChargesPct: fromValue(price.otherChargesPct),
+    otherChargesAmount: fromValue(price.otherChargesAmount),
+    gstPct: fromValue(price.gstPct),
+    gstAmount: fromValue(price.gstAmount),
+    netAmount: fromValue(price.netAmount),
+    totalAmount: fromValue(price.totalAmount),
+  });
+
+  const pickups = booking.stops
+    .filter((stop) => stop.type === "PICKUP")
+    .sort((a, b) => a.position - b.position)
+    .map((stop) => stopToForm(stop, "pickup"));
+  const deliveries = booking.stops
+    .filter((stop) => stop.type === "DELIVERY")
+    .sort((a, b) => a.position - b.position)
+    .map((stop) => stopToForm(stop, "delivery"));
+  const prices = [...booking.prices].sort((a, b) => a.position - b.position).map(priceToForm);
+
+  return {
+    jobNumber: fromValue(booking.jobNumber),
+    bookingReceivedDate: fromValue(booking.bookingReceivedDate),
+    financialYear: fromValue(booking.financialYear),
+    customerId: fromValue(booking.customerId),
+    customer: fromValue(booking.customerName),
+    customerAccountNumber: fromValue(booking.customerAccountNumber),
+    accountStatus: fromValue(booking.accountStatus),
+    agreementType: fromValue(booking.agreementType),
+    reference: fromValue(booking.reference),
+    invoiceTerm: fromValue(booking.invoiceTerm),
+    cargoType: fromValue(booking.cargoType),
+    vehicleType: fromValue(booking.vehicleType),
+    trailerCategory: fromValue(booking.trailerCategory),
+    pickups,
+    deliveries,
+    prices,
+    priceFinalAmount: fromValue(booking.priceFinalAmount),
+    vendor: {
+      vendorId: fromValue(booking.vendorId),
+      vendorName: fromValue(booking.vendorName),
+    },
+    vendorPrice: {
+      grossAmount: fromValue(booking.vendorGrossAmount),
+      grossAmount2: fromValue(booking.vendorGrossAmount2),
+      fuelLevyPct: fromValue(booking.vendorFuelLevyPct),
+      fuelLevyAmount: fromValue(booking.vendorFuelLevyAmount),
+      splitChargePct: "",
+      splitChargeAmount: "",
+      otherChargesPct: "",
+      otherChargesAmount: "",
+      gstPct: fromValue(booking.vendorGstPct),
+      gstAmount: fromValue(booking.vendorGstAmount),
+      netAmount: fromValue(booking.vendorNetAmount),
+      totalAmount: fromValue(booking.vendorTotalAmount),
+    },
+  };
+}
+
 export const bookingService = {
   create(payload: CreateBookingPayload): Promise<BookingCreated> {
     return request<BookingCreated>({ url: "/admin/bookings", method: "POST", data: payload });
+  },
+
+  /** Saves edits to an existing booking. The job number is unchanged by this. */
+  update(id: string, payload: CreateBookingPayload): Promise<BookingCreated> {
+    return request<BookingCreated>({
+      url: `/admin/bookings/${encodeURIComponent(id)}`,
+      method: "PUT",
+      data: payload,
+    });
+  },
+
+  /** The bookings raised in the Admin portal, newest first, paged and searchable. */
+  list(query: BookingListQuery): Promise<BookingListResult> {
+    return request<BookingListResult>({
+      url: "/admin/bookings",
+      method: "GET",
+      params: {
+        search: query.search,
+        page: query.page,
+        pageSize: query.pageSize,
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
+      },
+    });
+  },
+
+  /** Removes a booking. A soft delete server-side; it drops out of the list. */
+  remove(id: string): Promise<null> {
+    return request<null>({ url: `/admin/bookings/${encodeURIComponent(id)}`, method: "DELETE" });
+  },
+
+  /** One booking with its stops, prices and lanes, addressed by id. */
+  get(id: string): Promise<BookingDetail> {
+    return request<BookingDetail>({
+      url: `/admin/bookings/${encodeURIComponent(id)}`,
+      method: "GET",
+    });
   },
 
   /**

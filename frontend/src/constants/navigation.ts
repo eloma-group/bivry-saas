@@ -50,9 +50,7 @@ function adminNav(): NavItem[] {
       icon: CalendarDays,
       enabled: true,
       children: [
-        // Reads as live and answers to hover, but carries no href yet, so a
-        // click does nothing until the page behind it is built.
-        { label: "Manage Bookings", enabled: true },
+        { label: "Manage Bookings", enabled: true, href: "/admin/bookings" },
         { label: "Create Booking", enabled: true, href: "/admin/bookings/new" },
         // Our standing customer and vendor records, kept to this menu: it is an
         // admin's reference, so it is offered nowhere but the admin portal.

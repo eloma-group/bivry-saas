@@ -12,6 +12,8 @@ import { PortalPickerPage } from "@/pages/PortalPickerPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { AdminOnboardingPage } from "@/pages/admin/AdminOnboardingPage";
 import { AdminCreateBookingPage } from "@/pages/admin/AdminCreateBookingPage";
+import { AdminManageBookingsPage } from "@/pages/admin/AdminManageBookingsPage";
+import { AdminBookingDetailPage } from "@/pages/admin/AdminBookingDetailPage";
 import { AdminPermanentDataPage } from "@/pages/admin/AdminPermanentDataPage";
 import { AdminProfilePage } from "@/pages/admin/AdminProfilePage";
 import { PlaceholderDashboardPage } from "@/pages/PlaceholderDashboardPage";
@@ -113,7 +115,13 @@ export function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute role="admin" />}>
         <Route index element={<AdminDashboardPage />} />
         <Route path="profile" element={<AdminProfilePage />} />
+        <Route path="bookings" element={<AdminManageBookingsPage />} />
         <Route path="bookings/new" element={<AdminCreateBookingPage />} />
+        {/* Static siblings above rank higher, so `new` and `permanent-data` still
+            win; this catches a booking id (the job number is shown, the uuid
+            addresses it). */}
+        <Route path="bookings/:bookingId" element={<AdminBookingDetailPage />} />
+        <Route path="bookings/:bookingId/edit" element={<AdminCreateBookingPage />} />
         <Route path="bookings/permanent-data" element={<AdminPermanentDataPage />} />
         <Route path="onboarding" element={<Navigate to="driver" replace />} />
         <Route path="onboarding/:module" element={<AdminOnboardingPage />} />
