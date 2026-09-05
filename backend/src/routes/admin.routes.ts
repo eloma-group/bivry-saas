@@ -290,6 +290,11 @@ router.post('/bookings/job-number', bookingController.reserveJobNumber);
 router.delete('/bookings/job-number/:jobNumber', bookingController.releaseJobNumber);
 router.post('/bookings', validateBody(createBookingSchema), bookingController.create);
 router.get('/bookings/:id', bookingController.get);
+// Editing an existing booking. Same payload as create; the job number stays put.
+router.put('/bookings/:id', validateBody(createBookingSchema), bookingController.update);
+// Removing a booking (soft delete). Below the job-number route, which is more
+// specific, so "job-number" is never read as a booking id.
+router.delete('/bookings/:id', bookingController.remove);
 
 // Permanent Data: the pickups and the vendor prices kept on file, so a booking
 // is picked from rather than typed out. Read by the Create Booking form as well

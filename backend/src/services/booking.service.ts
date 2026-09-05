@@ -243,7 +243,12 @@ async function claimReservedJobNumber(
   return count > 0 ? wanted : null;
 }
 
-export async function createBooking(input: CreateBookingInput, adminId: string) {
+/**
+ * The stops, lanes and price rows a booking owns, mapped from the form's input
+ * into the shape Prisma's nested `create` takes. Shared by create and update so
+ * the two can never disagree about how a price or a stop is stored.
+ */
+function childRows(input: CreateBookingInput) {
   const pickups = input.pickups.map((stop, index) => ({
     ...stop,
     type: 'PICKUP' as const,
@@ -273,26 +278,20 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
     totalAmount: price.totalAmount ?? null,
   }));
 
+  return { stops: [...pickups, ...deliveries], lanes, prices };
+}
+
+/**
+ * The booking's own columns (everything but the job number, financial year and
+ * who raised it), mapped from the form. Shared by create and update; create adds
+ * the job number and creator, update leaves both as the booking already has them.
+ */
+function bookingScalars(input: CreateBookingInput) {
   const vendorPrice = input.vendorPrice ?? {};
   const vendor = input.vendor ?? {};
 
-  // The financial year is settled here too: the job number is keyed to it, so
-  // the two must agree, and the first pickup's time is what both are derived
-  // from - the same field the form's Financial Year box follows.
-  const [financialYear, digits] = resolveFinancialYear({
-    pickupTime: pickups[0]?.scheduledAt ?? null,
-    financialYear: input.financialYear,
-  });
-  const prefix = `${JOB_PREFIX}-${digits}-`;
-
-  // The number the form has been showing all along, where this admin still
-  // holds it. Anything else falls through to the ordinary allocation below.
-  const reserved = await claimReservedJobNumber(input.jobNumber, prefix, adminId);
-  const first = await nextJobSequence(prefix);
-
-  const data = {
+  return {
     bookingReceivedDate: input.bookingReceivedDate,
-    financialYear,
     customerId: input.customerId,
     customerName: input.customerName,
     customerAccountNumber: input.customerAccountNumber,
@@ -316,9 +315,32 @@ export async function createBooking(input: CreateBookingInput, adminId: string) 
     vendorGstAmount: vendorPrice.gstAmount ?? null,
     vendorNetAmount: vendorPrice.netAmount ?? null,
     vendorTotalAmount: vendorPrice.totalAmount ?? null,
+  };
+}
 
+export async function createBooking(input: CreateBookingInput, adminId: string) {
+  const pickups = input.pickups;
+  const { stops, lanes, prices } = childRows(input);
+
+  // The financial year is settled here too: the job number is keyed to it, so
+  // the two must agree, and the first pickup's time is what both are derived
+  // from - the same field the form's Financial Year box follows.
+  const [financialYear, digits] = resolveFinancialYear({
+    pickupTime: pickups[0]?.scheduledAt ?? null,
+    financialYear: input.financialYear,
+  });
+  const prefix = `${JOB_PREFIX}-${digits}-`;
+
+  // The number the form has been showing all along, where this admin still
+  // holds it. Anything else falls through to the ordinary allocation below.
+  const reserved = await claimReservedJobNumber(input.jobNumber, prefix, adminId);
+  const first = await nextJobSequence(prefix);
+
+  const data = {
+    ...bookingScalars(input),
+    financialYear,
     createdByAdminId: adminId,
-    stops: { create: [...pickups, ...deliveries] },
+    stops: { create: stops },
     lanes: { create: lanes },
     prices: { create: prices },
   };
@@ -384,4 +406,63 @@ export async function getBooking(id: string) {
   });
   if (!booking) throw ApiError.notFound('Booking not found');
   return booking;
+}
+
+/**
+ * Saves an admin's edits to an existing booking.
+ *
+ * The job number and its financial year are left exactly as the booking already
+ * carries them: the number is the booking's id, so an edit never changes it even
+ * when the pick-up date is moved into another financial year. Everything else -
+ * the scalars, the stops, the lanes and the price rows - is replaced with what
+ * the form now holds. The children are deleted and re-created rather than
+ * matched up one by one, because the form freely adds, removes and reorders
+ * them, and all of it runs in one transaction so a booking is never left with
+ * half its old stops and half its new ones.
+ */
+export async function updateBooking(id: string, input: CreateBookingInput) {
+  const existing = await prisma.booking.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) throw ApiError.notFound('Booking not found');
+
+  const { stops, lanes, prices } = childRows(input);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.bookingStop.deleteMany({ where: { bookingId: id } });
+    await tx.bookingLane.deleteMany({ where: { bookingId: id } });
+    await tx.bookingPrice.deleteMany({ where: { bookingId: id } });
+
+    // The job number and financial year are deliberately not written: the number
+    // is the booking's id and stays put. `updatedAt` moves on its own (@updatedAt).
+    return tx.booking.update({
+      where: { id },
+      data: {
+        ...bookingScalars(input),
+        stops: { create: stops },
+        lanes: { create: lanes },
+        prices: { create: prices },
+      },
+      include: BOOKING_INCLUDE,
+    });
+  });
+}
+
+/**
+ * Removes a booking from the register.
+ *
+ * A soft delete - `deletedAt` is stamped rather than the row dropped - so the
+ * list and the detail view stop showing it (both filter on `deletedAt: null`)
+ * while its job number stays taken: `nextJobSequence` reads every row, deleted
+ * or not, so a removed booking never hands its number to the next one.
+ */
+export async function deleteBooking(id: string) {
+  const existing = await prisma.booking.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) throw ApiError.notFound('Booking not found');
+
+  await prisma.booking.update({ where: { id }, data: { deletedAt: new Date() } });
 }

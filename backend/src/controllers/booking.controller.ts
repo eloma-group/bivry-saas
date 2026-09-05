@@ -46,4 +46,14 @@ export const bookingController = {
     const data = await bookingService.getBooking(req.params.id);
     sendSuccess(res, data, 'Booking loaded');
   }),
+
+  update: asyncHandler(async (req, res) => {
+    const data = await bookingService.updateBooking(req.params.id, req.body);
+    sendSuccess(res, data, 'Booking updated');
+  }),
+
+  remove: asyncHandler(async (req, res) => {
+    await bookingService.deleteBooking(req.params.id);
+    sendSuccess(res, null, 'Booking deleted');
+  }),
 };
