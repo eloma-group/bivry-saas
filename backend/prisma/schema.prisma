@@ -1060,20 +1060,74 @@ model Booking {
   vendorNetAmount      Decimal? @map("vendor_net_amount") @db.Decimal(12, 2)
   vendorTotalAmount    Decimal? @map("vendor_total_amount") @db.Decimal(12, 2)
 
+  /// Where the vendor payment sits. Set and changed by an admin from Manage
+  /// Bookings; the vendor only ever reads it. Starts PENDING on every booking.
+  paymentStatus BookingPaymentStatus @default(PENDING) @map("payment_status")
+
+  /// The four tick boxes on the vendor's Log Book pages panel. The vendor ticks
+  /// them from their Documents tab and the admin sees the result; they carry no
+  /// other meaning here beyond being remembered.
+  logbookPrecheckChecked     Boolean @default(false) @map("logbook_precheck_checked")
+  logbookPostcheckChecked    Boolean @default(false) @map("logbook_postcheck_checked")
+  logbookPaymentDateChecked  Boolean @default(false) @map("logbook_payment_date_checked")
+  logbookTotalPaymentChecked Boolean @default(false) @map("logbook_total_payment_checked")
+
   /// Admin id that raised the booking (no FK - a verifier may be an employee later).
   createdByAdminId String?   @map("created_by_admin_id") @db.Uuid
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
 
-  stops  BookingStop[]
-  lanes  BookingLane[]
-  prices BookingPrice[]
+  stops     BookingStop[]
+  lanes     BookingLane[]
+  prices    BookingPrice[]
+  documents BookingDocument[]
 
   @@index([customerId])
   @@index([vendorId])
   @@index([financialYear])
   @@map("bookings")
+}
+
+/// A file attached to a booking - a POD, a rate confirmation, a photo of the
+/// load. Uploaded from a portal against one booking, so it hangs off the
+/// booking rather than an account: the same booking's documents are shown to the
+/// admin who raised it and to the vendor it was allotted to.
+///
+/// `uploadedByType`/`uploadedById` record who added it (the actor type and id the
+/// token carried, the way the option table does it), with no FK, because either
+/// portal can upload one. The bytes live in blob storage under `storageKey`; the
+/// row is a soft delete so a removed file drops out of the list.
+model BookingDocument {
+  id             String    @id @default(uuid()) @db.Uuid
+  bookingId      String    @map("booking_id") @db.Uuid
+  uploadedByType String?   @map("uploaded_by_type")
+  uploadedById   String?   @map("uploaded_by_id") @db.Uuid
+  category       String?
+  fileName       String    @map("file_name")
+  storageKey     String    @map("storage_key")
+  storageUrl     String?   @map("storage_url")
+  mimeType       String    @map("mime_type")
+  sizeInBytes    Int       @map("size_in_bytes")
+  /// Where the admin's review of this file sits. A vendor upload lands PENDING;
+  /// the admin moves it to APPROVED or REJECTED, and the vendor sees the result.
+  approvalStatus DocumentApprovalStatus @default(PENDING) @map("approval_status")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+  booking        Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_documents")
+}
+
+/// The admin's review state on a vendor-uploaded booking document.
+enum DocumentApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("document_approval_status")
 }
 
 /// A job number held for one admin while the Create Booking form is open.
@@ -1180,6 +1234,17 @@ enum BookingStopType {
   DELIVERY
 
   @@map("booking_stop_type")
+}
+
+/// The state of the vendor payment on a booking. Only an admin moves it; the
+/// vendor is shown whatever it currently reads.
+enum BookingPaymentStatus {
+  PENDING
+  PAID
+  HOLD
+  ADJUSTED
+
+  @@map("booking_payment_status")
 }
 
 // ---------------------------------------------------------------------------

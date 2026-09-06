@@ -6,7 +6,7 @@
 This file exists so nobody has to open the database, or Prisma Studio, just to
 look up a column. Every table, column, type, default and relation is below.
 
-**43 tables, 16 enum types.**
+**44 tables, 18 enum types.**
 
 ## Tables
 
@@ -46,6 +46,7 @@ look up a column. Every table, column, type, default and relation is below.
 - [`password_reset_tokens`](#passwordresettokens)
 - [`login_attempts`](#loginattempts)
 - [`bookings`](#bookings)
+- [`booking_documents`](#bookingdocuments)
 - [`booking_job_numbers`](#bookingjobnumbers)
 - [`booking_stops`](#bookingstops)
 - [`booking_prices`](#bookingprices)
@@ -73,7 +74,9 @@ look up a column. Every table, column, type, default and relation is below.
 | `customer_address_type` | `PRINCIPAL`, `BILLING` |
 | `customer_billing_type` | `INVOICING`, `RCTI` |
 | `customer_document_type` | `COMPANY_LOGO`, `CONTRACT`, `ADDITIONAL` |
+| `document_approval_status` | `PENDING`, `APPROVED`, `REJECTED` |
 | `booking_stop_type` | `PICKUP`, `DELIVERY` |
+| `booking_payment_status` | `PENDING`, `PAID`, `HOLD`, `ADJUSTED` |
 
 ## Table detail
 
@@ -929,6 +932,11 @@ Audit trail of every login attempt, used for lockout and security review.
 | `vendor_gst_amount` | decimal | NULL |  |  |
 | `vendor_net_amount` | decimal | NULL |  |  |
 | `vendor_total_amount` | decimal | NULL |  |  |
+| `payment_status` | booking_payment_status | NOT NULL | 'PENDING' | Where the vendor payment sits. Set and changed by an admin from Manage\nBookings; the vendor only ever reads it. Starts PENDING on every booking. |
+| `logbook_precheck_checked` | boolean | NOT NULL | false | The four tick boxes on the vendor's Log Book pages panel. The vendor ticks\nthem from their Documents tab and the admin sees the result; they carry no\nother meaning here beyond being remembered. |
+| `logbook_postcheck_checked` | boolean | NOT NULL | false |  |
+| `logbook_payment_date_checked` | boolean | NOT NULL | false |  |
+| `logbook_total_payment_checked` | boolean | NOT NULL | false |  |
 | `created_by_admin_id` | uuid | NULL |  | Admin id that raised the booking (no FK - a verifier may be an employee later). |
 | `created_at` | timestamp(3) | NOT NULL | now() |  |
 | `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
@@ -939,6 +947,32 @@ Audit trail of every login attempt, used for lockout and security review.
 - many `booking_stops`
 - many `booking_lanes`
 - many `booking_prices`
+- many `booking_documents`
+
+### `booking_documents`
+
+A file attached to a booking - a POD, a rate confirmation, a photo of the\nload. Uploaded from a portal against one booking, so it hangs off the\nbooking rather than an account: the same booking's documents are shown to the\nadmin who raised it and to the vendor it was allotted to.\n\n`uploadedByType`/`uploadedById` record who added it (the actor type and id the\ntoken carried, the way the option table does it), with no FK, because either\nportal can upload one. The bytes live in blob storage under `storageKey`; the\nrow is a soft delete so a removed file drops out of the list.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | uuid | NOT NULL | uuid() | primary key |
+| `booking_id` | uuid | NOT NULL |  | FK to `bookings` (cascade delete) |
+| `uploaded_by_type` | text | NULL |  |  |
+| `uploaded_by_id` | uuid | NULL |  |  |
+| `category` | text | NULL |  |  |
+| `file_name` | text | NOT NULL |  |  |
+| `storage_key` | text | NOT NULL |  |  |
+| `storage_url` | text | NULL |  |  |
+| `mime_type` | text | NOT NULL |  |  |
+| `size_in_bytes` | integer | NOT NULL |  |  |
+| `approval_status` | document_approval_status | NOT NULL | 'PENDING' | Where the admin's review of this file sits. A vendor upload lands PENDING;\nthe admin moves it to APPROVED or REJECTED, and the vendor sees the result. |
+| `created_at` | timestamp(3) | NOT NULL | now() |  |
+| `updated_at` | timestamp(3) | NOT NULL |  | set on every update |
+| `deleted_at` | timestamp(3) | NULL |  |  |
+
+**Relations**
+
+- one `bookings`
 
 ### `booking_job_numbers`
 

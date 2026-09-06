@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
@@ -17,14 +19,17 @@ import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { addDays, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { prettyDate, toDate } from "@/utils/date";
+import { PAYMENT_STATUS, PAYMENT_STATUS_ORDER } from "@/constants/adminStatus";
 import { ApiRequestError } from "@/services/api";
 import {
   bookingService,
   type BookingListResult,
+  type BookingPaymentStatus,
   type BookingRow,
   type BookingStopRow,
 } from "@/services/bookingService";
@@ -113,6 +118,59 @@ function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => 
   );
 }
 
+/**
+ * The payment status as a badge that doubles as its own picker. The badge is the
+ * trigger; the popover lists the four states. Every click stops propagating so
+ * changing the status never opens the booking behind the row.
+ */
+function PaymentStatusCell({
+  value,
+  busy,
+  onChange,
+}: {
+  value: BookingPaymentStatus;
+  busy: boolean;
+  onChange: (next: BookingPaymentStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const meta = PAYMENT_STATUS[value];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={busy}
+          aria-label="Change payment status"
+          onClick={(event) => event.stopPropagation()}
+          className="rounded-full outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        >
+          <Badge variant={meta.variant} className="cursor-pointer pr-1.5">
+            {meta.label}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+          </Badge>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-44 p-1.5" onClick={(event) => event.stopPropagation()}>
+        {PAYMENT_STATUS_ORDER.map((status) => (
+          <button
+            key={status}
+            type="button"
+            className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary"
+            onClick={() => {
+              setOpen(false);
+              if (status !== value) onChange(status);
+            }}
+          >
+            <Badge variant={PAYMENT_STATUS[status].variant}>{PAYMENT_STATUS[status].label}</Badge>
+            {status === value && <Check className="h-4 w-4 text-primary" />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AdminManageBookingsPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -126,6 +184,7 @@ export function AdminManageBookingsPage() {
 
   const [pendingDelete, setPendingDelete] = useState<BookingRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [savingStatusId, setSavingStatusId] = useState<string | null>(null);
 
   // Typing should not fire a request per keystroke.
   useEffect(() => {
@@ -180,6 +239,36 @@ export function AdminManageBookingsPage() {
       });
     } finally {
       setDeleting(false);
+    }
+  }
+
+  /** Sets one row's payment status locally, so both the change and its revert reuse it. */
+  function patchRowStatus(id: string, status: BookingPaymentStatus) {
+    setResult((current) =>
+      current
+        ? { ...current, rows: current.rows.map((row) => (row.id === id ? { ...row, paymentStatus: status } : row)) }
+        : current,
+    );
+  }
+
+  async function changePaymentStatus(row: BookingRow, next: BookingPaymentStatus) {
+    const previous = row.paymentStatus;
+    // Optimistic: show the new badge at once, put the old one back if the save fails.
+    patchRowStatus(row.id, next);
+    setSavingStatusId(row.id);
+    try {
+      await bookingService.setPaymentStatus(row.id, next);
+      toast.success("Payment status updated", {
+        description: `${row.jobNumber} - ${PAYMENT_STATUS[next].label}`,
+      });
+    } catch (caught) {
+      patchRowStatus(row.id, previous);
+      toast.error("Could not update the payment status", {
+        description:
+          caught instanceof ApiRequestError ? caught.message : "Please try again in a moment.",
+      });
+    } finally {
+      setSavingStatusId(null);
     }
   }
 
@@ -268,6 +357,7 @@ export function AdminManageBookingsPage() {
                     <th className="px-4 py-3 font-medium">Delivery Date</th>
                     <th className="px-4 py-3 font-medium">Vehicle Type</th>
                     <th className="px-4 py-3 font-medium">Invoice Payment Date</th>
+                    <th className="px-4 py-3 font-medium">Payment Status</th>
                     <th className="px-4 py-3 text-right font-medium">Action</th>
                   </tr>
                 </thead>
@@ -299,6 +389,13 @@ export function AdminManageBookingsPage() {
                       <td className="px-4 py-3 text-muted-foreground">{row.vehicleType || "-"}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {invoicePaymentDate(row.stops)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <PaymentStatusCell
+                          value={row.paymentStatus}
+                          busy={savingStatusId === row.id}
+                          onChange={(next) => void changePaymentStatus(row, next)}
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end">

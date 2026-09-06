@@ -1,29 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   CalendarCheck,
+  Check,
   ClipboardList,
+  Download,
+  FileText,
   Handshake,
+  NotebookText,
   PackageCheck,
   Pencil,
   Trash2,
   Truck,
   Wallet,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PanelError, PanelLoader } from "@/components/common/PanelState";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { prettyDate } from "@/utils/date";
+import { APPROVAL_STATUS } from "@/constants/adminStatus";
 import { ApiRequestError } from "@/services/api";
 import {
   bookingService,
   type BookingDetail,
+  type BookingDocument,
   type BookingPriceRow,
   type BookingStopRow,
+  type DocumentApprovalStatus,
 } from "@/services/bookingService";
 
 /**
@@ -158,15 +168,166 @@ function PriceCard({ price, index, single }: { price: BookingPriceRow; index: nu
   );
 }
 
+/** "1536000" bytes -> "1.5 MB". Keeps the file list honest about size. */
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * The files the vendor uploaded for this booking, with the admin's approve and
+ * reject controls. Loads its own list so the detail page stays lean; each
+ * decision saves at once and updates the badge optimistically.
+ */
+function DocumentsReview({ bookingId }: { bookingId: string }) {
+  const [documents, setDocuments] = useState<BookingDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setDocuments(await bookingService.listDocuments(bookingId));
+    } catch (caught) {
+      setError(
+        caught instanceof ApiRequestError
+          ? caught.message
+          : "Could not load the documents. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [bookingId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function openDocument(document: BookingDocument) {
+    setOpening(document.id);
+    try {
+      const url = await bookingService.fetchDocumentBlobUrl(bookingId, document.id);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (caught) {
+      toast.error("Could not open that file", {
+        description:
+          caught instanceof ApiRequestError ? caught.message : "Please try again in a moment.",
+      });
+    } finally {
+      setOpening(null);
+    }
+  }
+
+  async function setApproval(document: BookingDocument, status: DocumentApprovalStatus) {
+    const previous = document.approvalStatus;
+    setDocuments((list) =>
+      list.map((doc) => (doc.id === document.id ? { ...doc, approvalStatus: status } : doc)),
+    );
+    setSavingId(document.id);
+    try {
+      await bookingService.setDocumentApproval(bookingId, document.id, status);
+      toast.success("Document review saved", {
+        description: `${document.fileName} - ${APPROVAL_STATUS[status].label}`,
+      });
+    } catch (caught) {
+      setDocuments((list) =>
+        list.map((doc) => (doc.id === document.id ? { ...doc, approvalStatus: previous } : doc)),
+      );
+      toast.error("Could not save that review", {
+        description:
+          caught instanceof ApiRequestError ? caught.message : "Please try again in a moment.",
+      });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <Section icon={FileText} title="Vendor Documents">
+      {loading ? (
+        <PanelLoader label="Loading documents" />
+      ) : error ? (
+        <PanelError message={error} onRetry={() => void load()} />
+      ) : documents.length === 0 ? (
+        <p className="text-sm text-muted-foreground">The vendor has not uploaded any documents yet.</p>
+      ) : (
+        <ul className="divide-y divide-border/60">
+          {documents.map((document) => (
+            <li key={document.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <FileText className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{document.fileName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {[document.category, fileSize(document.sizeInBytes), prettyDate(document.createdAt)]
+                    .filter(Boolean)
+                    .join(" - ")}
+                </p>
+              </div>
+              <Badge variant={APPROVAL_STATUS[document.approvalStatus].variant}>
+                {APPROVAL_STATUS[document.approvalStatus].label}
+              </Badge>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={opening === document.id}
+                  onClick={() => void openDocument(document)}
+                >
+                  <Download className={cn("h-4 w-4", opening === document.id && "animate-pulse")} /> View
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={savingId === document.id || document.approvalStatus === "APPROVED"}
+                  className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700"
+                  onClick={() => void setApproval(document, "APPROVED")}
+                >
+                  <Check className="h-4 w-4" /> Approve
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={savingId === document.id || document.approvalStatus === "REJECTED"}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => void setApproval(document, "REJECTED")}
+                >
+                  <X className="h-4 w-4" /> Reject
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+type Tab = "details" | "documents";
+
 export function AdminBookingDetailPage() {
   const { bookingId = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [data, setData] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Land on Documents when arrived via a "View documents" link (?tab=documents).
+  const [tab, setTab] = useState<Tab>(
+    searchParams.get("tab") === "documents" ? "documents" : "details",
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -251,7 +412,29 @@ export function AdminBookingDetailPage() {
       ) : error || !data ? (
         <PanelError message={error ?? "Not found"} onRetry={() => void load()} />
       ) : (
-        <div className="space-y-6">
+        <>
+          <div className="mb-6 flex gap-1 border-b border-border/70">
+            {([
+              { key: "details", label: "Details" },
+              { key: "documents", label: "Documents" },
+            ] as { key: Tab; label: string }[]).map((entry) => (
+              <button
+                key={entry.key}
+                type="button"
+                onClick={() => setTab(entry.key)}
+                className={cn(
+                  "relative -mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                  tab === entry.key
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={cn("space-y-6", tab !== "details" && "hidden")}>
           <Section icon={ClipboardList} title="Booking Details">
             <Grid>
               <Field label="Booking ID (job number)" value={data.jobNumber} />
@@ -337,7 +520,45 @@ export function AdminBookingDetailPage() {
               <Field label="Last updated" value={prettyDate(data.updatedAt)} />
             </Grid>
           </Section>
-        </div>
+          </div>
+
+          <div className={cn("space-y-6", tab !== "documents" && "hidden")}>
+          <Section icon={NotebookText} title="Log Book">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[
+                { label: "Precheck", checked: data.logbookPrecheckChecked },
+                { label: "Postcheck", checked: data.logbookPostcheckChecked },
+                { label: "Payment date", checked: data.logbookPaymentDateChecked },
+                { label: "Total payment", checked: data.logbookTotalPaymentChecked },
+              ].map((box) => (
+                <div
+                  key={box.label}
+                  className="flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/20 p-4"
+                >
+                  <span
+                    className={cn(
+                      "grid h-8 w-8 place-items-center rounded-lg",
+                      box.checked
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-secondary text-muted-foreground",
+                    )}
+                  >
+                    {box.checked ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{box.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {box.checked ? "Ticked by vendor" : "Not ticked"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <DocumentsReview bookingId={data.id} />
+          </div>
+        </>
       )}
 
       <ConfirmDialog

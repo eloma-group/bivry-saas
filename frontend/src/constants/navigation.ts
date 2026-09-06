@@ -171,9 +171,7 @@ function vendorNav(): NavItem[] {
       label: "Bookings",
       icon: CalendarDays,
       enabled: true,
-      // Reads as live and answers to hover, but carries no href yet, so a
-      // click does nothing until the page behind it is built.
-      children: [{ label: "Manage Bookings", enabled: true }],
+      children: [{ label: "Manage Bookings", enabled: true, href: "/vendor/bookings" }],
     },
     {
       label: "Management",

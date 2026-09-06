@@ -1,4 +1,4 @@
-import { request } from "./api";
+import { api, request } from "./api";
 
 /**
  * The Create Booking API. One call for now - raising a booking - plus the mapper
@@ -89,6 +89,15 @@ export interface BookingCreated {
   id: string;
   jobNumber: string;
 }
+
+/**
+ * Where the vendor payment sits on a booking. Only an admin moves it; the vendor
+ * reads whatever it currently is.
+ */
+export type BookingPaymentStatus = "PENDING" | "PAID" | "HOLD" | "ADJUSTED";
+
+/** The admin's review state on a vendor-uploaded booking document. */
+export type DocumentApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 /** Reads a form value as a plain string, whatever it actually holds. */
 function str(value: unknown): string {
@@ -235,6 +244,7 @@ export interface BookingRow {
   vendorId: string | null;
   vendorName: string | null;
   vendorTotalAmount: string | null;
+  paymentStatus: BookingPaymentStatus;
   createdAt: string;
   stops: BookingStopRow[];
   prices: BookingPriceRow[];
@@ -255,6 +265,11 @@ export interface BookingDetail extends BookingRow {
   vendorGstPct: string | null;
   vendorGstAmount: string | null;
   vendorNetAmount: string | null;
+  /** The four Log Book tick boxes the vendor set on their Documents tab. */
+  logbookPrecheckChecked: boolean;
+  logbookPostcheckChecked: boolean;
+  logbookPaymentDateChecked: boolean;
+  logbookTotalPaymentChecked: boolean;
   lanes: BookingLaneRow[];
 }
 
@@ -367,6 +382,175 @@ export function bookingToFormValues(booking: BookingDetail): Record<string, unkn
   };
 }
 
+/**
+ * A booking as the vendor portal reads it back.
+ *
+ * A vendor is shown only their own part of a booking: the job, where it loads
+ * and lands, the vehicle, and their allotment and price. What the admin agreed
+ * with the customer - the customer's identity, our price and its total - is not
+ * on this shape at all, because the server never sends it to a vendor. So there
+ * is no customer name, no `prices`, and no `priceFinalAmount` here on purpose.
+ */
+export interface VendorBookingRow {
+  id: string;
+  jobNumber: string;
+  bookingReceivedDate: string | null;
+  financialYear: string | null;
+  reference: string | null;
+  cargoType: string | null;
+  vehicleType: string | null;
+  trailerCategory: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  vendorTotalAmount: string | null;
+  paymentStatus: BookingPaymentStatus;
+  createdAt: string;
+  stops: BookingStopRow[];
+}
+
+export interface VendorBookingDetail extends VendorBookingRow {
+  updatedAt: string;
+  vendorGrossAmount: string | null;
+  vendorGrossAmount2: string | null;
+  vendorFuelLevyPct: string | null;
+  vendorFuelLevyAmount: string | null;
+  vendorGstPct: string | null;
+  vendorGstAmount: string | null;
+  vendorNetAmount: string | null;
+  /** The four Log Book tick boxes on the Documents tab. */
+  logbookPrecheckChecked: boolean;
+  logbookPostcheckChecked: boolean;
+  logbookPaymentDateChecked: boolean;
+  logbookTotalPaymentChecked: boolean;
+  lanes: BookingLaneRow[];
+}
+
+export interface VendorBookingListResult {
+  rows: VendorBookingRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/** A file attached to a booking, as the vendor portal reads it back. */
+export interface BookingDocument {
+  id: string;
+  bookingId: string;
+  category: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeInBytes: number;
+  approvalStatus: DocumentApprovalStatus;
+  createdAt: string;
+}
+
+/** A short lived link for previewing or downloading a stored booking file. */
+export interface BookingDocumentLink {
+  documentId: string;
+  fileName: string;
+  mimeType: string;
+  url: string;
+  expiresAt: string | null;
+}
+
+/** The bookings an admin has allotted to the signed in vendor, and their files. */
+export const vendorBookingService = {
+  list(query: BookingListQuery): Promise<VendorBookingListResult> {
+    return request<VendorBookingListResult>({
+      url: "/vendor/bookings",
+      method: "GET",
+      params: {
+        search: query.search,
+        page: query.page,
+        pageSize: query.pageSize,
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
+      },
+    });
+  },
+
+  get(id: string): Promise<VendorBookingDetail> {
+    return request<VendorBookingDetail>({
+      url: `/vendor/bookings/${encodeURIComponent(id)}`,
+      method: "GET",
+    });
+  },
+
+  /** Ticks or unticks the Log Book boxes; only the boxes sent are changed. */
+  setLogbookChecks(
+    bookingId: string,
+    checks: { precheck?: boolean; postcheck?: boolean; paymentDate?: boolean; totalPayment?: boolean },
+  ): Promise<VendorBookingDetail> {
+    return request<VendorBookingDetail>({
+      url: `/vendor/bookings/${encodeURIComponent(bookingId)}/logbook`,
+      method: "PATCH",
+      data: checks,
+    });
+  },
+
+  /** The files attached to one of this vendor's bookings, oldest first. */
+  listDocuments(bookingId: string): Promise<BookingDocument[]> {
+    return request<BookingDocument[]>({
+      url: `/vendor/bookings/${encodeURIComponent(bookingId)}/documents`,
+      method: "GET",
+    });
+  },
+
+  async uploadDocument(input: {
+    bookingId: string;
+    file: File;
+    category?: string;
+    onProgress?: (percent: number) => void;
+  }): Promise<BookingDocument> {
+    const form = new FormData();
+    form.append("file", input.file);
+    if (input.category) form.append("category", input.category);
+
+    const response = await api.post<{ data: BookingDocument }>(
+      `/vendor/bookings/${encodeURIComponent(input.bookingId)}/documents`,
+      form,
+      {
+        // Let the browser set the multipart boundary.
+        headers: { "Content-Type": undefined },
+        onUploadProgress(event) {
+          if (!input.onProgress || !event.total) return;
+          input.onProgress(Math.round((event.loaded / event.total) * 100));
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+  deleteDocument(bookingId: string, documentId: string): Promise<{ id: string }> {
+    return request<{ id: string }>({
+      url: `/vendor/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}`,
+      method: "DELETE",
+    });
+  },
+
+  /** Short lived link (Azure SAS in production, streaming path in local dev). */
+  documentLink(bookingId: string, documentId: string): Promise<BookingDocumentLink> {
+    return request<BookingDocumentLink>({
+      url: `/vendor/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}/url`,
+      method: "GET",
+    });
+  },
+
+  /**
+   * Authenticated download that streams through the API. Returns an object URL
+   * the caller must release with `URL.revokeObjectURL` when it is finished.
+   */
+  async fetchDocumentBlobUrl(bookingId: string, documentId: string): Promise<string> {
+    const response = await api.get<Blob>(
+      `/vendor/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}/file`,
+      { responseType: "blob" },
+    );
+    return URL.createObjectURL(response.data);
+  },
+};
+
 export const bookingService = {
   create(payload: CreateBookingPayload): Promise<BookingCreated> {
     return request<BookingCreated>({ url: "/admin/bookings", method: "POST", data: payload });
@@ -399,6 +583,45 @@ export const bookingService = {
   /** Removes a booking. A soft delete server-side; it drops out of the list. */
   remove(id: string): Promise<null> {
     return request<null>({ url: `/admin/bookings/${encodeURIComponent(id)}`, method: "DELETE" });
+  },
+
+  /** Moves the vendor payment status. Admin only; the vendor just reads it. */
+  setPaymentStatus(id: string, paymentStatus: BookingPaymentStatus): Promise<BookingRow> {
+    return request<BookingRow>({
+      url: `/admin/bookings/${encodeURIComponent(id)}/payment-status`,
+      method: "PATCH",
+      data: { paymentStatus },
+    });
+  },
+
+  /** The files the vendor uploaded against a booking, for the admin to review. */
+  listDocuments(bookingId: string): Promise<BookingDocument[]> {
+    return request<BookingDocument[]>({
+      url: `/admin/bookings/${encodeURIComponent(bookingId)}/documents`,
+      method: "GET",
+    });
+  },
+
+  /** Approves or rejects one vendor-uploaded file. */
+  setDocumentApproval(
+    bookingId: string,
+    documentId: string,
+    approvalStatus: DocumentApprovalStatus,
+  ): Promise<BookingDocument> {
+    return request<BookingDocument>({
+      url: `/admin/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}/approval`,
+      method: "PATCH",
+      data: { approvalStatus },
+    });
+  },
+
+  /** Authenticated download that streams through the API; returns an object URL. */
+  async fetchDocumentBlobUrl(bookingId: string, documentId: string): Promise<string> {
+    const response = await api.get<Blob>(
+      `/admin/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}/file`,
+      { responseType: "blob" },
+    );
+    return URL.createObjectURL(response.data);
   },
 
   /** One booking with its stops, prices and lanes, addressed by id. */

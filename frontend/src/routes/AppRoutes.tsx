@@ -22,6 +22,8 @@ import { DriverOnboardingPage } from "@/pages/DriverOnboardingPage";
 import { DriverProfilePage } from "@/pages/DriverProfilePage";
 import { VendorOnboardingPage } from "@/pages/VendorOnboardingPage";
 import { VendorProfilePage } from "@/pages/VendorProfilePage";
+import { VendorManageBookingsPage } from "@/pages/VendorManageBookingsPage";
+import { VendorBookingDetailPage } from "@/pages/VendorBookingDetailPage";
 import { CustomerOnboardingPage } from "@/pages/CustomerOnboardingPage";
 import { CustomerProfilePage } from "@/pages/CustomerProfilePage";
 import { useAuth } from "@/context/AuthContext";
@@ -108,6 +110,11 @@ export function AppRoutes() {
       <Route path="/vendor" element={<ProtectedRoute role="vendor" />}>
         <Route index element={<OnboardingHome />} />
         <Route path="onboarding" element={<VendorOnboardingPage />} />
+        <Route path="bookings" element={<VendorManageBookingsPage />} />
+        {/* Static siblings above rank higher, so `onboarding` and `bookings`
+            still win; the two-segment id route below never clashes with the
+            single-segment profile route. */}
+        <Route path="bookings/:bookingId" element={<VendorBookingDetailPage />} />
         <Route path=":vendorId" element={<VendorProfilePage />} />
       </Route>
 

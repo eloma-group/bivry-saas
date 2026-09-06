@@ -56,4 +56,58 @@ export const bookingController = {
     await bookingService.deleteBooking(req.params.id);
     sendSuccess(res, null, 'Booking deleted');
   }),
+
+  /** Moves the vendor payment status. Admin only; the vendor reads it. */
+  updatePaymentStatus: asyncHandler(async (req, res) => {
+    const { paymentStatus } = req.body as {
+      paymentStatus: 'PENDING' | 'PAID' | 'HOLD' | 'ADJUSTED';
+    };
+    const data = await bookingService.updatePaymentStatus(req.params.id, paymentStatus);
+    sendSuccess(res, data, 'Payment status updated');
+  }),
+
+  /** The files the vendor uploaded against a booking, for the admin's review. */
+  listDocuments: asyncHandler(async (req, res) => {
+    const data = await bookingService.listBookingDocumentsForAdmin(req.params.id);
+    sendSuccess(res, data, 'Documents loaded');
+  }),
+
+  documentLink: asyncHandler(async (req, res) => {
+    const data = await bookingService.createBookingDocumentLinkForAdmin(
+      req.params.id,
+      req.params.documentId,
+    );
+    sendSuccess(res, data, 'Document link created');
+  }),
+
+  downloadDocument: asyncHandler(async (req, res) => {
+    const { document, file } = await bookingService.openBookingDocumentForAdmin(
+      req.params.id,
+      req.params.documentId,
+    );
+
+    res.type(file.contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${document.fileName.replace(/"/g, '')}"`);
+    if (file.contentLength !== null) {
+      res.setHeader('Content-Length', String(file.contentLength));
+    }
+
+    file.stream.on('error', (error) => {
+      res.destroy(error);
+    });
+    file.stream.pipe(res);
+  }),
+
+  /** Approves or rejects one vendor-uploaded file. */
+  setDocumentApproval: asyncHandler(async (req, res) => {
+    const { approvalStatus } = req.body as {
+      approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+    };
+    const data = await bookingService.setBookingDocumentApproval(
+      req.params.id,
+      req.params.documentId,
+      approvalStatus,
+    );
+    sendSuccess(res, data, 'Document review saved');
+  }),
 };

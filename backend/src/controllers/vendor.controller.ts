@@ -2,7 +2,9 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { sendCreated, sendSuccess } from '../utils/apiResponse';
 import { ApiError } from '../utils/apiError';
 import * as vendorService from '../services/vendor.service';
+import * as bookingService from '../services/booking.service';
 import { getVendorExpiryNotifications } from '../services/notification.service';
+import { bookingListQuerySchema } from '../validators/booking.validator';
 import type { VendorDocumentType } from '@prisma/client';
 
 /** The signed in vendor's id. `authenticate` guarantees it is present. */
@@ -20,6 +22,105 @@ export const vendorController = {
   notifications: asyncHandler(async (req, res) => {
     const data = await getVendorExpiryNotifications(vendorId(req));
     sendSuccess(res, data, 'Notifications loaded');
+  }),
+
+  /** The bookings an admin has allotted to this vendor. Scoped to their own id. */
+  listBookings: asyncHandler(async (req, res) => {
+    const query = bookingListQuerySchema.parse(req.query);
+    const data = await bookingService.listVendorBookings(vendorId(req), {
+      search: query.search ?? undefined,
+      page: query.page,
+      pageSize: query.pageSize,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+    });
+    sendSuccess(res, data, 'Bookings loaded');
+  }),
+
+  /** One of this vendor's own bookings, addressed by id. */
+  getBooking: asyncHandler(async (req, res) => {
+    const data = await bookingService.getVendorBooking(vendorId(req), req.params.id);
+    sendSuccess(res, data, 'Booking loaded');
+  }),
+
+  /** Ticks or unticks the two Log Book boxes on one of this vendor's bookings. */
+  updateLogbookChecks: asyncHandler(async (req, res) => {
+    const { precheck, postcheck, paymentDate, totalPayment } = req.body as {
+      precheck?: boolean;
+      postcheck?: boolean;
+      paymentDate?: boolean;
+      totalPayment?: boolean;
+    };
+    const data = await bookingService.updateVendorLogbookChecks(vendorId(req), req.params.id, {
+      precheck,
+      postcheck,
+      paymentDate,
+      totalPayment,
+    });
+    sendSuccess(res, data, 'Log book saved');
+  }),
+
+  /** The files attached to one of this vendor's bookings. */
+  listBookingDocuments: asyncHandler(async (req, res) => {
+    const data = await bookingService.listBookingDocuments(vendorId(req), req.params.id);
+    sendSuccess(res, data, 'Documents loaded');
+  }),
+
+  uploadBookingDocument: asyncHandler(async (req, res) => {
+    if (!req.file) throw ApiError.badRequest('No file was uploaded');
+
+    const { category } = req.body as { category: string | null };
+    const document = await bookingService.addBookingDocument(vendorId(req), req.params.id, {
+      category: category ?? null,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      sizeInBytes: req.file.size,
+      // multer.memoryStorage keeps the bytes on the request; storage.service
+      // decides whether they land in Azure Blob Storage or on local disk.
+      buffer: req.file.buffer,
+    });
+
+    sendCreated(res, document, 'File uploaded');
+  }),
+
+  /** Short lived direct link, safe to use in an anchor tag. */
+  bookingDocumentLink: asyncHandler(async (req, res) => {
+    const data = await bookingService.createBookingDocumentLink(
+      vendorId(req),
+      req.params.id,
+      req.params.documentId,
+    );
+    sendSuccess(res, data, 'Document link created');
+  }),
+
+  downloadBookingDocument: asyncHandler(async (req, res) => {
+    const { document, file } = await bookingService.openBookingDocument(
+      vendorId(req),
+      req.params.id,
+      req.params.documentId,
+    );
+
+    res.type(file.contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${document.fileName.replace(/"/g, '')}"`);
+    if (file.contentLength !== null) {
+      res.setHeader('Content-Length', String(file.contentLength));
+    }
+
+    file.stream.on('error', (error) => {
+      // Headers are already sent by this point, so the only option is to drop
+      // the connection and let the client retry.
+      res.destroy(error);
+    });
+    file.stream.pipe(res);
+  }),
+
+  deleteBookingDocument: asyncHandler(async (req, res) => {
+    const data = await bookingService.deleteBookingDocument(
+      vendorId(req),
+      req.params.id,
+      req.params.documentId,
+    );
+    sendSuccess(res, data, 'File removed');
   }),
 
   updateCompany: asyncHandler(async (req, res) => {

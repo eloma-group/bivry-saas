@@ -1,5 +1,6 @@
 import type { OnboardingStatus, VerificationStatus } from "@/services/driverService";
 import type { AccountStatus } from "@/services/adminService";
+import type { BookingPaymentStatus, DocumentApprovalStatus } from "@/services/bookingService";
 
 /**
  * How the statuses read on screen, in one place, so the dashboard, the driver
@@ -59,6 +60,37 @@ export const ACCOUNT_STATUS_ORDER: AccountStatus[] = [
   "SUSPENDED",
   "DEACTIVATED",
 ];
+
+/**
+ * The vendor payment status on a booking. Set by an admin from Manage Bookings;
+ * the vendor sees it read only.
+ */
+export const PAYMENT_STATUS: Record<
+  BookingPaymentStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  PENDING: { label: "Pending", variant: "warning" },
+  PAID: { label: "Paid", variant: "success" },
+  HOLD: { label: "Hold", variant: "danger" },
+  ADJUSTED: { label: "Adjusted", variant: "default" },
+};
+
+export const PAYMENT_STATUS_ORDER: BookingPaymentStatus[] = [
+  "PENDING",
+  "HOLD",
+  "ADJUSTED",
+  "PAID",
+];
+
+/** How an admin's review of a vendor-uploaded booking document reads on screen. */
+export const APPROVAL_STATUS: Record<
+  DocumentApprovalStatus,
+  { label: string; variant: BadgeVariant }
+> = {
+  PENDING: { label: "Pending", variant: "warning" },
+  APPROVED: { label: "Approved", variant: "success" },
+  REJECTED: { label: "Rejected", variant: "danger" },
+};
 
 /** Sections an admin can verify one at a time. */
 export const REVIEWABLE_SECTIONS = [

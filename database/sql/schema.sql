@@ -59,7 +59,13 @@ CREATE TYPE "customer_billing_type" AS ENUM ('INVOICING', 'RCTI');
 CREATE TYPE "customer_document_type" AS ENUM ('COMPANY_LOGO', 'CONTRACT', 'ADDITIONAL');
 
 -- CreateEnum
+CREATE TYPE "document_approval_status" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
 CREATE TYPE "booking_stop_type" AS ENUM ('PICKUP', 'DELIVERY');
+
+-- CreateEnum
+CREATE TYPE "booking_payment_status" AS ENUM ('PENDING', 'PAID', 'HOLD', 'ADJUSTED');
 
 -- CreateTable
 CREATE TABLE "admins" (
@@ -739,12 +745,37 @@ CREATE TABLE "bookings" (
     "vendor_gst_amount" DECIMAL(12,2),
     "vendor_net_amount" DECIMAL(12,2),
     "vendor_total_amount" DECIMAL(12,2),
+    "payment_status" "booking_payment_status" NOT NULL DEFAULT 'PENDING',
+    "logbook_precheck_checked" BOOLEAN NOT NULL DEFAULT false,
+    "logbook_postcheck_checked" BOOLEAN NOT NULL DEFAULT false,
+    "logbook_payment_date_checked" BOOLEAN NOT NULL DEFAULT false,
+    "logbook_total_payment_checked" BOOLEAN NOT NULL DEFAULT false,
     "created_by_admin_id" UUID,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "bookings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "booking_documents" (
+    "id" UUID NOT NULL,
+    "booking_id" UUID NOT NULL,
+    "uploaded_by_type" TEXT,
+    "uploaded_by_id" UUID,
+    "category" TEXT,
+    "file_name" TEXT NOT NULL,
+    "storage_key" TEXT NOT NULL,
+    "storage_url" TEXT,
+    "mime_type" TEXT NOT NULL,
+    "size_in_bytes" INTEGER NOT NULL,
+    "approval_status" "document_approval_status" NOT NULL DEFAULT 'PENDING',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
+
+    CONSTRAINT "booking_documents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1064,6 +1095,9 @@ CREATE INDEX "bookings_vendor_id_idx" ON "bookings"("vendor_id");
 CREATE INDEX "bookings_financial_year_idx" ON "bookings"("financial_year");
 
 -- CreateIndex
+CREATE INDEX "booking_documents_booking_id_idx" ON "booking_documents"("booking_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "booking_job_numbers_job_number_key" ON "booking_job_numbers"("job_number");
 
 -- CreateIndex
@@ -1179,6 +1213,9 @@ ALTER TABLE "driver_medicares" ADD CONSTRAINT "driver_medicares_driver_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "driver_documents" ADD CONSTRAINT "driver_documents_driver_id_fkey" FOREIGN KEY ("driver_id") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "booking_documents" ADD CONSTRAINT "booking_documents_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "booking_stops" ADD CONSTRAINT "booking_stops_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -5,6 +5,7 @@ import { authenticate, requireRole } from '../middleware/auth.middleware';
 import { abnLookupLimiter } from '../middleware/rateLimiter.middleware';
 import { validateBody } from '../middleware/validate.middleware';
 import { upload } from '../middleware/upload.middleware';
+import { bookingDocumentSchema, logbookChecksSchema } from '../validators/booking.validator';
 import { sendSuccess } from '../utils/apiResponse';
 import {
   accreditationSectionSchema,
@@ -32,6 +33,38 @@ router.get('/dashboard', (req, res) => {
 });
 
 router.get('/notifications', vendorController.notifications);
+
+// Bookings an admin has allotted to this vendor. The booking itself is read
+// only (scoped to the signed in vendor in the service, so nobody sees a job that
+// is not theirs); its documents can be added, listed, downloaded and removed.
+router.get('/bookings', vendorController.listBookings);
+router.get('/bookings/:id', vendorController.getBooking);
+// The two Log Book tick boxes on the Documents tab.
+router.patch(
+  '/bookings/:id/logbook',
+  validateBody(logbookChecksSchema),
+  vendorController.updateLogbookChecks,
+);
+
+router.get('/bookings/:id/documents', vendorController.listBookingDocuments);
+router.post(
+  '/bookings/:id/documents',
+  upload.single('file'),
+  validateBody(bookingDocumentSchema),
+  vendorController.uploadBookingDocument,
+);
+router.get(
+  '/bookings/:id/documents/:documentId/url',
+  vendorController.bookingDocumentLink,
+);
+router.get(
+  '/bookings/:id/documents/:documentId/file',
+  vendorController.downloadBookingDocument,
+);
+router.delete(
+  '/bookings/:id/documents/:documentId',
+  vendorController.deleteBookingDocument,
+);
 
 // The Business Register, so an ABN on the form fills in the rest of the company.
 router.get('/abn-lookup', abnLookupLimiter, abnController.lookup);

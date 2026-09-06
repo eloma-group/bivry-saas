@@ -145,3 +145,33 @@ export const reserveJobNumberSchema = z.object({
 });
 
 export type ReserveJobNumberInput = z.infer<typeof reserveJobNumberSchema>;
+
+/**
+ * The body of a booking document upload. The file itself is handled by multer;
+ * this validates the fields that ride alongside it, of which there is only an
+ * optional category (a short label like "POD" or "Rate confirmation").
+ */
+export const bookingDocumentSchema = z.object({
+  category: text,
+});
+
+/** The one field an admin sends to move a booking's vendor payment status. */
+export const paymentStatusSchema = z.object({
+  paymentStatus: z.enum(['PENDING', 'PAID', 'HOLD', 'ADJUSTED']),
+});
+
+/**
+ * The two Log Book tick boxes on the vendor Documents tab. Both are optional so
+ * a request can toggle one without disturbing the other.
+ */
+export const logbookChecksSchema = z.object({
+  precheck: z.boolean().optional(),
+  postcheck: z.boolean().optional(),
+  paymentDate: z.boolean().optional(),
+  totalPayment: z.boolean().optional(),
+});
+
+/** The admin's review decision on a booking document. */
+export const documentApprovalSchema = z.object({
+  approvalStatus: z.enum(['PENDING', 'APPROVED', 'REJECTED']),
+});

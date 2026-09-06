@@ -1,5 +1,7 @@
 import { prisma } from '../config/prisma';
 import { ApiError } from '../utils/apiError';
+import { logger } from '../utils/logger';
+import * as storage from './storage.service';
 import type { CreateBookingInput } from '../validators/booking.validator';
 
 /**
@@ -408,6 +410,349 @@ export async function getBooking(id: string) {
   return booking;
 }
 
+// ---------------------------------------------------------------------------
+// Vendor-facing reads
+//
+// A booking is raised by an admin, who sees all of it: the customer, what we
+// charge them, and what we pay the vendor. A vendor is shown only the part that
+// is theirs. Everything the admin agreed with the customer - the customer's
+// identity and account, our price and its total - is left out here rather than
+// filtered on the client, so it never crosses the wire to a vendor at all. The
+// select is the boundary: add a field to it deliberately, or a vendor never sees
+// it. What a vendor is allowed is the job itself (where it loads and lands, the
+// vehicle) and their own allotment and price.
+// ---------------------------------------------------------------------------
+
+const VENDOR_BOOKING_SELECT = {
+  id: true,
+  jobNumber: true,
+  bookingReceivedDate: true,
+  financialYear: true,
+  reference: true,
+  cargoType: true,
+  vehicleType: true,
+  trailerCategory: true,
+  vendorId: true,
+  vendorName: true,
+  vendorGrossAmount: true,
+  vendorGrossAmount2: true,
+  vendorFuelLevyPct: true,
+  vendorFuelLevyAmount: true,
+  vendorGstPct: true,
+  vendorGstAmount: true,
+  vendorNetAmount: true,
+  vendorTotalAmount: true,
+  paymentStatus: true,
+  logbookPrecheckChecked: true,
+  logbookPostcheckChecked: true,
+  logbookPaymentDateChecked: true,
+  logbookTotalPaymentChecked: true,
+  createdAt: true,
+  updatedAt: true,
+  stops: { orderBy: [{ type: 'asc' }, { position: 'asc' }] },
+  lanes: { orderBy: { position: 'asc' } },
+} satisfies import('@prisma/client').Prisma.BookingSelect;
+
+/**
+ * The bookings an admin has allotted to this vendor, newest first, paged and
+ * searchable. Scoped to the vendor's own id, so a vendor can only ever see the
+ * jobs handed to them, and never one raised for another vendor or none.
+ */
+export async function listVendorBookings(vendorId: string, query: BookingListQuery) {
+  const where: Record<string, unknown> = { vendorId, deletedAt: null };
+  if (query.search) {
+    const contains = { contains: query.search, mode: 'insensitive' };
+    where.OR = [{ jobNumber: contains }, { reference: contains }];
+  }
+
+  const [total, rows] = await Promise.all([
+    prisma.booking.count({ where }),
+    prisma.booking.findMany({
+      where,
+      orderBy: { [query.sortBy]: query.sortDir },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      select: VENDOR_BOOKING_SELECT,
+    }),
+  ]);
+
+  return {
+    rows,
+    page: query.page,
+    pageSize: query.pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+  };
+}
+
+/**
+ * One of this vendor's bookings, addressed by id. The `vendorId` in the filter
+ * is what stops a vendor reading another vendor's booking by guessing its id: a
+ * booking that is not theirs reads as not found, the same as one that does not
+ * exist.
+ */
+export async function getVendorBooking(vendorId: string, id: string) {
+  const booking = await prisma.booking.findFirst({
+    where: { id, vendorId, deletedAt: null },
+    select: VENDOR_BOOKING_SELECT,
+  });
+  if (!booking) throw ApiError.notFound('Booking not found');
+  return booking;
+}
+
+/**
+ * Ticks or unticks the two Log Book boxes on the vendor's Documents tab. Scoped
+ * to a booking the vendor holds, and only the boxes that were sent are touched,
+ * so ticking one never clears the other. Returns the booking in the vendor shape.
+ */
+export async function updateVendorLogbookChecks(
+  vendorId: string,
+  bookingId: string,
+  checks: { precheck?: boolean; postcheck?: boolean; paymentDate?: boolean; totalPayment?: boolean },
+) {
+  await assertVendorBooking(vendorId, bookingId);
+  return prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      ...(checks.precheck !== undefined ? { logbookPrecheckChecked: checks.precheck } : {}),
+      ...(checks.postcheck !== undefined ? { logbookPostcheckChecked: checks.postcheck } : {}),
+      ...(checks.paymentDate !== undefined ? { logbookPaymentDateChecked: checks.paymentDate } : {}),
+      ...(checks.totalPayment !== undefined
+        ? { logbookTotalPaymentChecked: checks.totalPayment }
+        : {}),
+    },
+    select: VENDOR_BOOKING_SELECT,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Booking documents
+//
+// Files attached to a booking - a POD, a rate confirmation, a photo of the
+// load. They hang off the booking, not an account, so the same booking's files
+// can be shown to the admin who raised it and to the vendor it went to. These
+// helpers are the vendor's view: every one is scoped to a booking the vendor
+// actually holds, so a vendor can only ever touch files on their own jobs.
+//
+// The bytes go in the vendor container (the vendor is who uploads and reads
+// them here), keyed under a `bookings/<id>/...` prefix so a booking's files sit
+// together and are easy to find or purge.
+// ---------------------------------------------------------------------------
+
+const BOOKING_DOC_AREA = 'vendor' as const;
+
+/**
+ * Confirms the booking is this vendor's before any file work touches it. A
+ * booking that is not theirs reads as not found, the same as one that does not
+ * exist, so nothing leaks whether a stranger's booking id is real.
+ */
+async function assertVendorBooking(vendorId: string, bookingId: string): Promise<void> {
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, vendorId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!booking) throw ApiError.notFound('Booking not found');
+}
+
+/** One document row, checked to belong to a booking this vendor holds. */
+async function getBookingDocumentForVendor(
+  vendorId: string,
+  bookingId: string,
+  documentId: string,
+) {
+  await assertVendorBooking(vendorId, bookingId);
+  const document = await prisma.bookingDocument.findFirst({
+    where: { id: documentId, bookingId, deletedAt: null },
+  });
+  if (!document) throw ApiError.notFound('Document not found');
+  return document;
+}
+
+/** The files on one of this vendor's bookings, oldest first. */
+export async function listBookingDocuments(vendorId: string, bookingId: string) {
+  await assertVendorBooking(vendorId, bookingId);
+  return prisma.bookingDocument.findMany({
+    where: { bookingId, deletedAt: null },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+/** Stores an uploaded file against a booking and records the row for it. */
+export async function addBookingDocument(
+  vendorId: string,
+  bookingId: string,
+  input: {
+    category: string | null;
+    fileName: string;
+    mimeType: string;
+    sizeInBytes: number;
+    buffer: Buffer;
+  },
+) {
+  await assertVendorBooking(vendorId, bookingId);
+  const { buffer, ...meta } = input;
+
+  const storageKey = storage.buildStorageKey({
+    role: 'booking',
+    actorId: bookingId,
+    docType: 'DOCUMENT',
+    originalName: input.fileName,
+  });
+
+  // Upload first: a row pointing at a file that was never stored is worse than
+  // an orphan blob, which the container lifecycle rule cleans up on its own.
+  const stored = await storage.saveFile({
+    storageKey,
+    buffer,
+    mimeType: input.mimeType,
+    fileName: input.fileName,
+    area: BOOKING_DOC_AREA,
+  });
+
+  return prisma.bookingDocument.create({
+    data: {
+      bookingId,
+      uploadedByType: 'vendor',
+      uploadedById: vendorId,
+      category: meta.category,
+      fileName: meta.fileName,
+      mimeType: meta.mimeType,
+      sizeInBytes: meta.sizeInBytes,
+      storageKey: stored.storageKey,
+      storageUrl: stored.storageUrl,
+    },
+  });
+}
+
+/** Opens the stored file for an authenticated streaming download. */
+export async function openBookingDocument(
+  vendorId: string,
+  bookingId: string,
+  documentId: string,
+) {
+  const document = await getBookingDocumentForVendor(vendorId, bookingId, documentId);
+  const file = await storage.openFile(document.storageKey, document.mimeType, BOOKING_DOC_AREA);
+  return { document, file };
+}
+
+/**
+ * Short lived direct link. On Azure this is a read only SAS URL the browser can
+ * use in an anchor or image tag with no Authorization header; in local
+ * development it falls back to the authenticated streaming route.
+ */
+export async function createBookingDocumentLink(
+  vendorId: string,
+  bookingId: string,
+  documentId: string,
+) {
+  const document = await getBookingDocumentForVendor(vendorId, bookingId, documentId);
+  const link = await storage.createSignedLink({
+    storageKey: document.storageKey,
+    fileName: document.fileName,
+    fallbackPath: `/api/vendor/bookings/${bookingId}/documents/${document.id}/file`,
+    area: BOOKING_DOC_AREA,
+  });
+
+  return {
+    documentId: document.id,
+    fileName: document.fileName,
+    mimeType: document.mimeType,
+    url: link.url,
+    expiresAt: link.expiresAt,
+  };
+}
+
+/** Best effort blob cleanup. A stale file must never fail the request. */
+async function removeBookingStoredFile(storageKey: string, documentId: string): Promise<void> {
+  try {
+    await storage.deleteFile(storageKey, BOOKING_DOC_AREA);
+  } catch (error) {
+    logger.warn(`Could not remove stored file for booking document ${documentId}`, error);
+  }
+}
+
+/** Soft deletes a booking document and drops its stored bytes. */
+export async function deleteBookingDocument(
+  vendorId: string,
+  bookingId: string,
+  documentId: string,
+) {
+  const document = await getBookingDocumentForVendor(vendorId, bookingId, documentId);
+
+  await prisma.bookingDocument.update({
+    where: { id: document.id },
+    data: { deletedAt: new Date() },
+  });
+
+  await removeBookingStoredFile(document.storageKey, document.id);
+  return { id: document.id };
+}
+
+// ---------------------------------------------------------------------------
+// Booking documents - admin side
+//
+// The same files, read by the admin who raised the booking so they can review
+// what the vendor uploaded and approve or reject each one. No vendor scope here:
+// an admin sees every booking's files. The bytes still live in the vendor
+// container, so reads go through the same storage area.
+// ---------------------------------------------------------------------------
+
+/** One document on a booking, for the admin (no vendor scope). */
+async function getBookingDocumentForAdmin(bookingId: string, documentId: string) {
+  const document = await prisma.bookingDocument.findFirst({
+    where: { id: documentId, bookingId, deletedAt: null },
+  });
+  if (!document) throw ApiError.notFound('Document not found');
+  return document;
+}
+
+/** Every file on a booking, oldest first, for the admin's review. */
+export async function listBookingDocumentsForAdmin(bookingId: string) {
+  return prisma.bookingDocument.findMany({
+    where: { bookingId, deletedAt: null },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+/** Opens a booking file for an authenticated admin download. */
+export async function openBookingDocumentForAdmin(bookingId: string, documentId: string) {
+  const document = await getBookingDocumentForAdmin(bookingId, documentId);
+  const file = await storage.openFile(document.storageKey, document.mimeType, BOOKING_DOC_AREA);
+  return { document, file };
+}
+
+/** Short lived direct link to a booking file, for the admin. */
+export async function createBookingDocumentLinkForAdmin(bookingId: string, documentId: string) {
+  const document = await getBookingDocumentForAdmin(bookingId, documentId);
+  const link = await storage.createSignedLink({
+    storageKey: document.storageKey,
+    fileName: document.fileName,
+    fallbackPath: `/api/admin/bookings/${bookingId}/documents/${document.id}/file`,
+    area: BOOKING_DOC_AREA,
+  });
+
+  return {
+    documentId: document.id,
+    fileName: document.fileName,
+    mimeType: document.mimeType,
+    url: link.url,
+    expiresAt: link.expiresAt,
+  };
+}
+
+/** Moves a document's approval state. Admin only; the vendor reads the result. */
+export async function setBookingDocumentApproval(
+  bookingId: string,
+  documentId: string,
+  approvalStatus: import('@prisma/client').DocumentApprovalStatus,
+) {
+  const document = await getBookingDocumentForAdmin(bookingId, documentId);
+  return prisma.bookingDocument.update({
+    where: { id: document.id },
+    data: { approvalStatus },
+  });
+}
+
 /**
  * Saves an admin's edits to an existing booking.
  *
@@ -465,4 +810,26 @@ export async function deleteBooking(id: string) {
   if (!existing) throw ApiError.notFound('Booking not found');
 
   await prisma.booking.update({ where: { id }, data: { deletedAt: new Date() } });
+}
+
+/**
+ * Moves a booking's vendor payment status. Admin only - the vendor reads this
+ * but never writes it. Returns the updated booking so the list can reflect the
+ * new state without a reload.
+ */
+export async function updatePaymentStatus(
+  id: string,
+  paymentStatus: import('@prisma/client').BookingPaymentStatus,
+) {
+  const existing = await prisma.booking.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) throw ApiError.notFound('Booking not found');
+
+  return prisma.booking.update({
+    where: { id },
+    data: { paymentStatus },
+    include: BOOKING_INCLUDE,
+  });
 }

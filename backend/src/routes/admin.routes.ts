@@ -70,7 +70,11 @@ import {
   uploadDocumentSchema as uploadCustomerDocumentSchema,
 } from '../validators/customer.validator';
 import { bookingController } from '../controllers/booking.controller';
-import { createBookingSchema } from '../validators/booking.validator';
+import {
+  createBookingSchema,
+  documentApprovalSchema,
+  paymentStatusSchema,
+} from '../validators/booking.validator';
 import { permanentDataController } from '../controllers/permanentData.controller';
 import {
   permanentCustomerSchema,
@@ -292,9 +296,26 @@ router.post('/bookings', validateBody(createBookingSchema), bookingController.cr
 router.get('/bookings/:id', bookingController.get);
 // Editing an existing booking. Same payload as create; the job number stays put.
 router.put('/bookings/:id', validateBody(createBookingSchema), bookingController.update);
+// Just the vendor payment status, changed inline from Manage Bookings.
+router.patch(
+  '/bookings/:id/payment-status',
+  validateBody(paymentStatusSchema),
+  bookingController.updatePaymentStatus,
+);
 // Removing a booking (soft delete). Below the job-number route, which is more
 // specific, so "job-number" is never read as a booking id.
 router.delete('/bookings/:id', bookingController.remove);
+
+// The documents a vendor uploaded against a booking, for the admin to review and
+// approve. Read and approve only - the admin does not upload or delete these.
+router.get('/bookings/:id/documents', bookingController.listDocuments);
+router.get('/bookings/:id/documents/:documentId/url', bookingController.documentLink);
+router.get('/bookings/:id/documents/:documentId/file', bookingController.downloadDocument);
+router.patch(
+  '/bookings/:id/documents/:documentId/approval',
+  validateBody(documentApprovalSchema),
+  bookingController.setDocumentApproval,
+);
 
 // Permanent Data: the pickups and the vendor prices kept on file, so a booking
 // is picked from rather than typed out. Read by the Create Booking form as well
