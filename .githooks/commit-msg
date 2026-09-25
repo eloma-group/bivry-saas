@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Keeps AI assistant attribution out of the history.
+#
+# A Co-Authored-By trailer is what turns a name into a contributor on GitHub:
+# the commit is counted against that identity and the avatar shows up on the
+# repo. Once it is pushed the only way to take it back is rewriting every
+# commit after it, so the cheap place to stop it is before the commit exists.
+#
+# Unlike pre-commit, this hook does block. That is the whole point: a warning
+# that scrolls past is exactly how one of these gets pushed.
+#
+# It lives here, tracked, rather than in .git/hooks, which git does not clone.
+# `npm install` at the repo root points git at this directory (see the prepare
+# script), so anybody who sets the project up gets it without being told.
+
+msg_file=$1
+[ -f "$msg_file" ] || exit 0
+
+# Comment lines are stripped before the message is stored, so a match inside
+# one is a false positive. Blank the payload, not the line, to keep numbering.
+body=$(sed 's/^[[:space:]]*#.*$//' "$msg_file")
+
+found=$(printf '%s\n' "$body" | grep -niE \
+  'co-authored-by:.*(claude|anthropic)|generated with \[?claude|noreply@anthropic\.com|claude\.com/claude-code|🤖 generated with')
+
+if [ -n "$found" ]; then
+  echo "commit-msg: refusing this commit - it credits an AI assistant." >&2
+  echo "" >&2
+  printf '%s\n' "$found" | sed 's/^/  /' >&2
+  echo "" >&2
+  echo "Remove those lines and commit again. No Co-Authored-By trailer and no" >&2
+  echo "\"Generated with\" line, in commits or in pull request bodies." >&2
+  exit 1
+fi
+
+exit 0

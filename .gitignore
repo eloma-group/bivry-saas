@@ -25,3 +25,7 @@ backend/uploads
 # Azure / deployment artifacts
 *.zip
 .azure
+
+# Local AI assistant instructions. Kept on disk, never pushed.
+CLAUDE.md
+.claude/
