@@ -75,7 +75,46 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   } else if (err instanceof Prisma.PrismaClientInitializationError) {
     statusCode = 503;
     code = 'DATABASE_UNAVAILABLE';
-    message = 'Database is not reachable. Check DATABASE_URL and the Azure firewall rules.';
+    // These three fail in completely different places and one blanket "check the
+    // firewall" sends people to the wrong one. A rejected password means the
+    // server answered, so the firewall is already open; a timeout means it never
+    // answered at all, which is the only case the firewall explains.
+    //
+    // Prisma only fills in errorCode when the failure happens while the client
+    // is connecting at boot. The same failure raised on the first query of a
+    // request arrives with errorCode undefined, so fall back to the text.
+    const text = err.message;
+    const errorCode =
+      err.errorCode ??
+      (/Authentication failed/i.test(text)
+        ? 'P1000'
+        : /Can't reach database server|timed out/i.test(text)
+          ? 'P1001'
+          : /database .* does not exist/i.test(text)
+            ? 'P1003'
+            : undefined);
+
+    switch (errorCode) {
+      case 'P1000':
+        message =
+          'The database rejected the credentials in DATABASE_URL. The server is ' +
+          'reachable, so this is the username or password, not the firewall. ' +
+          'Remember to URL-encode the password: @ -> %40, # -> %23, / -> %2F, % -> %25.';
+        break;
+      case 'P1001':
+      case 'P1002':
+        message =
+          'The database server did not answer. Check the host and port in ' +
+          'DATABASE_URL, and that this machine is allowed by the Azure firewall rules.';
+        break;
+      case 'P1003':
+        message =
+          'DATABASE_URL points at a database that does not exist on that server. ' +
+          'Check the name after the last slash, then run npm run db:deploy to create the tables.';
+        break;
+      default:
+        message = 'Database is not reachable. Check DATABASE_URL and the Azure firewall rules.';
+    }
   } else if (err instanceof Error) {
     message = env.isProduction ? message : err.message;
   }
